@@ -6,6 +6,35 @@ Notable changes to agentBridge are documented here.
 
 ### Added
 
+- Android 0.5.31 call stability and network self-heal: keep one recognizer
+  instance and reset it with cancel() instead of destroy (OPlus native
+  FORTIFY crash), make cloud recorder stops re-entrancy safe, defer the
+  max-duration stop out of the recorder callback, remember the cloud-ASR
+  fallback for the process, clear stale per-process network bindings left by
+  earlier VPN sessions, and surface a clear VPN-blocked error for model DNS
+  failures.
+- Android 0.5.30 call-mode voice loop: cloud recordings stop on detected
+  silence (2.6s after speech) or a 15s cap and then transcribe automatically;
+  repeated hard recognizer failures fall back to cloud recording; playback
+  stops live capture first to avoid transcribing the butler's own voice; hang
+  up and mute discard pending audio instead of sending stale transcripts.
+- Android 0.5.29: model and speech HTTP requests now resolve DNS through an
+  explicit candidate network (active first, then non-VPN Wi-Fi/cellular),
+  fixing OEM resolver states that broke butler chat entirely; cloud TTS via
+  qwen3-tts-flash when the local engine is unavailable (OPlus engine is
+  system-blocked for third-party apps).
+- Android 0.5.28 voice settings sheet: engine status, speech rate and pitch
+  with live preview, plus markdown-lite rendering for butler replies and
+  cleaner speech text. Call mode now shows live partial transcripts, retries
+  listening automatically after recognizer errors, and rebuilds the system
+  recognizer per session for OEM reliability. Phones without a system
+  recognizer fall back to qwen3-asr-flash when the butler model points at
+  DashScope; DashScope chat calls disable hidden thinking so planning JSON is
+  not truncated. Task planning now feeds per-task work summaries to the model
+  and requires concrete next actions with acceptance criteria.
+- Android 0.5.27 butler call mode with communication audio focus, speaker and
+  mute controls, a live transcript, call timer, TTS utterance events, and
+  continuous listen → send → speak cycles.
 - Android 0.5.26 network routing for SSH: JSch temporarily binds to the active
   non-VPN Wi-Fi/Ethernet network and prefers IPv4, working around OEM/VPN rules
   that block raw SSH sockets while leaving HTTP traffic unchanged.

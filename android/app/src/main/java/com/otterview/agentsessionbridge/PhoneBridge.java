@@ -258,17 +258,147 @@ final class PhoneBridge {
     }
   }
 
+  @JavascriptInterface
+  public String startConversationAudio(boolean speakerOn) {
+    try {
+      activity.startConversationAudio(speakerOn);
+      return success(new JSONObject().put("callAudio", true).put("speakerOn", speakerOn));
+    } catch (Exception error) {
+      return failure(new Exception("通话音频启动失败，请检查音频设备"));
+    }
+  }
+
+  @JavascriptInterface
+  public String setConversationSpeaker(boolean speakerOn) {
+    try {
+      activity.setConversationSpeaker(speakerOn);
+      return success(new JSONObject().put("speakerOn", speakerOn));
+    } catch (Exception error) {
+      return failure(new Exception("扬声器切换失败"));
+    }
+  }
+
+  @JavascriptInterface
+  public String stopConversationAudio() {
+    try {
+      activity.stopConversationAudio();
+      return success(new JSONObject().put("callAudio", false));
+    } catch (Exception error) {
+      return failure(new Exception("通话音频关闭失败"));
+    }
+  }
+
+  @JavascriptInterface
+  public String setTtsSettings(double rate, double pitch) {
+    try {
+      activity.setTtsSettings((float) rate, (float) pitch);
+      return success(new JSONObject()
+          .put("rate", rate)
+          .put("pitch", pitch));
+    } catch (Exception error) {
+      return failure(new Exception("语音设置保存失败"));
+    }
+  }
+
+  @JavascriptInterface
+  public String getTtsStatus() {
+    try {
+      java.util.Map<String, Object> status = new java.util.LinkedHashMap<>();
+      activity.getTtsStatus(status);
+      JSONObject result = new JSONObject(status);
+      boolean cloudAvailable = false;
+      try {
+        JSONObject model = store.studioModel();
+        cloudAvailable = model.optBoolean("enabled", false)
+            && model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")
+            && !model.optString("apiKey", "").isEmpty();
+      } catch (Exception error) {
+        cloudAvailable = false;
+      }
+      result.put("cloudAvailable", cloudAvailable);
+      if (!result.optBoolean("ready", false) && cloudAvailable) {
+        result.put("ready", true);
+        result.put("mode", "cloud");
+      } else {
+        result.put("mode", result.optBoolean("ready", false) ? "local" : "none");
+      }
+      return success(result);
+    } catch (Exception error) {
+      return failure(new Exception("语音状态读取失败"));
+    }
+  }
+
   JSONObject transcribeVoiceAudio(String base64Audio, String contentType) throws Exception {
-    throw new IllegalStateException("直连模型模式暂不支持云端语音转写；请使用系统语音输入");
+    JSONObject model = readyStudioModel();
+    String baseUrl = model.optString("baseUrl", "");
+    if (!baseUrl.contains("dashscope.aliyuncs.com")) {
+      throw new IllegalStateException("系统语音不可用，且当前管家模型地址不支持云端识别；可换用阿里云百炼地址");
+    }
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL(baseUrl + "/chat/completions");
+      connection = activity.openModelConnection(url);
+      connection.setRequestMethod("POST");
+      connection.setConnectTimeout(15_000);
+      connection.setReadTimeout(60_000);
+      connection.setDoOutput(true);
+      connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
+      connection.setRequestProperty("Content-Type", "application/json");
+      // qwen3-asr-flash on the OpenAI-compatible endpoint expects input_audio
+      // as a plain data-URI string; an object form returns InvalidParameter.
+      JSONArray content = new JSONArray().put(new JSONObject()
+          .put("type", "input_audio")
+          .put("input_audio", "data:audio/amr;base64," + base64Audio));
+      byte[] payload = new JSONObject()
+          .put("model", "qwen3-asr-flash")
+          .put("messages", new JSONArray().put(new JSONObject()
+              .put("role", "user")
+              .put("content", content)))
+          .toString().getBytes(StandardCharsets.UTF_8);
+      connection.setFixedLengthStreamingMode(payload.length);
+      try (java.io.OutputStream output = connection.getOutputStream()) {
+        output.write(payload);
+      }
+      int status = connection.getResponseCode();
+      InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+      String body = readStream(stream, 2_000_000);
+      if (status >= 400) {
+        throw new IllegalStateException("云端语音识别返回 HTTP " + status
+            + "：" + body.replaceAll("\\s+", " ").substring(0, Math.min(body.length(), 180)));
+      }
+      JSONObject result = new JSONObject(body);
+      JSONArray choices = result.optJSONArray("choices");
+      if (choices == null || choices.length() == 0) {
+        throw new IllegalStateException("云端语音识别没有返回结果");
+      }
+      String text = choices.getJSONObject(0).optJSONObject("message") == null
+          ? "" : choices.getJSONObject(0).getJSONObject("message").optString("content", "").trim();
+      if (text.isEmpty()) throw new IllegalStateException("没有识别到文字");
+      return new JSONObject().put("ok", true).put("data", new JSONObject().put("text", text));
+    } catch (java.io.IOException error) {
+      throw new IllegalStateException("云端语音识别连接失败，请检查网络");
+    } finally {
+      if (connection != null) connection.disconnect();
+    }
   }
 
   @JavascriptInterface
   public String speakText(String text) {
     try {
-      activity.speakText(text);
-      return success(new JSONObject().put("speaking", true));
+      if (activity.speakText(text)) {
+        return success(new JSONObject().put("speaking", true).put("mode", "local"));
+      }
+      JSONObject model = readyStudioModel();
+      if (!model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
+        throw new IllegalStateException("本机语音不可用，且当前管家模型地址不支持云端语音");
+      }
+      String audioUrl = activity.synthesizeCloudSpeechUrl(model.getString("apiKey"), text);
+      activity.playSpeechUrl(audioUrl);
+      return success(new JSONObject().put("speaking", true).put("mode", "cloud"));
     } catch (Exception error) {
-      return failure(new Exception("语音播报不可用"));
+      String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+      android.util.Log.w("AgentBridgeNative", "speakText failed", error);
+      return failure(new Exception("语音播报失败：" + message));
     }
   }
 
@@ -445,7 +575,10 @@ final class PhoneBridge {
     JSONArray messages = new JSONArray();
     messages.put(new JSONObject().put("role", "system").put("content",
         "你是 agentBridge 的手机管家，用简洁中文回答。只根据提供的手机记录回答；"
-            + "区分执行中、空闲、待输入和待人工核实。你没有命令执行、审批或任务派发权限。"));
+            + "区分执行中、空闲、待输入和待人工核实。你没有命令执行、审批或任务派发权限。"
+            + "回答格式：直接说结论，最多 6 条要点；每条一行、不超过 40 字；要点用「1. 」编号，不加其它符号。"
+            + "不使用 Markdown（不要 **、#、表格、代码围栏）；不输出 JSON；不重复用户的问题。"
+            + "引用任务时用「任务名（编号）」，不确定就说记录不足。"));
     messages.put(new JSONObject().put("role", "system").put("content",
         "当前手机记录 JSON：" + new JSONObject()
             .put("machines", snapshot.getJSONArray("machines"))
@@ -466,19 +599,24 @@ final class PhoneBridge {
     HttpURLConnection connection = null;
     try {
       URL url = new URL(model.getString("baseUrl") + "/chat/completions");
-      connection = (HttpURLConnection) url.openConnection();
+      connection = activity.openModelConnection(url);
       connection.setRequestMethod("POST");
       connection.setConnectTimeout(15_000);
       connection.setReadTimeout(180_000);
       connection.setDoOutput(true);
       connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
       connection.setRequestProperty("Content-Type", "application/json");
-      byte[] payload = new JSONObject()
+      JSONObject request = new JSONObject()
           .put("model", model.getString("modelId"))
           .put("messages", messages)
           .put("max_tokens", 1800)
-          .put("temperature", 0.2)
-          .toString().getBytes(StandardCharsets.UTF_8);
+          .put("temperature", 0.2);
+      // DashScope-compatible qwen models may spend the token budget on hidden
+      // reasoning before emitting content; disable it for deterministic output.
+      if (model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
+        request.put("enable_thinking", false);
+      }
+      byte[] payload = request.toString().getBytes(StandardCharsets.UTF_8);
       connection.setFixedLengthStreamingMode(payload.length);
       try (java.io.OutputStream output = connection.getOutputStream()) {
         output.write(payload);
@@ -500,6 +638,9 @@ final class PhoneBridge {
       if (answer.isEmpty()) throw new IllegalStateException("模型服务返回了空回复");
       return answer;
     } catch (java.io.IOException error) {
+      if (error instanceof java.net.UnknownHostException) {
+        throw new IllegalStateException("当前网络（可能是 VPN）阻止了应用联网；请在 VPN 中允许 agentBridge 或暂时断开 VPN");
+      }
       throw new IllegalStateException("模型连接失败或超时，请检查网络和服务状态");
     } finally {
       if (connection != null) connection.disconnect();
@@ -524,7 +665,8 @@ final class PhoneBridge {
           .put("label", task.optString("label"))
           .put("needsAttention", task.optBoolean("needsAttention"))
           .put("next", task.optString("next"))
-          .put("source", task.optString("source")));
+          .put("source", task.optString("source"))
+          .put("summary", boundedText(task.optString("summary"), 360, "")));
       ids.add(task.getString("id"));
       sources.put(new JSONObject()
           .put("id", task.getString("id"))
@@ -535,8 +677,13 @@ final class PhoneBridge {
     String instruction = "请作为手机管家生成「任务规划」。输出一个 JSON 对象，不要 Markdown 代码围栏。"
         + "结构：{\"summary\":\"一句话全局状态\",\"completed\":[],\"ongoing\":[{\"text\":\"一句话说明项目、进展和还差什么\",\"taskIds\":[\"S-1\"]}],"
         + "\"blockers\":[],\"tomorrow\":[{\"text\":\"一句话说明明天做什么和如何验收\",\"taskIds\":[]}],\"decisions\":[]}。"
-        + "summary 和每个条目都是 18-60 个中文字符的完整句子，采用“在【项目】里【动作】，达到【可判断结果】”。"
+        + "summary 写清：几条执行中、几条待输入，以及现在最该处理哪一件、为什么；不超过 50 个字。"
+        + "每个条目都是 18-60 个中文字符的完整句子，采用“在【项目】里【具体动作】，达到【可判断结果】”。"
+        + "写条目前先读该任务的 summary：进展写到具体步骤或文件，不要复述状态标签。"
         + "禁止“继续优化、处理问题、跟进、完善、加强”等空话；text 不写任务编号；一个条目只写一件事。"
+        + "ongoing 只选 running 或 needsAttention 的任务，最多 6 条；按影响排序。"
+        + "tomorrow 是建议（最多 3 条），必须基于已有任务的自然下一步，并写清验收方式。"
+        + "没有依据的 blockers 和 decisions 留空。"
         + "手机记录没有人工验收事件，所以 completed 必须为空，不能把执行中或空闲推断为完成。";
     JSONArray requestMessages = new JSONArray()
         .put(new JSONObject().put("role", "system").put("content",
@@ -635,17 +782,48 @@ final class PhoneBridge {
       try {
         ConnectivityManager manager = context.getSystemService(ConnectivityManager.class);
         if (manager != null) {
+          boolean vpnActive = false;
           for (Network network : manager.getAllNetworks()) {
             NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
-            if (capabilities == null || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue;
-            if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
-                && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) continue;
-            selected = network;
-            // Some OEM/VPN stacks honor bindSocket for the source address but
-            // still apply per-UID routing. Bind the process as well before JSch
-            // performs DNS and channel setup.
-            selectedManager = manager;
-            break;
+            if (capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+              vpnActive = true;
+              break;
+            }
+          }
+          if (!vpnActive) {
+            // The physical-network bypass exists only to route raw SSH around
+            // an always-on VPN. Binding without a VPN pins the process to a
+            // Wi-Fi handle that can go stale after roaming and then every
+            // socket fails with ENONET; stay on default routing instead.
+            try {
+              manager.bindProcessToNetwork(null);
+            } catch (Exception clearError) {
+              // Default routing is already the platform fallback.
+            }
+          } else {
+            // Prefer Wi-Fi/Ethernet, then cellular: any validated physical
+            // network is a better SSH route than an always-on VPN tunnel that
+            // silently drops long-lived raw sockets.
+            List<Network> candidates = new ArrayList<>();
+            for (Network network : manager.getAllNetworks()) {
+              NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+              if (capabilities == null || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue;
+              if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                  || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) candidates.add(0, network);
+              else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) candidates.add(network);
+            }
+            for (Network network : candidates) {
+              NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+              if (capabilities == null
+                  || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                  || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)) continue;
+              selected = network;
+              // Some OEM/VPN stacks honor bindSocket for the source address but
+              // still apply per-UID routing. Bind the process as well before JSch
+              // performs DNS and channel setup.
+              selectedManager = manager;
+              break;
+            }
           }
         }
       } catch (Exception error) {
@@ -653,6 +831,16 @@ final class PhoneBridge {
       }
       this.network = selected;
       this.manager = selectedManager;
+      if (selected == null && manager != null) {
+        // Even when no bypass candidate was picked, clear any stale process
+        // binding left over from an earlier VPN session so default routing
+        // applies to this and future sockets.
+        try {
+          manager.bindProcessToNetwork(null);
+        } catch (Exception clearError) {
+          // Default routing remains the platform fallback.
+        }
+      }
     }
 
     @Override
@@ -673,8 +861,17 @@ final class PhoneBridge {
         network.bindSocket(socket);
         socket.connect(new InetSocketAddress(target, port), CONNECT_TIMEOUT);
         return socket;
+      } catch (java.io.IOException bindFailure) {
+        // The saved Network handle can go stale after Wi-Fi roaming; fall back
+        // to default routing rather than failing the SSH session outright.
+        try {
+          manager.bindProcessToNetwork(null);
+        } catch (Exception clearError) {
+          // Default routing still applies after the socket is recreated.
+        }
+        return new Socket(host, port);
       } finally {
-        if (manager != null) manager.bindProcessToNetwork(previousNetwork);
+        if (manager != null && previousNetwork != null) manager.bindProcessToNetwork(previousNetwork);
       }
     }
 

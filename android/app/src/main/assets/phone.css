@@ -333,7 +333,42 @@ body.voice-listening #voiceStateText { display: none; }
 .voiceOptions button { min-height: 25px; padding: 0 8px; border: 2px solid #c8bd99; border-radius: 8px; color: #74826e; background: #fffdf8; font-size: 9px; font-weight: 850; }
 .voiceOptions button.active { border-color: #33422f; color: #fffdf8; background: #3f6b44; }
 #voiceStateText { flex: 1; min-width: 0; overflow: hidden; color: #74826e; font-size: 9px; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.callToggle { min-height: 25px; padding: 0 8px; border: 2px solid #3f6b44; border-radius: 8px; background: #3f6b44; color: #fffdf8; font-size: 9px; font-weight: 850; }
+.callBackdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: max(18px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom)); background: linear-gradient(170deg,#243526,#365a3a 52%,#dfe9d2); }
+.callStage { width: min(100%,430px); max-height: 100%; display: grid; justify-items: center; overflow: auto; padding: 20px 18px; border: 4px solid #293226; border-radius: 30px; background: rgba(255,253,248,.94); box-shadow: 0 14px 0 rgba(0,0,0,.14); text-align: center; }
+.callStage header { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.callStage header h2 { margin: 2px 0 0; font-size: 24px; }
+.callTimer { padding: 6px 9px; border: 2px solid #33422f; border-radius: 10px; color: #33422f; background: #eaf1de; font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.callAvatar { width: 138px; height: 154px; display: grid; place-items: end center; overflow: visible; }
+.callAvatar .pixelAvatar { width: 68px; height: 84px; animation: callBreath 1.6s ease-in-out infinite alternate; }
+.callStatus { margin-top: 7px; color: #33422f; font-size: 18px; }
+.callTranscript { width: 100%; min-height: 68px; margin: 10px 0; padding: 11px 12px; border: 2px dashed #b8ab87; border-radius: 14px; color: #52604b; background: #faf5e8; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.callWave { display: flex; align-items: center; gap: 4px; height: 44px; }
+.callWave span { width: 7px; height: 12px; border-radius: 4px; background: #3f6b44; animation: callWave .8s ease-in-out infinite alternate; }
+.callWave span:nth-child(2) { animation-delay:.08s } .callWave span:nth-child(3) { animation-delay:.16s } .callWave span:nth-child(4) { animation-delay:.24s } .callWave span:nth-child(5) { animation-delay:.32s }
+.callControls { width: 100%; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 16px; }
+.callControl { min-height: 58px; border: 3px solid #33422f; border-radius: 17px; background: #fffdf8; color: #33422f; font-size: 11px; font-weight: 850; box-shadow: 0 4px 0 rgba(51,66,47,.15); }
+.callControl span { display: block; margin-bottom: 3px; font-size: 17px; }
+.callControl.active { color: #fffdf8; background: #3f6b44; }
+.callControl.end { border-color: #8a3f26; background: #b3653f; color: #fffdf8; }
+@keyframes callBreath { from { transform: translateY(0) scale(1); } to { transform: translateY(-4px) scale(1.025); } }
+@keyframes callWave { from { height: 10px; } to { height: 38px; } }
 .chatNotice { padding: 8px 10px; border: 2px solid #d9b7a4; border-radius: 11px; background: #fff0e8; color: #7d4a33; font-size: 10px; line-height: 1.6; }
 .piMessage.typing span { color: #74826e; }
 body[data-view="butler"] .app { padding-bottom: 246px; }
 body.voice-listening .app { padding-bottom: 196px; }
+/* Voice settings sheet */
+#voiceBackdrop .sheet { width: min(100%, 340px); }
+.voiceSettingRow { display: grid; grid-template-columns: 52px 1fr 42px; align-items: center; gap: 10px; margin: 12px 0; color: #33422f; font-size: 11px; font-weight: 750; }
+.voiceSettingRow:first-of-type { grid-template-columns: 1fr auto; }
+.voiceSettingRow strong { font-size: 10px; text-align: right; color: #52604b; font-variant-numeric: tabular-nums; }
+.voiceSettingRow input[type="range"] { width: 100%; accent-color: #3f6b44; }
+.miniSwitch { position: relative; display: inline-block; width: 40px; height: 22px; flex: none; }
+.miniSwitch input { position: absolute; inset: 0; margin: 0; opacity: 0; }
+.miniSwitch i { position: absolute; inset: 0; border: 2px solid #33422f; border-radius: 999px; background: #fffdf8; transition: background .15s; }
+.miniSwitch i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #33422f; transition: transform .15s; }
+.miniSwitch input:checked + i { background: #3f6b44; }
+.miniSwitch input:checked + i::after { background: #fffdf8; transform: translateX(18px); }
+/* Butler chat markdown-lite */
+.piMessage span { white-space: pre-wrap; }
+.piMessage b, .piMessage strong.textBold { color: inherit; }

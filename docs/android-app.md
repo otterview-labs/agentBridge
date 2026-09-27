@@ -7,8 +7,8 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.26
-versionCode: 42
+versionName: 0.5.31
+versionCode: 47
 minSdk: 24
 targetSdk: 35
 package: com.otterview.agentsessionbridge.debug
@@ -93,8 +93,20 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - Butler conversations, explicit memories, and generated task plans are stored
   in Android app-private storage.
 - Butler voice input supports press-and-hold, tap-to-toggle, and slide-up
-  cancellation. Phones without a system recognizer get a clear local error;
-  no recording is uploaded from the Hub-free controller.
+  cancellation. The system recognizer is rebuilt per session for OEM
+  reliability and call mode retries automatically after recognizer errors.
+  Phones without a system recognizer fall back to `qwen3-asr-flash` when the
+  butler model points at DashScope, otherwise they get a clear local error.
+- Voice settings show engine status and provide speech-rate and pitch sliders
+  with a preview button; choices persist locally and apply to every playback.
+- Butler replies use Android Text-to-Speech. In call mode the app requests
+  communication audio focus, uses the speaker route selected by the user, and
+  reports utterance start/end so listening can resume automatically.
+- Call mode presents a dedicated full-screen conversation UI with mute,
+  speaker, elapsed time, live transcript, and hang-up controls. It is an
+  in-app voice conversation, not a cellular telephone call.
+- Butler replies render basic Markdown emphasis and lists without raw
+  asterisks, and spoken text strips symbols and long code blocks.
 
 ## Add a machine
 
