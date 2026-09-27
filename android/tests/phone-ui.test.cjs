@@ -19,6 +19,7 @@ async function openPhone(t, options = {}) {
   });
   t.after(() => context.close());
   const page = await context.newPage();
+  page.on('console', m => console.log('PAGE:', m.text()));
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
@@ -94,6 +95,8 @@ async function openPhone(t, options = {}) {
     window.sendCount = 0;
     window.tailCount = 0;
     window.voiceCalls = [];
+    window.callCalls = [];
+    let chatOperation;
     window.AgentBridge = {
       state: () => ++reads > 1 && options.stateFails
         ? fail('读取失败') : ok(data),
@@ -148,6 +151,7 @@ async function openPhone(t, options = {}) {
         return ok({ operation: tailOperation });
       },
       operationState: () => {
+        if (chatOperation) return ok({ operation: chatOperation });
         const current = operation?.kind === 'send' && (!tailOperation || window.sendCount)
           ? operation : tailOperation;
         if (!current) return fail('后台任务不存在');
@@ -173,6 +177,14 @@ async function openPhone(t, options = {}) {
           task: structuredClone(data.tasks[0]) } });
       },
       clearOperation: () => {},
+      beginStudioMessage: content => {
+        chatOperation = { kind: 'chat', id: 'test-chat', state: 'succeeded', message: '管家已回复',
+          studio: { ...studio, messages: [
+            { role: 'user', content },
+            { role: 'assistant', content: '通话测试回复：先处理待输入员工。' }
+          ] } };
+        return ok({ operation: chatOperation });
+      },
       startVoiceInput: autoSend => {
         window.voiceCalls.push(['start', autoSend]);
         return ok({ recording: true });
@@ -184,7 +196,28 @@ async function openPhone(t, options = {}) {
       cancelVoiceInput: () => {
         window.voiceCalls.push(['cancel']);
         return ok({ recording: false });
-      }
+      },
+      speakText: () => {
+        window.callCalls.push(['speak']);
+        return ok({ speaking: true });
+      },
+      startConversationAudio: speaker => {
+        window.callCalls.push(['start', speaker]);
+        return ok({ callAudio: true });
+      },
+      setConversationSpeaker: speaker => {
+        window.callCalls.push(['speaker', speaker]);
+        return ok({ speakerOn: speaker });
+      },
+      stopConversationAudio: () => {
+        window.callCalls.push(['stop']);
+        return ok({ callAudio: false });
+      },
+      setTtsSettings: (rate, pitch) => {
+        window.callCalls.push(['tts-settings', rate, pitch]);
+        return ok({ rate, pitch });
+      },
+      getTtsStatus: () => ok({ ready: true, engine: 'test-engine', language: 'zh-CN' })
     };
   }, options);
   await page.goto('http://phone.test/phone.html');
@@ -456,6 +489,121 @@ test('butler model is configured directly without a Hub dependency', async t => 
   assert.equal(await page.locator('#piMeta').textContent(), 'test-model');
   assert.equal(await page.locator('#modelApiKey').inputValue(), '');
   assert.equal(await page.evaluate(() => document.body.innerText.includes('test-only-secret')), false);
+});
+
+test('call mode supports voice in, TTS out, and continuous listening', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  assert.match(await page.locator('#callStatus').textContent(), /聆听|接通/);
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'start' && call[1] === true)), true);
+  await page.evaluate(() => window.phoneVoice.update({
+    type: 'final', text: '今天最应该先处理什么？', autoSend: true
+  }));
+  await page.waitForFunction(() => document.getElementById('callTranscript').textContent.includes('通话测试回复'));
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), true);
+  assert.match(await page.locator('#callStatus').textContent(), /播报/);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'speak-ended' }));
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start' && call[1] === true));
+  await page.locator('#callSpeaker').click();
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speaker' && call[1] === false)), true);
+  await page.locator('#callMute').click();
+  assert.match(await page.locator('#callStatus').textContent(), /静音/);
+  await page.locator('#callEnd').click();
+  assert.equal(await page.locator('#callBackdrop').isHidden(), true);
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'stop')), true);
+});
+
+test('call mode keeps listening after a recognizer error and shows live partials', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  await page.evaluate(() => window.phoneVoice.update({ type: 'partial', text: '帮我看下登录' }));
+  assert.match(await page.locator('#callTranscript').textContent(), /帮我看下登录/);
+  await page.evaluate(() => {
+    window.__startCountBeforeError = window.voiceCalls.filter(call => call[0] === 'start').length;
+  });
+  await page.evaluate(() => window.phoneVoice.update({ type: 'error', text: '没有听到内容' }));
+  assert.match(await page.locator('#callStatus').textContent(), /异常/);
+  await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length
+    > window.__startCountBeforeError);
+  await page.locator('#callEnd').click();
+});
+
+test('call mode completes the cloud-recording voice loop', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  await page.evaluate(() => {
+    window.voiceCalls.length = 0;
+    window.phoneVoice.update({ type: 'cloud-recording', text: '', autoSend: true });
+    window.phoneVoice.update({ type: 'level', text: '42', autoSend: true });
+  });
+  assert.match(await page.locator('#callStatus').textContent(), /聆听/);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'cloud-processing', text: '', autoSend: true }));
+  assert.match(await page.locator('#callStatus').textContent(), /思考/);
+  await page.evaluate(() => {
+    window.phoneVoice.update({ type: 'final', text: '帮我看下今天先做哪个', autoSend: true });
+  });
+  await page.waitForFunction(() => document.getElementById('callTranscript').textContent.includes('通话测试回复'));
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), true);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'speak-ended' }));
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start' && call[1] === true));
+  await page.locator('#callEnd').click();
+  assert.equal(await page.evaluate(() => window.voiceCalls.some(call => call[0] === 'cancel')), true);
+});
+
+test('voice settings tune TTS rate and pitch and preview through the engine', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#openVoiceSettings').click();
+  await page.locator('#voiceBackdrop').waitFor();
+  assert.match(await page.locator('#ttsEngineStatus').textContent(), /已就绪/);
+  await page.locator('#voiceRateSetting').fill('1.3');
+  await page.locator('#voicePitchSetting').fill('0.9');
+  assert.equal(await page.evaluate(() => window.callCalls.some(call =>
+    call[0] === 'tts-settings' && call[1] === 1.3 && call[2] === 0.9)), true);
+  await page.locator('#ttsPreview').click();
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), true);
+  await page.locator('#voiceBackdrop [data-close]').click();
+  assert.equal(await page.locator('#voiceBackdrop').isHidden(), true);
+});
+
+test('butler replies render markdown emphasis without raw asterisks', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('看下任务');
+  await page.evaluate(() => {
+    const reply = '**结论**\n- 先处理登录页\n- 再补 `list` 接口';
+    window.AgentBridge.beginStudioMessage = content => {
+      return JSON.stringify({
+        ok: true,
+        data: {
+          operation: { kind: 'chat', id: 'md-chat', state: 'running', message: '思考中' }
+        }
+      });
+    };
+    window.AgentBridge.operationState = () => JSON.stringify({
+      ok: true,
+      data: {
+        operation: {
+          kind: 'chat', id: 'md-chat', state: 'succeeded', message: 'ok',
+          studio: { messages: [
+            { role: 'user', content: '看下任务' },
+            { role: 'assistant', content: reply }
+          ] }
+        }
+      }
+    });
+  });
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => document.getElementById('piMessages').textContent.includes('先处理登录页'));
+  const markup = await page.evaluate(() => document.getElementById('piMessages').innerHTML);
+  assert.equal(markup.includes('**'), false);
+  assert.equal(markup.includes('<b>结论</b>'), true);
 });
 
 test('butler composer supports hold-to-talk and slide-to-cancel', async t => {

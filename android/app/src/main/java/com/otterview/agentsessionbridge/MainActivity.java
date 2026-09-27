@@ -6,8 +6,18 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
+import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -17,6 +27,7 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.media.MediaRecorder;
 import android.os.Handler;
 import android.os.Looper;
@@ -29,8 +40,11 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
 import java.io.File;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class MainActivity extends Activity {
@@ -43,18 +57,43 @@ public final class MainActivity extends Activity {
   private SpeechRecognizer recognizer;
   private TextToSpeech textToSpeech;
   private boolean textToSpeechReady;
+  private volatile float ttsRate = 1.0f;
+  private volatile float ttsPitch = 1.0f;
   private boolean pendingVoiceAutoSend;
   private long lastVoiceLevelAt;
   private MediaRecorder cloudRecorder;
   private File cloudAudioFile;
   private boolean cloudRecording;
+  private long cloudRecordingStartedAt;
+  private long cloudLastVoiceAt;
+  private boolean cloudHeardSpeech;
+  private boolean cloudStopInFlight;
+  private boolean preferCloudRecording;
+  private int recognizerFailureCount;
+  private AudioManager audioManager;
+  private AudioFocusRequest callFocusRequest;
+  private MediaPlayer cloudSpeechPlayer;
   private final Handler voiceHandler = new Handler(Looper.getMainLooper());
   private final Runnable cloudLevelRunnable = new Runnable() {
     @Override public void run() {
       if (!cloudRecording || cloudRecorder == null) return;
       int amplitude = cloudRecorder.getMaxAmplitude();
+      long now = System.currentTimeMillis();
+      if (amplitude > 1200) {
+        cloudHeardSpeech = true;
+        cloudLastVoiceAt = now;
+      }
       postVoiceState("level", String.valueOf(Math.min(100, amplitude / 327)),
           pendingVoiceAutoSend);
+      // Call mode has no finger-release action to stop the recording, so the
+      // level monitor doubles as a silence detector: once the caller has said
+      // something and then stays quiet, finish the clip and transcribe it.
+      if (cloudHeardSpeech
+          && now - cloudLastVoiceAt >= 2600
+          && now - cloudRecordingStartedAt >= 1500) {
+        stopCloudRecording();
+        return;
+      }
       voiceHandler.postDelayed(this, 160);
     }
   };
@@ -82,6 +121,80 @@ public final class MainActivity extends Activity {
         .setAutoCancel(true)
         .build();
     getSystemService(NotificationManager.class).notify(RESULT_NOTIFICATION_ID, notification);
+  }
+
+  private void initializeConversationAudio() {
+    audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+  }
+
+  private String preferredTtsEnginePackage() {
+    try {
+      Intent service = new Intent("android.intent.action.TTS_SERVICE");
+      List<ResolveInfo> engines = getPackageManager().queryIntentServices(service, 0);
+      if (engines == null || engines.isEmpty()) return null;
+      String preferred = "com.oplus.ttsaccessibilityengine";
+      for (ResolveInfo engine : engines) {
+        if (engine.serviceInfo != null && preferred.equals(engine.serviceInfo.packageName)) return preferred;
+      }
+      return engines.get(0).serviceInfo == null ? null : engines.get(0).serviceInfo.packageName;
+    } catch (Exception error) {
+      return null;
+    }
+  }
+
+  void startConversationAudio(boolean speakerOn) {
+    runOnUiThread(() -> {
+      if (audioManager == null) audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+      if (audioManager == null) return;
+      audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+      audioManager.setSpeakerphoneOn(speakerOn);
+      int result;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        AudioAttributes attributes = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build();
+        callFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            .setAudioAttributes(attributes)
+            .setOnAudioFocusChangeListener(focus -> {
+              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", "通话音频失去焦点", false);
+            })
+            .build();
+        result = audioManager.requestAudioFocus(callFocusRequest);
+      } else {
+        result = audioManager.requestAudioFocus(
+            focus -> {
+              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", "通话音频失去焦点", false);
+            },
+            AudioManager.STREAM_VOICE_CALL,
+            AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+      }
+      if (result != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+        // Audio focus is best effort: recording and playback both work without
+        // it, so surface the condition in logs instead of failing the call.
+        Log.w("AgentBridgeNative", "call audio focus request result: " + result);
+      }
+    });
+  }
+
+  void setConversationSpeaker(boolean speakerOn) {
+    runOnUiThread(() -> {
+      if (audioManager != null) audioManager.setSpeakerphoneOn(speakerOn);
+    });
+  }
+
+  void stopConversationAudio() {
+    runOnUiThread(() -> {
+      if (textToSpeech != null) textToSpeech.stop();
+      stopCloudSpeechPlayback();
+      if (audioManager == null) return;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && callFocusRequest != null) {
+        audioManager.abandonAudioFocusRequest(callFocusRequest);
+        callFocusRequest = null;
+      }
+      audioManager.setSpeakerphoneOn(false);
+      audioManager.setMode(AudioManager.MODE_NORMAL);
+    });
   }
 
   void startTaskForeground() {
@@ -153,18 +266,39 @@ public final class MainActivity extends Activity {
     setContentView(webView, new ViewGroup.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT,
         ViewGroup.LayoutParams.MATCH_PARENT));
+    initializeConversationAudio();
+    String ttsEngine = preferredTtsEnginePackage();
     textToSpeech = new TextToSpeech(this, status -> {
       textToSpeechReady = status == TextToSpeech.SUCCESS;
       if (textToSpeechReady) {
         textToSpeech.setLanguage(new Locale("zh", "CN"));
+        AudioAttributes attributes = new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build();
+        textToSpeech.setAudioAttributes(attributes);
+        textToSpeech.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+          @Override public void onStart(String utteranceId) {
+            postVoiceState("speaking", "", false);
+          }
+
+          @Override public void onDone(String utteranceId) {
+            postVoiceState("speak-ended", "", false);
+          }
+
+          @Override public void onError(String utteranceId) {
+            postVoiceState("speak-error", "语音播报失败", false);
+          }
+        });
       }
-    });
+    }, ttsEngine);
   }
 
   void startVoiceRecognition(boolean autoSend) {
     runOnUiThread(() -> {
       pendingVoiceAutoSend = autoSend;
       if (textToSpeech != null) textToSpeech.stop();
+      stopCloudSpeechPlayback();
       if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
         requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE);
         return;
@@ -203,26 +337,224 @@ public final class MainActivity extends Activity {
     });
   }
 
-  void speakText(String text) {
+  boolean speakText(String text) {
+    if (!textToSpeechReady || textToSpeech == null) return false;
     runOnUiThread(() -> {
-      if (!textToSpeechReady || textToSpeech == null) return;
+      // Stop any live microphone capture before playing the reply so the
+      // recognizer never transcribes the butler's own voice.
+      if (cloudRecording && cloudRecorder != null) {
+        try {
+          cloudRecorder.stop();
+        } catch (Exception error) {
+          // The pending clip is discarded either way.
+        }
+        cleanupCloudRecorder();
+        postVoiceState("stopped", "", false);
+      }
+      if (recognizer != null) {
+        try {
+          recognizer.stopListening();
+        } catch (Exception error) {
+          // The recognizer may already be idle.
+        }
+      }
       textToSpeech.setLanguage(new Locale("zh", "CN"));
+      textToSpeech.setSpeechRate(ttsRate);
+      textToSpeech.setPitch(ttsPitch);
       textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "butler-reply");
       postVoiceState("speaking", "", false);
     });
+    return true;
+  }
+
+  String synthesizeCloudSpeechUrl(String apiKey, String text) throws Exception {
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL("https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation");
+      connection = openModelConnection(url);
+      connection.setRequestMethod("POST");
+      connection.setConnectTimeout(15_000);
+      connection.setReadTimeout(60_000);
+      connection.setDoOutput(true);
+      connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+      connection.setRequestProperty("Content-Type", "application/json");
+      String safeText = text == null ? "" : text.trim();
+      if (safeText.isEmpty()) safeText = "管家已回复。";
+      if (safeText.length() > 500) safeText = safeText.substring(0, 500);
+      org.json.JSONObject payload = new org.json.JSONObject()
+          .put("model", "qwen3-tts-flash")
+          .put("input", new org.json.JSONObject()
+              .put("text", safeText)
+              .put("voice", "Cherry"));
+      byte[] body = payload.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      connection.setFixedLengthStreamingMode(body.length);
+      try (java.io.OutputStream output = connection.getOutputStream()) {
+        output.write(body);
+      }
+      int status = connection.getResponseCode();
+      java.io.InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
+      java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+      byte[] chunk = new byte[8192];
+      int read;
+      while ((read = stream.read(chunk)) != -1) buffer.write(chunk, 0, read);
+      String response = new String(buffer.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+      if (status >= 400) {
+        throw new IllegalStateException("云端语音合成返回 HTTP " + status);
+      }
+      org.json.JSONObject parsed = new org.json.JSONObject(response);
+      String audioUrl = parsed.optJSONObject("output") == null ? null
+          : parsed.getJSONObject("output").optJSONObject("audio") == null ? null
+          : parsed.getJSONObject("output").getJSONObject("audio").optString("url", "");
+      if (audioUrl == null || audioUrl.isEmpty()) {
+        throw new IllegalStateException("云端语音合成没有返回音频");
+      }
+      return audioUrl;
+    } catch (java.io.IOException error) {
+      throw new IllegalStateException("云端语音合成连接失败：" + error);
+    } finally {
+      if (connection != null) connection.disconnect();
+    }
+  }
+
+  HttpURLConnection openModelConnection(URL url) throws Exception {
+    ConnectivityManager manager = getSystemService(ConnectivityManager.class);
+    if (manager != null) {
+      // Resolve through each candidate network explicitly. Some OEM resolver
+      // setups leave the process default unable to resolve external model
+      // hosts even though the active network itself is fine; Network#getAllByName
+      // pins resolution and routing to one network and sidesteps that state.
+      java.util.List<Network> candidates = new java.util.ArrayList<>();
+      Network active = manager.getActiveNetwork();
+      if (active != null) candidates.add(active);
+      for (Network network : manager.getAllNetworks()) {
+        if (candidates.contains(network)) continue;
+        NetworkCapabilities capabilities = manager.getNetworkCapabilities(network);
+        if (capabilities == null || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) continue;
+        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+            && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+            && !capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) continue;
+        candidates.add(network);
+      }
+      for (Network network : candidates) {
+        try {
+          // DNS alone can succeed on a VPN whose data path is dead; probe a
+          // real TCP connection so HTTP never lands on an unusable network.
+          java.net.InetAddress[] addresses = network.getAllByName(url.getHost());
+          if (addresses.length == 0) continue;
+          java.net.Socket probe = network.getSocketFactory().createSocket();
+          try {
+            probe.connect(new java.net.InetSocketAddress(addresses[0], url.getPort() > 0 ? url.getPort() : 443), 4_000);
+          } finally {
+            try {
+              probe.close();
+            } catch (Exception closeError) {
+              // The probe socket is discarded either way.
+            }
+          }
+          return (HttpURLConnection) network.openConnection(url);
+        } catch (java.io.IOException error) {
+          Log.w("AgentBridgeNative", "model network candidate failed for " + url.getHost()
+              + " net=" + network + " -> " + error);
+          // Try the next network.
+        }
+      }
+    }
+    return (HttpURLConnection) url.openConnection();
+  }
+
+  void playSpeechUrl(String audioUrl) {
+    runOnUiThread(() -> {
+      stopCloudSpeechPlayback();
+      try {
+        cloudSpeechPlayer = new MediaPlayer();
+        cloudSpeechPlayer.setAudioAttributes(new AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build());
+        cloudSpeechPlayer.setDataSource(audioUrl);
+        cloudSpeechPlayer.setOnPreparedListener(player -> {
+          postVoiceState("speaking", "", false);
+          player.start();
+        });
+        cloudSpeechPlayer.setOnCompletionListener(player -> {
+          postVoiceState("speak-ended", "", false);
+          stopCloudSpeechPlayback();
+        });
+        cloudSpeechPlayer.setOnErrorListener((player, what, extra) -> {
+          postVoiceState("speak-error", "云端语音播放失败", false);
+          stopCloudSpeechPlayback();
+          return true;
+        });
+        cloudSpeechPlayer.prepareAsync();
+      } catch (Exception error) {
+        postVoiceState("speak-error", "云端语音播放失败", false);
+        stopCloudSpeechPlayback();
+      }
+    });
+  }
+
+  void stopCloudSpeechPlayback() {
+    if (cloudSpeechPlayer != null) {
+      try {
+        cloudSpeechPlayer.stop();
+      } catch (Exception error) {
+        // The player may already be stopped or unprepared.
+      }
+      try {
+        cloudSpeechPlayer.release();
+      } catch (Exception error) {
+        // Release is best effort; the reference is cleared either way.
+      }
+      cloudSpeechPlayer = null;
+    }
+  }
+
+  void setTtsSettings(float rate, float pitch) {
+    ttsRate = Math.max(0.5f, Math.min(2.0f, rate));
+    ttsPitch = Math.max(0.5f, Math.min(2.0f, pitch));
+  }
+
+  boolean getTtsStatus(java.util.Map<String, Object> status) {
+    status.put("ready", textToSpeechReady && textToSpeech != null);
+    try {
+      if (textToSpeech != null) {
+        String engine = textToSpeech.getDefaultEngine();
+        if (engine != null) status.put("engine", engine);
+        status.put("language", textToSpeech.getLanguage().toString());
+      }
+    } catch (Exception error) {
+      // Status stays best-effort; speaking itself reports failures.
+    }
+    return true;
   }
 
   void stopSpeaking() {
     runOnUiThread(() -> {
       if (textToSpeech != null) textToSpeech.stop();
+      stopCloudSpeechPlayback();
       postVoiceState("stopped", "", false);
     });
   }
 
   private void startRecognizer() {
-    if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+    if (preferCloudRecording || !SpeechRecognizer.isRecognitionAvailable(this)) {
       startCloudRecording();
       return;
+    }
+    // Keep one recognizer instance and reset it with cancel() before each
+    // session. Destroying a live OEM recognizer crashes natively with a
+    // FORTIFY destroyed-mutex abort on some devices.
+    if (recognizer != null) {
+      try {
+        recognizer.cancel();
+      } catch (Exception cancelError) {
+        try {
+          recognizer.destroy();
+        } catch (Exception destroyError) {
+          // Replace the unusable instance either way.
+        }
+        recognizer = null;
+      }
     }
     if (recognizer == null) {
       recognizer = SpeechRecognizer.createSpeechRecognizer(this);
@@ -239,22 +571,35 @@ public final class MainActivity extends Activity {
 
   private void startCloudRecording() {
     try {
-      cloudAudioFile = new File(getCacheDir(), "butler-voice.m4a");
+      cloudAudioFile = new File(getCacheDir(), "butler-voice.amr");
       if (cloudAudioFile.exists() && !cloudAudioFile.delete()) {
         postVoiceState("error", "语音缓存文件无法清理", false);
         return;
       }
       cloudRecorder = new MediaRecorder();
       cloudRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-      cloudRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-      cloudRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+      // AMR-WB is natively supported by MediaRecorder and by the cloud ASR
+      // task; MPEG4/AAC containers are rejected with InvalidParameter.
+      cloudRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);
+      cloudRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
       cloudRecorder.setAudioSamplingRate(16_000);
-      cloudRecorder.setAudioEncodingBitRate(24_000);
+      cloudRecorder.setAudioEncodingBitRate(16_000);
       cloudRecorder.setAudioChannels(1);
       cloudRecorder.setOutputFile(cloudAudioFile);
+      cloudRecorder.setMaxDuration(15_000);
+      cloudRecorder.setOnInfoListener((recorder, what, extra) -> {
+        if (what == MediaRecorder.MEDIA_RECORDER_INFO_MAX_DURATION_REACHED) {
+          // Never stop the recorder from inside its own callback; defer to
+          // the handler queue so native state stays consistent.
+          voiceHandler.postDelayed(this::stopCloudRecording, 80);
+        }
+      });
       cloudRecorder.prepare();
       cloudRecorder.start();
       cloudRecording = true;
+      cloudRecordingStartedAt = System.currentTimeMillis();
+      cloudLastVoiceAt = cloudRecordingStartedAt;
+      cloudHeardSpeech = false;
       postVoiceState("cloud-recording", "", pendingVoiceAutoSend);
       voiceHandler.post(cloudLevelRunnable);
     } catch (Exception error) {
@@ -264,42 +609,55 @@ public final class MainActivity extends Activity {
   }
 
   private void stopCloudRecording() {
+    if (cloudStopInFlight) return;
+    cloudStopInFlight = true;
     voiceHandler.removeCallbacks(cloudLevelRunnable);
-    if (!cloudRecording || cloudRecorder == null) return;
-    boolean failed = false;
     try {
-      cloudRecorder.stop();
-    } catch (Exception error) {
-      failed = true;
-    }
-    cleanupCloudRecorder();
-    if (failed || cloudAudioFile == null || !cloudAudioFile.exists() || cloudAudioFile.length() == 0) {
-      postVoiceState("error", "没有录到有效语音", false);
-      return;
-    }
-    postVoiceState("cloud-processing", "", pendingVoiceAutoSend);
-    File audio = cloudAudioFile;
-    boolean autoSend = pendingVoiceAutoSend;
-    new Thread(() -> {
+      if (!cloudRecording || cloudRecorder == null) return;
+      boolean failed = false;
       try {
-        byte[] bytes = Files.readAllBytes(audio.toPath());
-        String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-        org.json.JSONObject parsed = bridge.transcribeVoiceAudio(base64, "audio/mp4");
-        if (!parsed.optBoolean("ok")) {
-          throw new IllegalStateException(parsed.optString("error", "语音识别失败"));
-        }
-        String text = parsed.getJSONObject("data").optString("text", "");
-        if (text.trim().isEmpty()) throw new IllegalStateException("没有识别到文字");
-        postVoiceState("final", text.trim(), autoSend);
+        cloudRecorder.stop();
       } catch (Exception error) {
-        postVoiceState("error", "云端语音识别失败，请重试", false);
-      } finally {
-        boolean deleted = audio.delete();
-        if (!deleted) {
-          // A stale cache file will be replaced on the next recording.
-        }
+        failed = true;
       }
-    }, "agent-bridge-cloud-voice").start();
+      cleanupCloudRecorder();
+      if (failed || cloudAudioFile == null || !cloudAudioFile.exists() || cloudAudioFile.length() == 0) {
+        postVoiceState("error", "没有录到有效语音", false);
+        return;
+      }
+      postVoiceState("cloud-processing", "", pendingVoiceAutoSend);
+      File audio = cloudAudioFile;
+      boolean autoSend = pendingVoiceAutoSend;
+      new Thread(() -> {
+        try {
+          byte[] bytes = Files.readAllBytes(audio.toPath());
+          String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
+          org.json.JSONObject parsed = bridge.transcribeVoiceAudio(base64, "audio/amr");
+          if (!parsed.optBoolean("ok")) {
+            throw new IllegalStateException(parsed.optString("error", "语音识别失败"));
+          }
+          String text = parsed.getJSONObject("data").optString("text", "");
+          if (text.trim().isEmpty()) throw new IllegalStateException("没有识别到文字");
+          postVoiceState("final", text.trim(), autoSend);
+        } catch (Exception error) {
+          Log.w("AgentBridgeNative", "cloud voice transcription failed", error);
+          String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+          // Silence (no speech detected) is normal between turns in call mode;
+          // only surface real service failures to the UI.
+          if (message.contains("没有识别到文字")) {
+            postVoiceState("stopped", "", false);
+          } else {
+            postVoiceState("error", "语音识别失败：" + message, false);
+          }
+        } finally {
+          if (audio.exists() && !audio.delete()) {
+            // A stale cache file is replaced on the next recording.
+          }
+        }
+      }, "agent-bridge-cloud-voice").start();
+    } finally {
+      cloudStopInFlight = false;
+    }
   }
 
   private void cleanupCloudRecorder() {
@@ -357,6 +715,8 @@ public final class MainActivity extends Activity {
   @Override
   protected void onDestroy() {
     cleanupCloudRecorder();
+    stopCloudSpeechPlayback();
+    stopConversationAudio();
     if (recognizer != null) {
       recognizer.destroy();
       recognizer = null;
@@ -375,6 +735,7 @@ public final class MainActivity extends Activity {
 
   private final class VoiceListener implements RecognitionListener {
     @Override public void onReadyForSpeech(Bundle params) {
+      recognizerFailureCount = 0;
       postVoiceState("recording", "", pendingVoiceAutoSend);
     }
 
@@ -394,6 +755,20 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onError(int error) {
+      boolean recoverable = error == SpeechRecognizer.ERROR_NO_MATCH
+          || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT;
+      if (!recoverable) recognizerFailureCount += 1;
+      // Some OEM recognizer services accept the bind but fail every session
+      // (ERROR_CLIENT/NETWORK). After two hard failures in a row, switch this
+      // attempt to cloud recording instead of surfacing another dead error.
+      if (!recoverable && recognizerFailureCount >= 2) {
+        recognizerFailureCount = 0;
+        // Remember the fallback for this process: retrying a broken OEM
+        // recognizer for every turn only adds latency and crash risk.
+        preferCloudRecording = true;
+        startCloudRecording();
+        return;
+      }
       String message = error == SpeechRecognizer.ERROR_NO_MATCH
           ? "没有听到内容，请再按一次语音按钮"
           : error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
@@ -403,6 +778,7 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onResults(Bundle results) {
+      recognizerFailureCount = 0;
       ArrayList<String> values = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
       String text = values == null || values.isEmpty() ? "" : values.get(0);
       postVoiceState("final", text, pendingVoiceAutoSend);

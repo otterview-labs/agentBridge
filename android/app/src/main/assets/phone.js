@@ -24,9 +24,17 @@
     butlerPlanMode: loadButlerPlanMode(),
     voiceAutoSend: loadVoicePreference('voiceAutoSend', true),
     voiceSpeakReply: loadVoicePreference('voiceSpeakReply', true),
+    voiceRate: loadVoiceNumber('voiceRate', 1),
+    voicePitch: loadVoiceNumber('voicePitch', 1),
     voiceRecording: false,
     voiceLevel: 0,
     voiceStartedAt: 0,
+    callMode: false,
+    callMuted: false,
+    callSpeaker: true,
+    callStartedAt: 0,
+    callStatus: '',
+    callTranscript: '',
     collapsedSprites: loadCollapsedSprites()
   };
   const showDeletedOffices = new Set();
@@ -57,6 +65,15 @@
   }
   $('voiceAutoSend').addEventListener('click', () => toggleVoicePreference('voiceAutoSend'));
   $('voiceSpeakReply').addEventListener('click', () => toggleVoicePreference('voiceSpeakReply'));
+  $('openVoiceSettings').addEventListener('click', openVoiceSettings);
+  $('voiceSpeakReplySetting').addEventListener('change', syncSpeakReplySetting);
+  $('voiceRateSetting').addEventListener('input', () => updateVoiceTuning('voiceRate', 'voiceRateSetting', 'voiceRateEcho', '×'));
+  $('voicePitchSetting').addEventListener('input', () => updateVoiceTuning('voicePitch', 'voicePitchSetting', 'voicePitchEcho', ''));
+  $('ttsPreview').addEventListener('click', previewButlerVoice);
+  $('startCall').addEventListener('click', startCallMode);
+  $('callMute').addEventListener('click', toggleCallMute);
+  $('callSpeaker').addEventListener('click', toggleCallSpeaker);
+  $('callEnd').addEventListener('click', endCallMode);
   document.querySelectorAll('[data-quick-prompt]').forEach((button) => {
     button.addEventListener('click', () => {
       $('piInput').value = button.dataset.quickPrompt;
@@ -76,6 +93,8 @@
   $('voiceSpeakReply').classList.toggle('active', state.voiceSpeakReply);
   $('voiceSpeakReply').setAttribute('aria-pressed', String(state.voiceSpeakReply));
   updateVoiceUi('stopped');
+  applyVoiceTuning();
+  refreshTtsEngineStatus();
   $('brandMascot').append(employeeSprite('pi', 1));
   document.querySelectorAll('[data-plan-mode]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -151,6 +170,10 @@
   }
 
   function closeTopSheet() {
+    if (state.callMode) {
+      endCallMode();
+      return true;
+    }
     if (state.sending || !$('busy').classList.contains('hidden')) return true;
     const sheet = document.querySelector('.sheetBackdrop:not(.hidden)');
     return sheet ? closeSheet(sheet.id) : false;
@@ -1305,7 +1328,11 @@
       messages.forEach(message => {
         const row = element('div', `piMessage${message.role === 'user' ? ' user' : ''}`);
         row.appendChild(element('strong', '', message.role === 'user' ? '我' : '管家'));
-        row.appendChild(element('span', '', message.content));
+        if (message.role === 'user') {
+          row.appendChild(element('span', '', message.content));
+        } else {
+          row.appendChild(renderButlerText(message.content));
+        }
         $('piMessages').appendChild(row);
       });
     }
@@ -1372,6 +1399,144 @@
     toast('管家模型配置已保存');
   }
 
+  let callTimerInterval = null;
+  let callListenToken = 0;
+
+  function startCallMode() {
+    if (state.callMode) return;
+    if (!state.studio?.model?.ready) {
+      toast('先配置管家模型，再开始通话');
+      openCloudSheet();
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(AgentBridge.startConversationAudio(state.callSpeaker));
+    } catch (error) {
+      parsed = { ok: false };
+    }
+    if (!parsed.ok) {
+      toast(parsed.error || '通话音频启动失败');
+      return;
+    }
+    state.callMode = true;
+    state.callMuted = false;
+    state.callStartedAt = Date.now();
+    state.callTranscript = '通话已接通。你说话，管家回复后会继续聆听。';
+    setCallStatus('listening');
+    if (!state.voiceAutoSend) toggleVoicePreference('voiceAutoSend');
+    if (!state.voiceSpeakReply) toggleVoicePreference('voiceSpeakReply');
+    $('callBackdrop').classList.remove('hidden');
+    $('callAvatar').replaceChildren(employeeSprite('pi', 2));
+    $('callMute').classList.toggle('active', state.callMuted);
+    $('callMute').setAttribute('aria-pressed', String(state.callMuted));
+    $('callSpeaker').classList.toggle('active', state.callSpeaker);
+    $('callSpeaker').setAttribute('aria-pressed', String(state.callSpeaker));
+    renderCallMode();
+    callTimerInterval = setInterval(renderCallMode, 1000);
+    scheduleCallListening(450);
+    toast('通话模式已开启');
+  }
+
+  function endCallMode() {
+    if (!state.callMode) return;
+    state.callMode = false;
+    state.voiceRecording = false;
+    callListenToken += 1;
+    if (callTimerInterval) {
+      clearInterval(callTimerInterval);
+      callTimerInterval = null;
+    }
+    try { AgentBridge.cancelVoiceInput(); } catch (error) {
+      try { AgentBridge.stopVoiceInput(); } catch (nested) { /* Native cleanup is best effort. */ }
+    }
+    try { AgentBridge.stopSpeaking(); } catch (error) { /* Native cleanup is best effort. */ }
+    try { AgentBridge.stopConversationAudio(); } catch (error) { /* Audio cleanup is best effort. */ }
+    $('callBackdrop').classList.add('hidden');
+    document.body.classList.remove('voice-listening');
+    updateVoiceUi('stopped');
+    toast('通话已结束');
+  }
+
+  function toggleCallMute() {
+    state.callMuted = !state.callMuted;
+    $('callMute').classList.toggle('active', state.callMuted);
+    $('callMute').setAttribute('aria-pressed', String(state.callMuted));
+    $('callMuteLabel').textContent = state.callMuted ? '取消静音' : '静音';
+    if (state.callMuted) {
+      callListenToken += 1;
+      try { AgentBridge.cancelVoiceInput(); } catch (error) {
+        try { AgentBridge.stopVoiceInput(); } catch (nested) { /* Keep the call alive. */ }
+      }
+      state.voiceRecording = false;
+      setCallStatus('muted');
+    } else {
+      setCallStatus('listening');
+      scheduleCallListening(120);
+    }
+    renderCallMode();
+  }
+
+  function toggleCallSpeaker() {
+    state.callSpeaker = !state.callSpeaker;
+    $('callSpeaker').classList.toggle('active', state.callSpeaker);
+    $('callSpeaker').setAttribute('aria-pressed', String(state.callSpeaker));
+    try { AgentBridge.setConversationSpeaker(state.callSpeaker); } catch (error) {
+      toast('扬声器切换失败');
+    }
+    renderCallMode();
+  }
+
+  function setCallStatus(status) {
+    state.callStatus = status;
+    renderCallMode();
+  }
+
+  function renderCallMode() {
+    if (!state.callMode) return;
+    const elapsed = Math.max(0, Math.floor((Date.now() - state.callStartedAt) / 1000));
+    const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const seconds = String(elapsed % 60).padStart(2, '0');
+    const statuses = {
+      connecting: '正在接通…',
+      listening: '正在聆听',
+      thinking: '管家思考中',
+      speaking: '管家播报中',
+      muted: '麦克风已静音',
+      error: '通话异常'
+    };
+    $('callTimer').textContent = `${minutes}:${seconds}`;
+    $('callStatus').textContent = statuses[state.callStatus] || statuses.connecting;
+    $('callTranscript').textContent = state.callTranscript || '说话后会自动发给管家。';
+    document.querySelectorAll('.callWave span').forEach((bar, index) => {
+      const active = state.callStatus === 'listening'
+        ? 30 + state.voiceLevel * 0.7
+        : state.callStatus === 'speaking' ? 34 : 8 + index * 2;
+      bar.style.height = `${Math.max(8, Math.min(42, active))}px`;
+    });
+  }
+
+  function scheduleCallListening(delay = 350) {
+    const token = ++callListenToken;
+    setTimeout(() => {
+      if (!state.callMode || state.callMuted || state.sending || state.voiceRecording) return;
+      if (token !== callListenToken) return;
+      let parsed;
+      try {
+        parsed = JSON.parse(AgentBridge.startVoiceInput(true));
+      } catch (error) {
+        parsed = { ok: false };
+      }
+      if (parsed.ok) {
+        state.voiceRecording = true;
+        setCallStatus('listening');
+      } else {
+        state.callTranscript = parsed.error || '麦克风启动失败，可点“取消静音”重试。';
+        setCallStatus('error');
+      }
+    }, delay);
+  }
+
   async function sendPiMessage() {
     if (state.sending) return;
     const value = $('piInput').value.trim();
@@ -1384,6 +1549,10 @@
     $('piInput').value = '';
     autoResizeChatInput();
     appendChatMessage('user', value);
+    if (state.callMode) {
+      state.callTranscript = `我：${value}`;
+      setCallStatus('thinking');
+    }
     setChatTyping(true);
     let operation;
     try {
@@ -1418,13 +1587,33 @@
       render();
       const messages = Array.isArray(state.studio.messages) ? state.studio.messages : [];
       const reply = messages[messages.length - 1];
+      if (state.callMode) {
+        state.callTranscript = reply?.role === 'assistant'
+          ? `我：${value}\n管家：${reply.content}` : `我：${value}`;
+      }
       if (reply && reply.role === 'assistant' && state.voiceSpeakReply) {
-        try { AgentBridge.speakText(reply.content); } catch (error) { /* Text reply remains available. */ }
+        let spoken = false;
+        try {
+          spoken = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || '管家已回复。')).ok;
+        } catch (error) {
+          spoken = false;
+        }
+        if (state.callMode) {
+          if (spoken) setCallStatus('speaking');
+          else scheduleCallListening(600);
+        }
+      } else if (state.callMode) {
+        scheduleCallListening(500);
       }
     } catch (error) {
       setChatTyping(false);
       appendChatNotice(error.message || String(error));
       toast(error.message || String(error));
+      if (state.callMode) {
+        state.callTranscript = error.message || String(error);
+        setCallStatus('error');
+        scheduleCallListening(1200);
+      }
     } finally {
       state.sending = false;
       if (operation) {
@@ -1437,9 +1626,77 @@
   function appendChatMessage(role, content) {
     const row = element('div', `piMessage ${role === 'user' ? 'user' : ''}`);
     row.appendChild(element('strong', '', role === 'user' ? '我' : '管家'));
-    row.appendChild(element('span', '', content));
+    if (role === 'user') {
+      row.appendChild(element('span', '', content));
+    } else {
+      row.appendChild(renderButlerText(content));
+    }
     $('piMessages').appendChild(row);
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
+  }
+
+  function renderButlerText(content) {
+    const holder = document.createElement('span');
+    holder.className = 'butlerRich';
+    const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
+    let list = null;
+    for (const rawLine of lines) {
+      const line = rawLine.trimEnd();
+      if (!line.trim()) {
+        list = null;
+        continue;
+      }
+      const heading = line.match(/^#{1,4}\s*(.+)$/);
+      const bullet = line.match(/^[-*•]\s+(.+)$/);
+      const numbered = line.match(/^(\d+)[.、)]\s*(.+)$/);
+      if (heading) {
+        list = null;
+        holder.appendChild(element('strong', 'butlerHeading', heading[1].replace(/\*\*/g, '')));
+      } else if (bullet || numbered) {
+        const text = bullet ? bullet[1] : `${numbered[1]}. ${numbered[2]}`;
+        if (!list) {
+          list = document.createElement('span');
+          list.className = 'butlerList';
+          holder.appendChild(list);
+        }
+        list.appendChild(element('span', 'butlerListItem', ''));
+        list.lastChild.appendChild(renderInlineMarkup(text));
+      } else {
+        list = null;
+        holder.appendChild(element('span', 'butlerPara', ''));
+        holder.lastChild.appendChild(renderInlineMarkup(line));
+      }
+    }
+    if (!holder.childNodes.length) holder.textContent = String(content || '');
+    return holder;
+  }
+
+  function renderInlineMarkup(text) {
+    const fragment = document.createDocumentFragment();
+    const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    for (const part of parts) {
+      if (/^\*\*[^*]+\*\*$/.test(part)) {
+        fragment.appendChild(element('b', '', part.slice(2, -2)));
+      } else if (/^`[^`]+`$/.test(part)) {
+        fragment.appendChild(element('code', '', part.slice(1, -1)));
+      } else if (part) {
+        fragment.appendChild(document.createTextNode(part.replace(/\*\*/g, '')));
+      }
+    }
+    return fragment;
+  }
+
+  function cleanSpeakText(text) {
+    return String(text || '')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/#{1,4}\s*/g, '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/https?:\/\/\S+/g, '链接')
+      .replace(/[|>#*_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 460);
   }
 
   function appendChatNotice(content) {
@@ -1577,6 +1834,8 @@
       'cloud-recording': '正在录音…松手转文字，上滑取消',
       'cloud-processing': '正在转文字…',
       final: '识别完成',
+      speaking: '管家播报中',
+      'speak-ended': '播报完成',
       stopped: '按住麦克风说话',
       error: text || '语音识别失败'
     };
@@ -1591,6 +1850,7 @@
       : state.voiceAutoSend ? '松开后转文字并发送' : '松开后放入输入框';
     $('voiceButton').classList.toggle('recording', state.voiceRecording);
     $('voiceButton').style.setProperty('--voice-level', `${Math.max(12, Math.min(100, state.voiceLevel))}%`);
+    renderCallMode();
   }
 
   window.phoneVoice = {
@@ -1601,10 +1861,39 @@
         $('piInput').value = event.text || '';
         autoResizeChatInput();
       }
+      if (state.callMode && event.type === 'partial' && event.text) {
+        state.callTranscript = `我：${event.text}`;
+        renderCallMode();
+      }
       if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') state.voiceRecording = true;
       if (event.type === 'cloud-processing') state.voiceRecording = false;
       if (event.type === 'final' || event.type === 'error' || event.type === 'stopped') state.voiceRecording = false;
       updateVoiceUi(event.type, event.text);
+      if (state.callMode) {
+        if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
+          setCallStatus('listening');
+        }
+        if (event.type === 'cloud-processing' || event.type === 'processing') {
+          setCallStatus('thinking');
+        }
+        if (event.type === 'speaking') setCallStatus('speaking');
+        if (event.type === 'speak-ended') {
+          setCallStatus('listening');
+          scheduleCallListening(260);
+        }
+        if (event.type === 'speak-error') {
+          setCallStatus('listening');
+          scheduleCallListening(500);
+        }
+        if (event.type === 'error') {
+          setCallStatus('error');
+          scheduleCallListening(1000);
+        }
+        if (event.type === 'stopped' && !state.sending) {
+          setCallStatus('listening');
+          scheduleCallListening(500);
+        }
+      }
       if (event.type === 'final' && event.autoSend && event.text?.trim()) {
         setTimeout(() => void sendPiMessage(), 180);
       }
@@ -1714,6 +2003,80 @@
       return value === null ? fallback : value === 'true';
     } catch (error) {
       return fallback;
+    }
+  }
+
+  function loadVoiceNumber(key, fallback) {
+    try {
+      const value = Number(localStorage.getItem(key));
+      return Number.isFinite(value) && value > 0 ? value : fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function applyVoiceTuning() {
+    try {
+      AgentBridge.setTtsSettings(state.voiceRate, state.voicePitch);
+    } catch (error) {
+      // Older builds simply use the engine default.
+    }
+  }
+
+  function refreshTtsEngineStatus() {
+    let status = '语音状态未知';
+    try {
+      const parsed = JSON.parse(AgentBridge.getTtsStatus());
+      if (parsed.ok && parsed.data.ready) {
+        status = parsed.data.mode === 'cloud'
+          ? '本机语音引擎不可用，已自动切换云端语音（qwen3-tts）'
+          : `本机语音引擎已就绪 · ${parsed.data.language || 'zh-CN'}`;
+      } else {
+        status = parsed.ok && parsed.data.cloudAvailable
+          ? '云端语音可用（qwen3-tts）'
+          : '本机语音引擎未就绪；通话仍可收音，回复会以文字显示';
+      }
+    } catch (error) {
+      status = '当前版本不支持语音状态读取';
+    }
+    $('ttsEngineStatus').textContent = status;
+  }
+
+  function openVoiceSettings() {
+    $('voiceSpeakReplySetting').checked = state.voiceSpeakReply;
+    $('voiceRateSetting').value = String(state.voiceRate);
+    $('voicePitchSetting').value = String(state.voicePitch);
+    $('voiceRateEcho').textContent = `${state.voiceRate.toFixed(2)}×`;
+    $('voicePitchEcho').textContent = state.voicePitch.toFixed(2);
+    refreshTtsEngineStatus();
+    openSheet('voiceBackdrop');
+  }
+
+  function syncSpeakReplySetting() {
+    if (state.voiceSpeakReply !== $('voiceSpeakReplySetting').checked) {
+      toggleVoicePreference('voiceSpeakReply');
+    }
+  }
+
+  function updateVoiceTuning(key, inputId, echoId, suffix) {
+    const value = Number($(inputId).value);
+    if (!Number.isFinite(value)) return;
+    state[key] = value;
+    $(echoId).textContent = `${value.toFixed(2)}${suffix}`;
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (error) {
+      // The in-memory value still applies for this session.
+    }
+    applyVoiceTuning();
+  }
+
+  function previewButlerVoice() {
+    try {
+      const parsed = JSON.parse(AgentBridge.speakText('你好，我是管家。这是当前的语速和音调。'));
+      if (!parsed.ok) toast(parsed.error || '语音播报不可用');
+    } catch (error) {
+      toast('语音播报不可用');
     }
   }
 
