@@ -301,6 +301,16 @@ final class PhoneBridge {
   }
 
   @JavascriptInterface
+  public String setTtsEnginePreference(boolean preferCloud) {
+    try {
+      activity.setTtsEnginePreference(preferCloud);
+      return success(new JSONObject().put("preferCloud", preferCloud));
+    } catch (Exception error) {
+      return failure(new Exception("语音引擎偏好保存失败"));
+    }
+  }
+
+  @JavascriptInterface
   public String getTtsStatus() {
     try {
       java.util.Map<String, Object> status = new java.util.LinkedHashMap<>();
@@ -639,7 +649,8 @@ final class PhoneBridge {
       return answer;
     } catch (java.io.IOException error) {
       if (error instanceof java.net.UnknownHostException) {
-        throw new IllegalStateException("当前网络（可能是 VPN）阻止了应用联网；请在 VPN 中允许 agentBridge 或暂时断开 VPN");
+        activity.noteNetworkDeath();
+        throw new IllegalStateException("系统网络通道拦截了应用联网，连续失败后应用会自动重启恢复；也可手动重启 App 立即恢复");
       }
       throw new IllegalStateException("模型连接失败或超时，请检查网络和服务状态");
     } finally {
@@ -1892,10 +1903,22 @@ final class PhoneBridge {
   }
 
   private Session connect(JSONObject machine) throws Exception {
-    String mode = machine.optString("publicMode", "off");
-    if ("public".equals(mode)) return connectThroughRelay(machine);
-    if ("auto".equals(mode) && !directReachable(machine)) return connectThroughRelay(machine);
-    return connectDirect(machine);
+    try {
+      String mode = machine.optString("publicMode", "off");
+      Session session;
+      if ("public".equals(mode)) session = connectThroughRelay(machine);
+      else if ("auto".equals(mode) && !directReachable(machine)) session = connectThroughRelay(machine);
+      else session = connectDirect(machine);
+      activity.noteNetworkAlive();
+      return session;
+    } catch (Exception error) {
+      String message = String.valueOf(error);
+      if (message.contains("ETIMEDOUT") || message.contains("ENONET")
+          || message.contains("ECONNABORTED") || message.contains("UnknownHostException")) {
+        activity.noteNetworkDeath();
+      }
+      throw error;
+    }
   }
 
   private Session connectDirect(JSONObject machine) throws Exception {

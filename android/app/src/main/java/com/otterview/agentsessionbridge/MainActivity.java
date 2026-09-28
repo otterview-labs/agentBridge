@@ -6,6 +6,7 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -19,6 +20,7 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.os.Build;
+import android.os.SystemClock;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -59,6 +61,7 @@ public final class MainActivity extends Activity {
   private boolean textToSpeechReady;
   private volatile float ttsRate = 1.0f;
   private volatile float ttsPitch = 1.0f;
+  private volatile boolean preferCloudTts;
   private boolean pendingVoiceAutoSend;
   private long lastVoiceLevelAt;
   private MediaRecorder cloudRecorder;
@@ -73,6 +76,9 @@ public final class MainActivity extends Activity {
   private AudioManager audioManager;
   private AudioFocusRequest callFocusRequest;
   private MediaPlayer cloudSpeechPlayer;
+  private int networkDeathCount;
+  private long firstNetworkDeathAt;
+  private long lastNetworkRestartAt = -600_000L;
   private final Handler voiceHandler = new Handler(Looper.getMainLooper());
   private final Runnable cloudLevelRunnable = new Runnable() {
     @Override public void run() {
@@ -89,7 +95,7 @@ public final class MainActivity extends Activity {
       // level monitor doubles as a silence detector: once the caller has said
       // something and then stays quiet, finish the clip and transcribe it.
       if (cloudHeardSpeech
-          && now - cloudLastVoiceAt >= 2600
+          && now - cloudLastVoiceAt >= 2000
           && now - cloudRecordingStartedAt >= 1500) {
         stopCloudRecording();
         return;
@@ -338,6 +344,7 @@ public final class MainActivity extends Activity {
   }
 
   boolean speakText(String text) {
+    if (preferCloudTts) return false;
     if (!textToSpeechReady || textToSpeech == null) return false;
     runOnUiThread(() -> {
       // Stop any live microphone capture before playing the reply so the
@@ -509,9 +516,50 @@ public final class MainActivity extends Activity {
     }
   }
 
+  void noteNetworkAlive() {
+    networkDeathCount = 0;
+  }
+
+  void noteNetworkDeath() {
+    long now = SystemClock.elapsedRealtime();
+    if (now - firstNetworkDeathAt > 30_000) {
+      firstNetworkDeathAt = now;
+      networkDeathCount = 0;
+    }
+    networkDeathCount += 1;
+    if (networkDeathCount < 5) return;
+    if (now - lastNetworkRestartAt < 600_000L) return;
+    // ColorOS network services (com.oplus.nas) keep per-process routing
+    // configs; after their tunnel state changes, every socket of a running
+    // process dies while a fresh process works immediately. Restarting the
+    // process is the only reliable recovery on these OEM builds.
+    postVoiceState("error", "系统网络通道变化，应用将自动重启恢复", false);
+    runOnUiThread(() -> {
+      lastNetworkRestartAt = SystemClock.elapsedRealtime();
+      try {
+        android.content.Intent intent = new android.content.Intent(this, MainActivity.class)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        PendingIntent restart = PendingIntent.getActivity(this, 91, intent,
+            PendingIntent.FLAG_IMMUTABLE);
+        AlarmManager alarm = getSystemService(AlarmManager.class);
+        if (alarm != null) {
+          alarm.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 500, restart);
+        }
+      } catch (Exception error) {
+        Log.w("AgentBridgeNative", "restart scheduling failed", error);
+      }
+      finishAffinity();
+      System.exit(0);
+    });
+  }
+
   void setTtsSettings(float rate, float pitch) {
     ttsRate = Math.max(0.5f, Math.min(2.0f, rate));
     ttsPitch = Math.max(0.5f, Math.min(2.0f, pitch));
+  }
+
+  void setTtsEnginePreference(boolean preferCloud) {
+    preferCloudTts = preferCloud;
   }
 
   boolean getTtsStatus(java.util.Map<String, Object> status) {
@@ -583,7 +631,7 @@ public final class MainActivity extends Activity {
       cloudRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);
       cloudRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
       cloudRecorder.setAudioSamplingRate(16_000);
-      cloudRecorder.setAudioEncodingBitRate(16_000);
+      cloudRecorder.setAudioEncodingBitRate(23_850);
       cloudRecorder.setAudioChannels(1);
       cloudRecorder.setOutputFile(cloudAudioFile);
       cloudRecorder.setMaxDuration(15_000);

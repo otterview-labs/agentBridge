@@ -24,6 +24,7 @@
     butlerPlanMode: loadButlerPlanMode(),
     voiceAutoSend: loadVoicePreference('voiceAutoSend', true),
     voiceSpeakReply: loadVoicePreference('voiceSpeakReply', true),
+    voicePreferCloud: loadVoicePreference('voicePreferCloud', false),
     voiceRate: loadVoiceNumber('voiceRate', 1),
     voicePitch: loadVoiceNumber('voicePitch', 1),
     voiceRecording: false,
@@ -67,6 +68,20 @@
   $('voiceSpeakReply').addEventListener('click', () => toggleVoicePreference('voiceSpeakReply'));
   $('openVoiceSettings').addEventListener('click', openVoiceSettings);
   $('voiceSpeakReplySetting').addEventListener('change', syncSpeakReplySetting);
+  $('voicePreferCloudSetting').addEventListener('change', () => {
+    state.voicePreferCloud = $('voicePreferCloudSetting').checked;
+    try {
+      localStorage.setItem('voicePreferCloud', String(state.voicePreferCloud));
+    } catch (error) {
+      // The in-memory preference still applies for this session.
+    }
+    try {
+      AgentBridge.setTtsEnginePreference(state.voicePreferCloud);
+    } catch (error) {
+      // Older native builds always prefer the local engine.
+    }
+    toast(state.voicePreferCloud ? '已优先使用云端语音（Cherry 音色）' : '已优先使用本机语音');
+  });
   $('voiceRateSetting').addEventListener('input', () => updateVoiceTuning('voiceRate', 'voiceRateSetting', 'voiceRateEcho', '×'));
   $('voicePitchSetting').addEventListener('input', () => updateVoiceTuning('voicePitch', 'voicePitchSetting', 'voicePitchEcho', ''));
   $('ttsPreview').addEventListener('click', previewButlerVoice);
@@ -95,6 +110,10 @@
   updateVoiceUi('stopped');
   applyVoiceTuning();
   refreshTtsEngineStatus();
+  $('voicePreferCloudSetting').checked = state.voicePreferCloud;
+  try { AgentBridge.setTtsEnginePreference(state.voicePreferCloud); } catch (error) {
+    // Older native builds always prefer the local engine.
+  }
   $('brandMascot').append(employeeSprite('pi', 1));
   document.querySelectorAll('[data-plan-mode]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -1841,13 +1860,18 @@
     };
     $('voiceStateText').textContent = labels[type] || labels.stopped;
     const listening = state.voiceRecording;
+    const transcribing = type === 'cloud-processing' || type === 'processing';
     document.body.classList.toggle('voice-listening', listening);
-    $('voicePanel').classList.toggle('hidden', !listening);
+    $('voicePanel').classList.toggle('hidden', !listening && !transcribing);
     $('voicePanel').classList.toggle('cancel', Boolean(voicePointer.cancelArmed));
-    $('voicePanelTitle').textContent = voicePointer.cancelArmed ? '松开取消' : '正在听…';
-    $('voicePanelHint').textContent = voicePointer.cancelArmed
-      ? '这次录音不会发给管家'
-      : state.voiceAutoSend ? '松开后转文字并发送' : '松开后放入输入框';
+    $('voicePanelTitle').textContent = voicePointer.cancelArmed
+      ? '松开取消'
+      : transcribing ? '转写中…' : '正在听…';
+    $('voicePanelHint').textContent = transcribing
+      ? '正在上传识别，马上就好'
+      : voicePointer.cancelArmed
+        ? '这次录音不会发给管家'
+        : state.voiceAutoSend ? '松开后转文字并发送' : '松开后放入输入框';
     $('voiceButton').classList.toggle('recording', state.voiceRecording);
     $('voiceButton').style.setProperty('--voice-level', `${Math.max(12, Math.min(100, state.voiceLevel))}%`);
     renderCallMode();
@@ -2044,6 +2068,7 @@
 
   function openVoiceSettings() {
     $('voiceSpeakReplySetting').checked = state.voiceSpeakReply;
+    $('voicePreferCloudSetting').checked = state.voicePreferCloud;
     $('voiceRateSetting').value = String(state.voiceRate);
     $('voicePitchSetting').value = String(state.voicePitch);
     $('voiceRateEcho').textContent = `${state.voiceRate.toFixed(2)}×`;
