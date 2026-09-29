@@ -25,8 +25,8 @@ android {
     applicationId 'com.otterview.agentsessionbridge'
     minSdkVersion 24
     targetSdkVersion 35
-    versionCode 50
-    versionName '0.5.34'
+    versionCode 53
+    versionName '0.5.37'
   }
   if (hasReleaseSigning) {
     signingConfigs {
@@ -56,4 +56,5 @@ android {
 
 dependencies {
   implementation 'com.github.mwiede:jsch:0.2.26'
+  implementation 'org.java-websocket:Java-WebSocket:1.5.7'
 }
