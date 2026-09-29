@@ -193,16 +193,16 @@ body.sheetOpen { overflow: hidden; }
 .scanHost { display: flex; justify-content: space-between; padding: 9px 10px; border-radius: 10px; background: #fff; color: #33422f; font-size: 12px; font-weight: 750; }
 .formNote { margin: 0; color: #85917d; font-size: 11px; line-height: 1.6; }
 
-.taskSheet { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.taskSheet { max-width: 100%; overflow-x: hidden; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
 .employeeHeader { display: flex; gap: 10px; align-items: center; min-width: 0; }
 .taskAvatarWrap { position: relative; width: 74px; height: 90px; flex: 0 0 auto; border: 2px solid #33422f; border-radius: 3px; background: #f6efdd; }
 .taskAvatarWrap .pixelAvatar { width: 48px; height: 59px; bottom: 8px; }
-.taskStatusLine { margin: -5px 0 12px; color: #62705b; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; }
+.taskStatusLine { margin: -5px 0 12px; color: #62705b; font-size: 11px; line-height: 1.7; overflow-wrap: anywhere; word-break: break-word; }
 #taskTitle { overflow-wrap: anywhere; }
 button:disabled { opacity: .5; cursor: not-allowed; }
 button:focus-visible { outline: 3px solid #a96940; outline-offset: 3px; }
 .workSummary { padding: 11px 12px; border-left: 5px solid #3f6b44; border-radius: 12px; background: #f1f4e8; color: #52604b; font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
-.taskNeed { margin: 0; padding: 11px 12px; border-left: 5px solid #b3653f; border-radius: 12px; background: #fff0dd; color: #744b2b; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.taskNeed { margin: 0; padding: 11px 12px; border-left: 5px solid #b3653f; border-radius: 12px; background: #fff0dd; color: #744b2b; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; box-sizing: border-box; }
 .conversationTimeline { display: grid; gap: 8px; }
 .conversationHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 2px; }
 .conversationHeader strong { font-size: 13px; }
@@ -372,3 +372,32 @@ body.voice-listening .app { padding-bottom: 196px; }
 /* Butler chat markdown-lite */
 .piMessage span { white-space: pre-wrap; }
 .piMessage b, .piMessage strong.textBold { color: inherit; }
+/* Task Status Card */
+.taskStatusCard { display: flex; align-items: flex-start; gap: 10px; min-width: 0; max-width: 100%; box-sizing: border-box; margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; border: 2px solid #c8bd99; background: #fffdf8; overflow-wrap: anywhere; word-break: break-word; }
+.taskStatusCard[data-tone="running"] { border-color: #3f6b44; background: #eaf4e2; }
+.taskStatusCard[data-tone="running"] .tscIcon { color: #3f6b44; }
+.taskStatusCard[data-tone="running"] .tscLabel { color: #3f6b44; }
+.taskStatusCard[data-tone="idle"] { border-color: #b8a76e; background: #faf3e0; }
+.taskStatusCard[data-tone="attention"] { border-color: #b3552e; background: #fce8e0; }
+.taskStatusCard[data-tone="attention"] .tscIcon { color: #b3552e; }
+.taskStatusCard[data-tone="attention"] .tscLabel { color: #b3552e; }
+.tscIcon { font-size: 18px; flex: none; }
+.tscLabel { font-size: 14px; font-weight: 850; flex: none; }
+.tscDesc { font-size: 11px; color: #52604b; overflow-wrap: anywhere; word-break: break-word; flex: 1; min-width: 0; line-height: 1.5; }
+/* Code blocks in output */
+.codeBlock { position: relative; max-width: 100%; box-sizing: border-box; margin: 8px 0; padding: 24px 10px 10px; border: 2px solid #c8bd99; border-radius: 10px; background: #2d2d2d; color: #e8e8e8; font-size: 11px; line-height: 1.5; white-space: pre-wrap; overflow-x: auto; font-family: 'SF Mono', 'Menlo', monospace; }
+.codeBlock .codeLang { position: absolute; top: 4px; right: 8px; font-size: 9px; color: #888; text-transform: uppercase; }
+.output { white-space: pre-wrap; }
+/* Conversation improvements */
+.conversationTurn { border-radius: 12px; margin-bottom: 8px; padding: 10px 12px; border: 2px solid transparent; }
+.conversationTurn.user { border-color: #b9c8a8; background: #f0f5e8; }
+.conversationTurn.assistant { border-color: #c8bd99; background: #fffdf8; }
+.conversationTurn.system { border-color: #c0c0c0; background: #f5f5f5; }
+.conversationTurn .conversationBody code { background: #e8e4d8; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; }
+.conversationTurn .conversationBody pre.codeBlock { margin: 6px 0; }
+/* Turn avatars */
+.turnAvatar { font-size: 20px; flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: rgba(0,0,0,0.05); }
+.conversationTurn.user .turnAvatar { background: #d8e8c8; }
+.conversationTurn.assistant .turnAvatar { background: #f0e8d0; }
+.turnMetaText { display: flex; flex-direction: column; gap: 1px; }
+.conversationMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }

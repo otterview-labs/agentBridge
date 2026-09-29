@@ -502,8 +502,56 @@
     $('taskNeed').textContent = task.requiredInput
       ? `${isRecordedTask(task) ? '上次待确认' : '需要你确认'}：${task.requiredInput}` : '';
     $('taskNeed').classList.toggle('hidden', !task.requiredInput);
+    renderTaskStatusCard(task);
     renderConversationTimeline(task);
-    $('taskOutput').textContent = task.lastOutput || '暂无输出';
+    const outputPre = $('taskOutput');
+    outputPre.replaceChildren();
+    appendRichOutput(outputPre, task.lastOutput || '暂无输出');
+  }
+
+  function renderTaskStatusCard(task) {
+    const card = $('taskStatusCard');
+    card.replaceChildren();
+    const statusMap = {
+      running: { label: '执行中', tone: 'running', icon: '▶', desc: '正在工作，查看最新输出了解进展' },
+      idle: { label: '空闲', tone: 'idle', icon: '⏸', desc: task.requiredInput ? '在等你的回复' : '已完成或暂停，需要人工核实' },
+    };
+    const info = statusMap[task.status] || { label: task.status || '未知', tone: 'other', icon: '•', desc: '' };
+    if (task.requiredInput) {
+      info.label = '待输入';
+      info.tone = 'attention';
+      info.icon = '✋';
+      info.desc = '需要你回复才能继续';
+    }
+    card.dataset.tone = info.tone;
+    const iconSpan = element('span', 'tscIcon', info.icon);
+    const labelSpan = element('strong', 'tscLabel', info.label);
+    const machine = state.machines.find((item) => item.id === task.machineId);
+    const descSpan = element('span', 'tscDesc', [info.desc, machine ? machine.name : '', task.workspacePath ? task.workspacePath.split('/').pop() : ''].filter(Boolean).join(' · '));
+    card.append(iconSpan, labelSpan, descSpan);
+  }
+
+  function appendRichOutput(container, text) {
+    const str = String(text || '');
+    const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+    let lastIndex = 0;
+    let match;
+    while ((match = codeBlockRegex.exec(str)) !== null) {
+      if (match.index > lastIndex) {
+        container.appendChild(document.createTextNode(str.slice(lastIndex, match.index)));
+      }
+      const pre = document.createElement('pre');
+      pre.className = 'codeBlock';
+      const header = element('span', 'codeLang', match[1] || 'text');
+      pre.appendChild(header);
+      pre.appendChild(document.createTextNode(match[2]));
+      container.appendChild(pre);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < str.length) {
+      container.appendChild(document.createTextNode(str.slice(lastIndex)));
+    }
+    if (!container.childNodes.length) container.textContent = str;
   }
 
   function renderConversationTimeline(task) {
@@ -526,8 +574,13 @@
     turns.forEach((turn, index) => {
       const row = element('article', `conversationTurn ${turn.role}`);
       const meta = element('div', 'conversationMeta');
-      meta.appendChild(element('strong', '', turn.title));
-      meta.appendChild(element('span', '', turn.label));
+      const avatar = element('span', `turnAvatar ${turn.role}`);
+      avatar.textContent = turn.role === 'user' ? '👤' : turn.role === 'assistant' ? '🤖' : '📋';
+      meta.appendChild(avatar);
+      const metaText = element('div', 'turnMetaText');
+      metaText.appendChild(element('strong', '', turn.title));
+      metaText.appendChild(element('span', '', turn.label));
+      meta.appendChild(metaText);
       const body = element('div', 'conversationBody');
       appendFormattedConversationText(body, turn.text);
       row.appendChild(meta);
