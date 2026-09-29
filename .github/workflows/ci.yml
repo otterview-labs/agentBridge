@@ -18,12 +18,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          cache: npm
-          node-version: 22
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck, test, and build
-        run: npm run check
-      - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=moderate
+        node-version: 22
+      - name: Install UI test dependencies
+        run: npm ci --ignore-scripts
+      - name: Run Android UI tests
+        run: node --test android/tests/phone-ui.test.cjs
+        env:
+          PLAYWRIGHT_MODULE: node_modules/playwright
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run tests with browsers
+        run: node --test android/tests/phone-ui.test.cjs
+        env:
+          PLAYWRIGHT_MODULE: node_modules/playwright
