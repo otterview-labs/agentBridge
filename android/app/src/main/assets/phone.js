@@ -376,7 +376,7 @@
       message: '正在发现员工…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Discovery still runs in its native thread. */ }
+    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderOffices();
     renderBackgroundState();
     toast('发现员工已提交后台，完成后会通知你');
@@ -732,7 +732,7 @@
       message: '正在刷新任务输出…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native refresh still runs in its own thread. */ }
+    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderTaskDetail();
     renderBackgroundState();
     toast('刷新输出已提交后台，完成后会通知你');

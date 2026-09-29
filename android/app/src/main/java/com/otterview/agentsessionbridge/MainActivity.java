@@ -79,6 +79,7 @@ public final class MainActivity extends Activity {
   private int networkDeathCount;
   private long firstNetworkDeathAt;
   private long lastNetworkRestartAt = -600_000L;
+  private StreamingASR streamingASR;
   private final Handler voiceHandler = new Handler(Looper.getMainLooper());
   private final Runnable cloudLevelRunnable = new Runnable() {
     @Override public void run() {
@@ -209,6 +210,25 @@ public final class MainActivity extends Activity {
     else startService(intent);
   }
 
+  void startTaskForegroundWithBridge() {
+    Intent intent = new Intent(this, TaskForegroundService.class);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
+    else startService(intent);
+    if (bridge != null) {
+      // Give the service a moment to start, then inject the bridge
+      new Handler(Looper.getMainLooper()).postDelayed(() -> {
+        try {
+          // Find the running service and set the bridge
+          if (TaskForegroundService.instance != null) {
+            TaskForegroundService.instance.setBridge(bridge);
+          }
+        } catch (Exception error) {
+          android.util.Log.w("AgentBridgeNative", "bridge injection failed", error);
+        }
+      }, 500);
+    }
+  }
+
   void stopTaskForeground() {
     stopService(new Intent(this, TaskForegroundService.class));
   }
@@ -303,6 +323,8 @@ public final class MainActivity extends Activity {
   void startVoiceRecognition(boolean autoSend) {
     runOnUiThread(() -> {
       pendingVoiceAutoSend = autoSend;
+      // Try streaming ASR first when we have a DashScope key
+      if (startStreamingASR(autoSend)) return;
       if (textToSpeech != null) textToSpeech.stop();
       stopCloudSpeechPlayback();
       if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
@@ -313,8 +335,47 @@ public final class MainActivity extends Activity {
     });
   }
 
+  private boolean startStreamingASR(boolean autoSend) {
+    try {
+      String apiKey = bridge != null ? bridge.getDashScopeApiKey() : null;
+      if (apiKey == null || apiKey.trim().isEmpty()) return false;
+      if (streamingASR != null && streamingASR.isRunning()) return true;
+      streamingASR = new StreamingASR(apiKey.trim(), new StreamingASR.Listener() {
+        @Override
+        public void onReady() {
+          postVoiceState("cloud-recording", "", autoSend);
+        }
+
+        @Override
+        public void onPartial(String text) {
+          postVoiceState("partial", text, autoSend);
+        }
+
+        @Override
+        public void onFinal(String text) {
+          postVoiceState("final", text, autoSend);
+        }
+
+        @Override
+        public void onError(String message) {
+          postVoiceState("error", message, false);
+        }
+      });
+      streamingASR.start();
+      return true;
+    } catch (Exception error) {
+      Log.w("AgentBridgeNative", "Streaming ASR not available, falling back", error);
+      return false;
+    }
+  }
+
   void stopVoiceRecognition() {
     runOnUiThread(() -> {
+      if (streamingASR != null && streamingASR.isRunning()) {
+        streamingASR.stop();
+        postVoiceState("stopped", "", false);
+        return;
+      }
       if (cloudRecording) {
         stopCloudRecording();
         return;
@@ -325,6 +386,11 @@ public final class MainActivity extends Activity {
 
   void cancelVoiceRecognition() {
     runOnUiThread(() -> {
+      if (streamingASR != null && streamingASR.isRunning()) {
+        streamingASR.stop();
+        postVoiceState("stopped", "", false);
+        return;
+      }
       if (cloudRecording && cloudRecorder != null) {
         try {
           cloudRecorder.stop();
@@ -762,6 +828,7 @@ public final class MainActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    if (streamingASR != null) streamingASR.stop();
     cleanupCloudRecorder();
     stopCloudSpeechPlayback();
     stopConversationAudio();

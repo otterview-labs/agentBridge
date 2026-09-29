@@ -54,6 +54,23 @@ final class PhoneBridge {
   private static final int MAX_OUTPUT = 2_000_000;
 
   private final MainActivity activity;
+
+  MainActivity getActivityForService() {
+    return activity;
+  }
+
+  String getDashScopeApiKey() {
+    try {
+      JSONObject model = store.studioModel();
+      String baseUrl = model.optString("baseUrl", "");
+      if (baseUrl.contains("dashscope.aliyuncs.com")) {
+        return model.optString("apiKey", "");
+      }
+    } catch (Exception error) {
+      // Model not configured or not DashScope
+    }
+    return null;
+  }
   private final BridgeStore store;
   private final Map<Integer, JSONObject> operations = new HashMap<>();
   private final Map<Integer, Session> relayBastionSessions = new HashMap<>();
@@ -825,32 +842,61 @@ final class PhoneBridge {
       JSONObject args = new JSONObject(argsJson);
       switch (name) {
         case "list_tasks": {
-          JSONObject state = new JSONObject(studioState());
-          JSONArray tasks = state.getJSONObject("data").getJSONArray("tasks");
-          JSONArray result = new JSONArray();
-          for (int i = 0; i < tasks.length(); i++) {
-            JSONObject t = tasks.getJSONObject(i);
-            result.put(new JSONObject()
-                .put("id", t.optString("id"))
-                .put("title", t.optString("title"))
-                .put("status", t.optString("status"))
-                .put("machineId", t.opt("machineId"))
-                .put("agentType", t.optString("agentType"))
-                .put("needsInput", t.optBoolean("requiredInput")));
+          // Real-time: actually SSH to machines and discover current tasks
+          StringBuilder sb = new StringBuilder();
+          JSONArray machines = new JSONObject(studioState()).getJSONObject("data").getJSONArray("machines");
+          for (int i = 0; i < machines.length(); i++) {
+            JSONObject m = machines.getJSONObject(i);
+            if (!"online".equals(m.optString("lastStatus"))) continue;
+            try {
+              String result = discoverTasks(m.getInt("id"));
+              JSONObject parsed = new JSONObject(result);
+              if (parsed.optBoolean("ok")) {
+                JSONArray tasks = parsed.getJSONObject("data").getJSONArray("tasks");
+                for (int t = 0; t < tasks.length(); t++) {
+                  JSONObject task = tasks.getJSONObject(t);
+                  if (sb.length() > 0) sb.append(",");
+                  sb.append(new JSONObject()
+                      .put("id", task.optString("id"))
+                      .put("title", task.optString("title"))
+                      .put("status", task.optString("status"))
+                      .put("machine", m.optString("name"))
+                      .put("agentType", task.optString("agentType"))
+                      .put("needsInput", task.optBoolean("requiredInput"))
+                      .toString());
+                }
+              }
+            } catch (Exception sshError) {
+              // Machine unreachable; skip it
+            }
           }
-          return result.toString();
+          return "[" + sb.toString() + "]";
         }
         case "check_machines": {
           JSONObject state = new JSONObject(studioState());
+          JSONArray tasks = state.getJSONObject("data").getJSONArray("tasks");
           JSONArray machines = state.getJSONObject("data").getJSONArray("machines");
+          // Real-time: probe each machine
           JSONArray result = new JSONArray();
           for (int i = 0; i < machines.length(); i++) {
             JSONObject m = machines.getJSONObject(i);
-            result.put(new JSONObject()
-                .put("id", m.opt("id"))
-                .put("name", m.optString("name"))
-                .put("status", m.optString("lastStatus"))
-                .put("tools", m.optJSONArray("tools")));
+            try {
+              String probeResult = probeMachine(m.getInt("id"));
+              JSONObject parsed = new JSONObject(probeResult);
+              if (parsed.optBoolean("ok")) {
+                JSONObject pm = parsed.getJSONObject("data").getJSONObject("machine");
+                result.put(new JSONObject()
+                    .put("id", pm.opt("id"))
+                    .put("name", pm.optString("name"))
+                    .put("status", pm.optString("lastStatus"))
+                    .put("tools", pm.optJSONArray("tools")));
+              }
+            } catch (Exception probeError) {
+              result.put(new JSONObject()
+                  .put("id", m.opt("id"))
+                  .put("name", m.optString("name"))
+                  .put("status", "unreachable"));
+            }
           }
           return result.toString();
         }
@@ -3334,7 +3380,7 @@ final class PhoneBridge {
     return "远程命令失败(" + exit + ")" + stage + "：" + detail;
   }
 
-  private static String now() {
+  static String now() {
     return java.time.format.DateTimeFormatter.ISO_INSTANT.format(java.time.Instant.now());
   }
 
