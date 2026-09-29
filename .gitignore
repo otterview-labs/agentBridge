@@ -25,3 +25,10 @@ android/*.iml
 android/keystore.properties
 *.jks
 *.keystore
+
+# Backend modules stay private; only the Android app is open-sourced.
+src/
+public/
+site/
+test/
+docs/hapi-capability-sync.md
