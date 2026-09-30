@@ -1,14 +1,13 @@
 # Android Phone Controller
 
-The Android app is a phone-first controller. It does **not** connect to the Mac
-Hub page. On launch it opens a local office-town UI and talks to remote Mac /
+The Android app is a phone-first controller. It has no server component. On launch it opens a local office-town UI and talks to remote Mac /
 Linux machines over SSH directly from the phone.
 
 Current debug version:
 
 ```text
-versionName: 0.5.31
-versionCode: 47
+versionName: 0.5.38
+versionCode: 54
 minSdk: 24
 targetSdk: 35
 package: com.otterview.agentsessionbridge.debug
@@ -43,19 +42,39 @@ android/app/build/outputs/apk/debug/app-debug.apk
   failed sends retain them. Concurrent sends are blocked.
 - Reply, discovery, output refresh, and task-planning operations run in native
   background threads. The UI shows a background counter, keeps navigation
-  available, starts an Android data-sync foreground service, and posts a system
-  notification when the operation succeeds or fails. A failed reply restores its
-  draft.
+  available, and posts a system notification when the operation succeeds or
+  fails. A data-sync foreground service is held natively for as long as any
+  operation runs, so locking the phone does not kill it. A failed reply restores
+  its draft.
+- Replies to process sessions start `claude --print` / `codex exec resume`
+  detached (`nohup`) on the remote machine and poll its log. If the agent is
+  still working after three minutes the phone stops waiting and says the reply
+  was delivered; it never reports failure for a reply that is still running, so
+  the user is not prompted to send it twice. Arguments are passed after `--`,
+  so a reply starting with `-` reaches the agent as text.
+- Connection tests, discovery, LAN scans and FRP deployment run as native
+  background calls; the page shows progress instead of freezing.
 - Sheets lock background scrolling and keyboard focus. Escape and Android Back
   close the active sheet before leaving the app. Task sheets also close on an
   outside tap.
 - Per-office sprite collapse/expand. Collapsing hides the task list entirely
   and leaves only an employee/attention summary; the choice is persisted in
   local storage.
-- Private machine/task storage in Android app storage.
+- Private machine/task storage in Android app storage. SSH passwords, private
+  keys, the model API key and FRP secrets are encrypted with a non-exportable
+  Android Keystore key (AES-GCM); values stored in plain text by older
+  versions are encrypted on first read. Cloud backup and device-to-device
+  transfer are disabled. The WebView never receives stored credentials: the
+  edit form shows "已保存" and an empty field keeps the saved value.
+- SSH host keys are pinned on first connection. If a key changes the app
+  refuses to connect and offers **重置主机指纹**, to be used only after a
+  reinstall or a replaced machine.
 - SSH sockets bind to the active non-VPN Wi-Fi/Ethernet network when one is
   available. This avoids always-on VPN policies that route the app over a tunnel
   while blocking raw SSH, while model HTTP traffic keeps the system default.
+  The process-wide binding some OEM stacks need is held only for the DNS lookup
+  and connect, serialized, and restored to exactly what it was before. Every
+  connect has a 12-second timeout.
 - LAN `/24` SSH-port scanner.
 - Native SSH client using `com.github.mwiede:jsch`.
 - Trust-on-first-use SSH host-key pinning.
@@ -93,10 +112,13 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - Butler conversations, explicit memories, and generated task plans are stored
   in Android app-private storage.
 - Butler voice input supports press-and-hold, tap-to-toggle, and slide-up
-  cancellation. The system recognizer is rebuilt per session for OEM
-  reliability and call mode retries automatically after recognizer errors.
-  Phones without a system recognizer fall back to `qwen3-asr-flash` when the
-  butler model points at DashScope, otherwise they get a clear local error.
+  cancellation. When the butler model points at DashScope, speech is streamed
+  to `paraformer-realtime-v2`: press-to-talk collects every sentence until the
+  finger lifts, a call ends the user's turn after one sentence. Otherwise the
+  system recognizer is used, with `qwen3-asr-flash` as the fallback. The
+  microphone permission is checked before any capture starts. Call mode backs
+  off after recognizer errors, mutes itself after three in a row, and ends if
+  the permission is denied.
 - Voice settings show engine status and provide speech-rate and pitch sliders
   with a preview button; choices persist locally and apply to every playback.
 - Butler replies use Android Text-to-Speech. In call mode the app requests
@@ -141,7 +163,19 @@ firewall/security group. The app can:
 5. Open an SSH local forwarding channel from the phone through the public entry
    before connecting to the target machine.
 
-Version 0.3.5 fixes installer checksum verification against the downloaded file,
+Archive checksums are pinned in the app (`FrpInstallSupport`) for FRP
+0.61.1 (default) and 0.71.0, copied from the official GitHub releases. The
+download source and the gh-proxy fallback only supply bytes; a checksum file
+is never downloaded, so a mirror cannot vouch for its own archive. A version
+saved by an older release keeps working where FRP is already installed, but
+the app will not download it; choosing a new version is limited to the pinned
+ones. On the public entry `frps` and the visitors run as the
+unprivileged `asb-frp` account with systemd hardening, and the managed `frps`
+config sets `allowPorts` to its own bind port, so a leaked token cannot open
+other public ports. Existing entries pick this up the next time they are
+deployed.
+
+Version 0.3.5 fixed installer checksum verification against the downloaded file,
 portable shell URL substitution, Mac LaunchAgent absolute/XML-escaped paths,
 and visitor config/service naming. Downloads have bounded timeouts and checksum
 failures stop installation. Mac LaunchAgents require the target user to be
@@ -172,80 +206,12 @@ uses TLS, a strong random server token, and a unique STCP secret per machine.
 
 ## Butler voice setup
 
-Phones without a system speech recognizer previously uploaded audio to a Hub.
-The Hub-free controller no longer performs that upload; use a device with a
-system recognizer or configure speech input at the OS level.
-
-The server Hub still supports a local Whisper engine for browser Studio users:
-
-```bash
-brew install whisper-cpp
-mkdir -p ~/.cache/whisper.cpp
-curl -L https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-base.bin \
-  -o ~/.cache/whisper.cpp/ggml-base.bin
-```
-
-The defaults resolve to `whisper-cli` and
-`~/.cache/whisper.cpp/ggml-base.bin`. Override them with:
-
-```text
-ASB_VOICE_ENGINE=local-whisper
-ASB_WHISPER_BIN=/opt/homebrew/bin/whisper-cli
-ASB_WHISPER_MODEL=/absolute/path/ggml-base.bin
-ASB_WHISPER_TIMEOUT_MS=45000
-```
-
-The first request after a machine reboot may take several seconds while the
-Metal kernels compile; subsequent short requests are much faster. This is a
-batched near-real-time flow, not full-duplex streaming recognition.
-
-## Task discovery and replies
-
-The phone executes read-only discovery commands over SSH:
-
-- `uname`, tool lookup, and `tmux -V`
-- `tmux list-panes`
-- `tmux capture-pane`
-- `ps -axo pid=,ppid=,etime=,command=`
-- Claude process metadata from `~/.claude/sessions/<pid>.json`
-- Codex Desktop thread locks and matching rollout transcripts
-- small `tail` reads of Claude/Codex JSONL transcripts
-
-It can send input back:
-
-- tmux task: `tmux send-keys`
-- Codex process: `codex exec resume --skip-git-repo-check`
-- Busy Codex Desktop thread: `codex queue --thread <thread>`
-- Claude process: `claude --resume ... --print`
-
-## Security notes
-
-- Credentials are currently stored in Android private SharedPreferences. They
-  are not exported to other apps, but they are not yet encrypted with Android
-  Keystore.
-- The first host key is pinned automatically. A changed host key is rejected.
-- Discovery uses the SSH account's own permissions.
-- Reply commands are intentionally limited to the discovered tmux pane or
-  resumed CLI session.
-- Claude replies no longer add a permission-bypass flag. The remote CLI's
-  existing session/account permissions still apply; this is not an additional
-  approval system. Actions requiring permissions may need handling on the host.
-- Codex resume only runs if entering the recorded workspace succeeds.
-- LAN scanning only probes TCP port 22 in the selected `/24`.
-
-## Build
-
-```bash
-cd android
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-./gradlew --no-daemon :app:assembleDebug
-```
-
-The output is:
-
-```text
-android/app/build/outputs/apk/debug/app-debug.apk
-```
+Voice needs no server. Configure the butler model with a DashScope
+(阿里云百炼) OpenAI-compatible base URL to enable streaming recognition
+(`paraformer-realtime-v2`), cloud recognition (`qwen3-asr-flash`) and cloud
+speech (`qwen3-tts-flash`). With any other provider the phone's own speech
+recognizer and Text-to-Speech engine are used. Audio is sent to DashScope only
+in the first case.
 
 ## Release
 
@@ -253,17 +219,9 @@ The published APK is at
 <https://github.com/otterview-labs/agentbridge/releases/latest/download/agentbridge.apk>,
 linked from the download page at <https://otterview-labs.github.io/agentbridge/>.
 Both are stable permalinks: the release URL always resolves to the newest
-release, so neither has to be updated when a version ships. `site/index.html`
-holds the page and `.github/workflows/pages.yml` publishes it.
-
-The page is served from a generated `gh-pages` branch, which the workflow
-force-pushes on every change under `site/`. Pages is configured for that branch
-rather than for the workflow-artifact pipeline because
-`actions/upload-pages-artifact` is a composite action that references
-`actions/upload-artifact` by tag, and this repository requires every action to
-be pinned to a full-length commit SHA. Publishing a static page is not worth
-relaxing that rule repo-wide. The branch is generated output, so edit
-`site/index.html` — not `gh-pages`.
+release, so neither has to be updated when a version ships. The page itself
+is served from the `gh-pages` branch; its source is not part of this
+repository.
 
 Pushing a tag matching `android-v*` makes
 `.github/workflows/android-release.yml` build, sign, verify, and publish the
@@ -292,36 +250,37 @@ read them.
 > app when both are signed with the same key, so losing it means no future
 > build can update a copy already on a phone.
 
-## UI regression tests
+## Tests
 
-Run with Node.js and Playwright (including its Chromium browser) available:
-
-```bash
-node --test android/tests/phone-ui.test.cjs
-```
-
-If Playwright is supplied by a shared runtime, set `PLAYWRIGHT_MODULE` to its
-absolute module directory. Optionally set `SCREENSHOT_DIR` to retain a screenshot.
-Tests render the actual Android assets with a mock native bridge; they do not
-scan networks, deploy FRP, or send commands to real machines.
-
-Installer regression tests run the shared Java-generated shell fragments with
-mock downloads and launchctl, confined to temporary directories:
+CI runs these on every push and pull request (`.github/workflows/ci.yml`),
+together with `assembleDebug`. Locally, with Node.js 20+ and a JDK:
 
 ```bash
-JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
-  node --test android/tests/frp-install.test.cjs
+cd android/tests
+npm ci
+npx playwright install chromium
+npm test
 ```
 
-These tests verify renamed-archive checksums, missing/duplicate/corrupt checksum
-rejection, download failure, XML-safe absolute Mac paths, and missing GUI sessions.
-They do not change real launch agents or system services.
+- `phone-ui.test.cjs` renders the real Android assets in Chromium with a mock
+  native bridge. It does not scan networks, deploy FRP, or reach real machines.
+  Set `PLAYWRIGHT_MODULE` to use a Playwright installed elsewhere.
+- `frp-install.test.cjs` runs the Java-generated installer fragments with mock
+  downloads and launchctl in temporary directories: pinned-checksum
+  verification, tampered mirror archives, download failures, the service
+  account step, and XML-safe Mac paths (the plist check needs macOS).
+- `reply-script.test.cjs` runs the detached reply launcher with a real shell:
+  it returns at once, survives quotes, `$()` and leading dashes in the reply,
+  and reports the exit status.
 
 ## Current limitations
 
 - Windows SSH is not yet handled as a first-class target.
-- There is no background poll/foreground service yet. Launch loads saved
-  records; discovery runs on explicit refresh or task-discovery actions.
-- Credential encryption and biometric lock are future hardening work.
+- There is no background polling. Launch loads saved records; discovery runs
+  on explicit refresh or task-discovery actions, and the foreground service only
+  covers operations the user started.
+- There is no biometric lock, and the first SSH connection to a host trusts its
+  key without showing the fingerprint.
+- All machines behind one FRP entry share its auth token (an frp limitation).
 - Public relay functionality is implemented, but UI-only tests do not verify
   live SSH or FRP connectivity.

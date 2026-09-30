@@ -6,7 +6,6 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.AlarmManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -58,7 +57,8 @@ public final class MainActivity extends Activity {
   private PhoneBridge bridge;
   private SpeechRecognizer recognizer;
   private TextToSpeech textToSpeech;
-  private boolean textToSpeechReady;
+  private volatile boolean textToSpeechReady;
+  private volatile boolean conversationAudioActive;
   private volatile float ttsRate = 1.0f;
   private volatile float ttsPitch = 1.0f;
   private volatile boolean preferCloudTts;
@@ -78,7 +78,7 @@ public final class MainActivity extends Activity {
   private MediaPlayer cloudSpeechPlayer;
   private int networkDeathCount;
   private long firstNetworkDeathAt;
-  private long lastNetworkRestartAt = -600_000L;
+  private long lastNetworkHintAt = -600_000L;
   private StreamingASR streamingASR;
   private final Handler voiceHandler = new Handler(Looper.getMainLooper());
   private final Runnable cloudLevelRunnable = new Runnable() {
@@ -150,6 +150,7 @@ public final class MainActivity extends Activity {
   }
 
   void startConversationAudio(boolean speakerOn) {
+    conversationAudioActive = true;
     runOnUiThread(() -> {
       if (audioManager == null) audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
       if (audioManager == null) return;
@@ -191,6 +192,7 @@ public final class MainActivity extends Activity {
   }
 
   void stopConversationAudio() {
+    conversationAudioActive = false;
     runOnUiThread(() -> {
       if (textToSpeech != null) textToSpeech.stop();
       stopCloudSpeechPlayback();
@@ -204,34 +206,6 @@ public final class MainActivity extends Activity {
     });
   }
 
-  void startTaskForeground() {
-    Intent intent = new Intent(this, TaskForegroundService.class);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
-    else startService(intent);
-  }
-
-  void startTaskForegroundWithBridge() {
-    Intent intent = new Intent(this, TaskForegroundService.class);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
-    else startService(intent);
-    if (bridge != null) {
-      // Give the service a moment to start, then inject the bridge
-      new Handler(Looper.getMainLooper()).postDelayed(() -> {
-        try {
-          // Find the running service and set the bridge
-          if (TaskForegroundService.instance != null) {
-            TaskForegroundService.instance.setBridge(bridge);
-          }
-        } catch (Exception error) {
-          android.util.Log.w("AgentBridgeNative", "bridge injection failed", error);
-        }
-      }, 500);
-    }
-  }
-
-  void stopTaskForeground() {
-    stopService(new Intent(this, TaskForegroundService.class));
-  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -323,16 +297,21 @@ public final class MainActivity extends Activity {
   void startVoiceRecognition(boolean autoSend) {
     runOnUiThread(() -> {
       pendingVoiceAutoSend = autoSend;
-      // Try streaming ASR first when we have a DashScope key
-      if (startStreamingASR(autoSend)) return;
       if (textToSpeech != null) textToSpeech.stop();
       stopCloudSpeechPlayback();
+      // Every capture path, streaming ASR included, needs the permission first.
       if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
         requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQUEST_VOICE);
         return;
       }
-      startRecognizer();
+      startCapture();
     });
+  }
+
+  private void startCapture() {
+    // Streaming ASR first when a DashScope key is configured.
+    if (startStreamingASR(pendingVoiceAutoSend)) return;
+    startRecognizer();
   }
 
   private boolean startStreamingASR(boolean autoSend) {
@@ -340,7 +319,9 @@ public final class MainActivity extends Activity {
       String apiKey = bridge != null ? bridge.getDashScopeApiKey() : null;
       if (apiKey == null || apiKey.trim().isEmpty()) return false;
       if (streamingASR != null && streamingASR.isRunning()) return true;
-      streamingASR = new StreamingASR(apiKey.trim(), new StreamingASR.Listener() {
+      // In a call, one finished sentence is the caller's turn; press-to-talk
+      // keeps listening until the finger lifts.
+      streamingASR = new StreamingASR(apiKey.trim(), conversationAudioActive, new StreamingASR.Listener() {
         @Override
         public void onReady() {
           postVoiceState("cloud-recording", "", autoSend);
@@ -387,7 +368,7 @@ public final class MainActivity extends Activity {
   void cancelVoiceRecognition() {
     runOnUiThread(() -> {
       if (streamingASR != null && streamingASR.isRunning()) {
-        streamingASR.stop();
+        streamingASR.cancel();
         postVoiceState("stopped", "", false);
         return;
       }
@@ -415,6 +396,7 @@ public final class MainActivity extends Activity {
     runOnUiThread(() -> {
       // Stop any live microphone capture before playing the reply so the
       // recognizer never transcribes the butler's own voice.
+      stopStreamingCapture();
       if (cloudRecording && cloudRecorder != null) {
         try {
           cloudRecorder.stop();
@@ -535,8 +517,13 @@ public final class MainActivity extends Activity {
     return (HttpURLConnection) url.openConnection();
   }
 
+  private void stopStreamingCapture() {
+    if (streamingASR != null && streamingASR.isRunning()) streamingASR.cancel();
+  }
+
   void playSpeechUrl(String audioUrl) {
     runOnUiThread(() -> {
+      stopStreamingCapture();
       stopCloudSpeechPlayback();
       try {
         cloudSpeechPlayer = new MediaPlayer();
@@ -544,7 +531,7 @@ public final class MainActivity extends Activity {
             .setUsage(AudioAttributes.USAGE_ASSISTANT)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build());
-        cloudSpeechPlayer.setDataSource(audioUrl);
+        cloudSpeechPlayer.setDataSource(secureSpeechUrl(audioUrl));
         cloudSpeechPlayer.setOnPreparedListener(player -> {
           postVoiceState("speaking", "", false);
           player.start();
@@ -566,6 +553,22 @@ public final class MainActivity extends Activity {
     });
   }
 
+  /**
+   * DashScope returns signed OSS links as http://. The signature does not
+   * cover the scheme, so fetch the same object over TLS.
+   */
+  static String secureSpeechUrl(String audioUrl) {
+    try {
+      URL url = new URL(audioUrl);
+      if ("http".equals(url.getProtocol()) && url.getHost().endsWith(".aliyuncs.com")) {
+        return "https" + audioUrl.substring("http".length());
+      }
+    } catch (Exception ignored) {
+      // MediaPlayer reports an unusable URL through its error listener.
+    }
+    return audioUrl;
+  }
+
   void stopCloudSpeechPlayback() {
     if (cloudSpeechPlayer != null) {
       try {
@@ -582,11 +585,18 @@ public final class MainActivity extends Activity {
     }
   }
 
-  void noteNetworkAlive() {
+  synchronized void noteNetworkAlive() {
     networkDeathCount = 0;
   }
 
-  void noteNetworkDeath() {
+  /**
+   * Counts failures that mean this process has lost the network (ENONET, or
+   * a public model host that no longer resolves). Some OEM network stacks
+   * keep a broken per-process route that only a fresh process clears; after
+   * repeated failures the user is told so, once every ten minutes. The app
+   * never kills itself: that also killed operations still running.
+   */
+  synchronized void noteNetworkDeath() {
     long now = SystemClock.elapsedRealtime();
     if (now - firstNetworkDeathAt > 30_000) {
       firstNetworkDeathAt = now;
@@ -594,28 +604,16 @@ public final class MainActivity extends Activity {
     }
     networkDeathCount += 1;
     if (networkDeathCount < 5) return;
-    if (now - lastNetworkRestartAt < 600_000L) return;
-    // ColorOS network services (com.oplus.nas) keep per-process routing
-    // configs; after their tunnel state changes, every socket of a running
-    // process dies while a fresh process works immediately. Restarting the
-    // process is the only reliable recovery on these OEM builds.
-    postVoiceState("error", "系统网络通道变化，应用将自动重启恢复", false);
+    if (now - lastNetworkHintAt < 600_000L) return;
+    lastNetworkHintAt = now;
+    showNotice("手机网络通道异常：连续多次无法联网。请检查网络，若网络正常仍失败，请完全退出 App 后重新打开。");
+  }
+
+  void showNotice(String message) {
     runOnUiThread(() -> {
-      lastNetworkRestartAt = SystemClock.elapsedRealtime();
-      try {
-        android.content.Intent intent = new android.content.Intent(this, MainActivity.class)
-            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-        PendingIntent restart = PendingIntent.getActivity(this, 91, intent,
-            PendingIntent.FLAG_IMMUTABLE);
-        AlarmManager alarm = getSystemService(AlarmManager.class);
-        if (alarm != null) {
-          alarm.setExact(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 500, restart);
-        }
-      } catch (Exception error) {
-        Log.w("AgentBridgeNative", "restart scheduling failed", error);
-      }
-      finishAffinity();
-      System.exit(0);
+      if (webView == null || isFinishing() || isDestroyed()) return;
+      webView.evaluateJavascript("window.phoneUI && window.phoneUI.notice("
+          + org.json.JSONObject.quote(message) + ")", null);
     });
   }
 
@@ -805,9 +803,10 @@ public final class MainActivity extends Activity {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     if (requestCode != REQUEST_VOICE) return;
     if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-      startRecognizer();
+      startCapture();
     } else {
-      postVoiceState("error", "需要麦克风权限才能使用实时语音", false);
+      // A distinct type so call mode ends instead of re-asking every second.
+      postVoiceState("permission-denied", "需要麦克风权限才能使用语音，请在系统设置中允许", false);
     }
   }
 
@@ -828,7 +827,7 @@ public final class MainActivity extends Activity {
 
   @Override
   protected void onDestroy() {
-    if (streamingASR != null) streamingASR.stop();
+    if (streamingASR != null) streamingASR.cancel();
     cleanupCloudRecorder();
     stopCloudSpeechPlayback();
     stopConversationAudio();

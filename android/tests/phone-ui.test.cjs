@@ -219,6 +219,33 @@ async function openPhone(t, options = {}) {
       },
       getTtsStatus: () => ok({ ready: true, engine: 'test-engine', language: 'zh-CN' })
     };
+    if (options.savedCredentials) {
+      Object.assign(data.machines[0], { hasPassword: true, password: 'must-not-appear' });
+    }
+    if (options.hostKeyChanged) {
+      Object.assign(data.machines[0], { lastStatus: 'offline',
+        lastError: '「Mac Pro · 开发办公室」的 SSH 主机指纹和上次不一致，已拒绝连接。' });
+    }
+    if (options.voiceAutoSendOff) localStorage.setItem('voiceAutoSend', 'false');
+    if (options.backgroundCalls) {
+      // Native runs SSH-bound methods on a worker thread; the page polls.
+      window.backgroundCalls = [];
+      let backgroundOperation = null;
+      const plainOperationState = window.AgentBridge.operationState;
+      window.AgentBridge.beginBridgeCall = (method, args) => {
+        window.backgroundCalls.push(method);
+        backgroundOperation = { id: `bg-${window.backgroundCalls.length}`, state: 'running',
+          method, args: JSON.parse(args) };
+        return ok({ operation: backgroundOperation });
+      };
+      window.AgentBridge.operationState = id => {
+        if (backgroundOperation && id === backgroundOperation.id) {
+          const result = JSON.parse(window.AgentBridge[backgroundOperation.method](...backgroundOperation.args));
+          return ok({ operation: { ...backgroundOperation, state: 'succeeded', result } });
+        }
+        return plainOperationState(id);
+      };
+    }
   }, options);
   await page.goto('http://phone.test/phone.html');
   await page.locator(options.empty ? '.empty' : '.employee').first().waitFor();
@@ -278,6 +305,30 @@ test('refresh reports success, partial failure and total failure accurately', as
       await expectToast(page, expected);
     });
   }
+});
+
+test('SSH-bound calls run as native background operations and keep their results', async t => {
+  const page = await openPhone(t, { backgroundCalls: true, failedIds: [2] });
+  await page.locator('#refreshAll').click();
+  await expectToast(page, '已刷新 1/2 台，其余保留上次记录');
+  assert.deepEqual(await page.evaluate(() => window.backgroundCalls), ['discoverTasks', 'discoverTasks']);
+});
+
+test('saved SSH credentials are never put back into the edit form', async t => {
+  const page = await openPhone(t, { savedCredentials: true });
+  const office = page.locator('.office').first();
+  await office.getByRole('button', { name: '更多' }).click();
+  await office.getByRole('button', { name: '编辑' }).click();
+  await page.locator('#machineBackdrop').waitFor();
+  assert.equal(await page.locator('#machinePassword').inputValue(), '');
+  assert.match(await page.locator('#machinePassword').getAttribute('placeholder'), /已保存/);
+  assert.equal(await page.evaluate(() => document.body.innerHTML.includes('must-not-appear')), false);
+});
+
+test('a changed host key offers an explicit reset instead of a silent retry', async t => {
+  const page = await openPhone(t, { hostKeyChanged: true });
+  await page.locator('.office').first().getByRole('button', { name: '重置主机指纹' }).waitFor();
+  assert.equal(await page.locator('.office').nth(1).getByRole('button', { name: '重置主机指纹' }).count(), 0);
 });
 
 test('state read failure is not replaced by a success toast', async t => {
@@ -532,6 +583,31 @@ test('call mode keeps listening after a recognizer error and shows live partials
   await page.locator('#callEnd').click();
 });
 
+test('call mode ends on a denied microphone and leaves saved voice preferences alone', async t => {
+  const page = await openPhone(t, { modelReady: true, voiceAutoSendOff: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  await page.evaluate(() => window.phoneVoice.update({ type: 'permission-denied', text: '需要麦克风权限才能使用语音' }));
+  await page.locator('#callBackdrop').waitFor({ state: 'hidden' });
+  assert.equal(await page.evaluate(() => localStorage.getItem('voiceAutoSend')), 'false');
+});
+
+test('call mode stops retrying after repeated recognizer errors', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.evaluate(() => window.phoneVoice.update({ type: 'error', text: 'ASR 连接失败' }));
+  }
+  await page.waitForFunction(() => document.getElementById('callTranscript').textContent.includes('连续失败 3 次'));
+  const starts = await page.evaluate(() => window.voiceCalls.filter(call => call[0] === 'start').length);
+  await new Promise(resolve => setTimeout(resolve, 1500));
+  assert.equal(await page.evaluate(() => window.voiceCalls.filter(call => call[0] === 'start').length), starts);
+  await page.locator('#callEnd').click();
+});
+
 test('call mode completes the cloud-recording voice loop', async t => {
   const page = await openPhone(t, { modelReady: true });
   await page.locator('[data-view="butler"]').click();
@@ -657,9 +733,13 @@ test('native reply commands do not force bypass and guard the Codex command grou
   assert.match(source, /&& \{ codex_bin=/);
   assert.match(source, /thread=.*shellQuote\(sessionId\).*message=.*shellQuote\(value\)/s);
   assert.match(source, /queue --thread/);
-  assert.ok(source.includes('--message \\"$message\\"'));
+  assert.ok(source.includes('--message=\\"$message\\"'));
+  // A reply that starts with "-" must reach the agent as text, not as a flag.
+  assert.ok(source.includes('exec resume --skip-git-repo-check -- \\"$thread\\"'));
+  assert.match(source, /--print -- " \+ shellQuote\(value\)/);
   assert.match(source, /__ASB_CODEX_QUEUED__/);
-  assert.equal((source.match(/\.put\("lastCheckedAt", now\(\)\)/g) || []).length, 3);
+  assert.match(source, /RemoteReply\.start\(command\)/);
+  assert.equal((source.match(/\.put\("lastCheckedAt", now\(\)\)/g) || []).length, 2);
 });
 
 test('phone butler calls the model directly and contains no Hub client path', () => {

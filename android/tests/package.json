@@ -1,0 +1,11 @@
+{
+  "name": "agentbridge-android-tests",
+  "private": true,
+  "description": "Node tests for the agentBridge Android app: WebView UI (Playwright), FRP installer and reply scripts.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "playwright": "1.62.0"
+  }
+}

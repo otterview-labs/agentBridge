@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The page can reach native SSH through the bridge, so it may only run its
+       own bundled script and may not load or send anything over the network. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; font-src 'self' file: data:; media-src 'self' file: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>agentBridge</title>
   <link rel="stylesheet" href="./phone.css">
 </head>

@@ -198,7 +198,14 @@
     return sheet ? closeSheet(sheet.id) : false;
   }
 
-  window.phoneUI = { closeTopSheet };
+  window.phoneUI = {
+    closeTopSheet,
+    notice(message) {
+      addBackgroundNotice('error', message);
+      renderBackgroundState();
+      toast(message);
+    }
+  };
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && closeTopSheet()) event.preventDefault();
     if (event.key !== 'Tab') return;
@@ -231,8 +238,17 @@
   $('tailTask').addEventListener('click', refreshCurrentTask);
   $('sendTask').addEventListener('click', sendCurrentTask);
 
+  // Bridge methods that open SSH connections. A direct call blocks the page
+  // until it returns, so these run natively on a worker thread and are polled.
+  const BACKGROUND_CALLS = new Set([
+    'discoverTasks', 'probeMachine', 'scanNetwork', 'deployFrpServer', 'deployFrpRelay', 'disableFrpRelay'
+  ]);
+
   function call(method, busyText) {
     const args = Array.prototype.slice.call(arguments, 2);
+    if (BACKGROUND_CALLS.has(method) && typeof AgentBridge.beginBridgeCall === 'function') {
+      return callInBackground(method, busyText, args);
+    }
     return new Promise((resolve) => {
       showBusy(busyText);
       setTimeout(() => {
@@ -249,6 +265,37 @@
         resolve(parsed);
       }, 40);
     });
+  }
+
+  async function callInBackground(method, busyText, args) {
+    showBusy(busyText);
+    let parsed;
+    let operationId = null;
+    try {
+      const started = JSON.parse(AgentBridge.beginBridgeCall(method, JSON.stringify(args)));
+      if (!started.ok) throw new Error(started.error || '操作失败');
+      operationId = started.data.operation.id;
+      for (;;) {
+        await sleep(300);
+        const current = JSON.parse(AgentBridge.operationState(operationId));
+        if (!current.ok) throw new Error(current.error || '无法读取操作状态');
+        const operation = current.data.operation;
+        if (operation.state !== 'running') {
+          parsed = operation.result || { ok: false, error: operation.message || '操作失败' };
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('bridge call failed: ' + method + ': ' + (error && error.message ? error.message : String(error)));
+      parsed = { ok: false, error: error && error.message ? error.message : String(error) };
+    } finally {
+      if (operationId !== null) {
+        try { AgentBridge.clearOperation(operationId); } catch (error) { /* already cleared */ }
+      }
+    }
+    hideBusy();
+    if (!parsed.ok) toast(parsed.error || '操作失败');
+    return parsed;
   }
 
   async function loadState() {
@@ -376,7 +423,6 @@
       message: '正在发现员工…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderOffices();
     renderBackgroundState();
     toast('发现员工已提交后台，完成后会通知你');
@@ -423,8 +469,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     render();
     renderBackgroundState();
@@ -452,6 +496,16 @@
   async function editMachine(id) {
     const machine = state.machines.find((item) => item.id === id);
     if (machine) openMachineSheet(machine);
+  }
+
+  async function resetHostKey(id) {
+    const machine = state.machines.find((item) => item.id === id);
+    if (!machine) return;
+    if (!window.confirm(`只有在你确认「${machine.name}」重装过系统或换了机器时才重置。重置后下次连接会信任它当前的主机指纹。继续？`)) return;
+    const result = await call('resetHostKey', '重置主机指纹…', id);
+    if (!result.ok) return;
+    await call('probeMachine', `正在连接 ${machine.name}…`, id);
+    await loadState();
   }
 
   async function deleteMachine(id) {
@@ -732,7 +786,6 @@
       message: '正在刷新任务输出…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderTaskDetail();
     renderBackgroundState();
     toast('刷新输出已提交后台，完成后会通知你');
@@ -792,8 +845,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     renderTaskDetail();
     renderBackgroundState();
@@ -834,7 +885,6 @@
     // Submission is accepted. Keep the draft empty to avoid an accidental duplicate.
     state.drafts.set(task.id, '');
     if (state.currentTaskId === task.id) $('replyText').value = '';
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Android-level background is best effort. */ }
     renderTaskDetail();
     renderBackgroundState();
     toast('已提交后台执行，成功或失败会通知你');
@@ -873,7 +923,9 @@
         const index = state.tasks.findIndex(item => item.id === taskId);
         if (index >= 0) state.tasks[index] = updatedTask;
       }
-      finishBackgroundSend(taskId, true, updatedTask ? `任务已执行：${compactTaskTitle(updatedTask)}` : '后台任务已执行');
+      finishBackgroundSend(taskId, true, operation.stillRunning
+        ? `${updatedTask ? compactTaskTitle(updatedTask) + '：' : ''}${operation.message || '回复已送达，远程仍在处理'}`
+        : updatedTask ? `任务已执行：${compactTaskTitle(updatedTask)}` : '后台任务已执行');
     } catch (error) {
       finishBackgroundSend(taskId, false, error.message || String(error));
     }
@@ -891,8 +943,6 @@
       if (state.currentTaskId === taskId) $('replyText').value = entry.prompt;
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     if (navigator.vibrate) {
       try { navigator.vibrate(succeeded ? [80, 60, 80] : [160, 80, 160]); } catch (error) { /* optional */ }
@@ -953,8 +1003,12 @@
     $('machineHost').value = machine ? machine.host : '';
     $('machineUsername').value = machine ? machine.username : '';
     $('machinePort').value = machine ? machine.port : 22;
-    $('machinePassword').value = machine ? machine.password || '' : '';
-    $('machineKey').value = machine ? machine.privateKey || '' : '';
+    // Saved credentials never reach the page; an empty field keeps them.
+    $('machinePassword').value = '';
+    $('machineKey').value = '';
+    $('machinePassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('machineKey').placeholder = machine && machine.hasPrivateKey
+      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.authType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-auth]').forEach((item) => item.classList.toggle('active', item.dataset.auth === state.authType));
     $('passwordLabel').classList.toggle('hidden', state.authType !== 'password');
@@ -971,8 +1025,11 @@
     $('frpHost').value = machine ? machine.host : '';
     $('frpUsername').value = machine ? machine.username : '';
     $('frpPort').value = machine ? machine.port : 22;
-    $('frpPassword').value = machine ? machine.password || '' : '';
-    $('frpKey').value = machine ? machine.privateKey || '' : '';
+    $('frpPassword').value = '';
+    $('frpKey').value = '';
+    $('frpPassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('frpKey').placeholder = machine && machine.hasPrivateKey
+      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.frpAuthType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-frp-auth]').forEach((item) => item.classList.toggle('active', item.dataset.frpAuth === state.frpAuthType));
     $('frpPasswordLabel').classList.toggle('hidden', state.frpAuthType !== 'password');
@@ -1190,6 +1247,9 @@
       title.appendChild(element('p', `officeCheck${machine.lastStatus === 'offline' ? ' failed' : ''}`, machineCheckText(machine)));
       const actions = element('div', 'officeActions');
       const deletedTasks = state.deletedTasks.filter(task => task.machineId === machine.id);
+      if (String(machine.lastError || '').includes('主机指纹')) {
+        actions.appendChild(actionButton('重置主机指纹', () => resetHostKey(machine.id), 'warn'));
+      }
       actions.appendChild(actionButton('测试', () => probeMachine(machine.id), 'advancedAction'));
       const discovering = state.backgroundDiscovers.has(machine.id);
       actions.appendChild(actionButton(discovering ? '发现中' : '找任务', discovering ? () => toast('这间办公室正在发现员工') : () => discoverMachine(machine.id), 'dark'));
@@ -1473,6 +1533,7 @@
 
   let callTimerInterval = null;
   let callListenToken = 0;
+  let callErrorCount = 0;
 
   function startCallMode() {
     if (state.callMode) return;
@@ -1495,9 +1556,10 @@
     state.callMuted = false;
     state.callStartedAt = Date.now();
     state.callTranscript = '通话已接通。你说话，管家回复后会继续聆听。';
+    callErrorCount = 0;
     setCallStatus('listening');
-    if (!state.voiceAutoSend) toggleVoicePreference('voiceAutoSend');
-    if (!state.voiceSpeakReply) toggleVoicePreference('voiceSpeakReply');
+    // A call always sends what it hears and speaks the reply, without
+    // overwriting the press-to-talk preferences the user saved.
     $('callBackdrop').classList.remove('hidden');
     $('callAvatar').replaceChildren(employeeSprite('pi', 2));
     $('callMute').classList.toggle('active', state.callMuted);
@@ -1543,6 +1605,7 @@
       state.voiceRecording = false;
       setCallStatus('muted');
     } else {
+      callErrorCount = 0;
       setCallStatus('listening');
       scheduleCallListening(120);
     }
@@ -1663,7 +1726,7 @@
         state.callTranscript = reply?.role === 'assistant'
           ? `我：${value}\n管家：${reply.content}` : `我：${value}`;
       }
-      if (reply && reply.role === 'assistant' && state.voiceSpeakReply) {
+      if (reply && reply.role === 'assistant' && (state.voiceSpeakReply || state.callMode)) {
         let spoken = false;
         try {
           spoken = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || '管家已回复。')).ok;
@@ -1909,6 +1972,7 @@
       speaking: '管家播报中',
       'speak-ended': '播报完成',
       stopped: '按住麦克风说话',
+      'permission-denied': text || '需要麦克风权限',
       error: text || '语音识别失败'
     };
     $('voiceStateText').textContent = labels[type] || labels.stopped;
@@ -1944,7 +2008,8 @@
       }
       if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') state.voiceRecording = true;
       if (event.type === 'cloud-processing') state.voiceRecording = false;
-      if (event.type === 'final' || event.type === 'error' || event.type === 'stopped') state.voiceRecording = false;
+      if (event.type === 'final' || event.type === 'error' || event.type === 'stopped'
+        || event.type === 'permission-denied') state.voiceRecording = false;
       updateVoiceUi(event.type, event.text);
       if (state.callMode) {
         if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
@@ -1962,9 +2027,26 @@
           setCallStatus('listening');
           scheduleCallListening(500);
         }
+        if (event.type === 'final') callErrorCount = 0;
+        if (event.type === 'permission-denied') {
+          endCallMode();
+          toast(event.text || '需要麦克风权限才能通话');
+          return;
+        }
         if (event.type === 'error') {
+          callErrorCount += 1;
+          if (callErrorCount >= 3) {
+            // Retrying a broken microphone or network forever only drains the battery.
+            state.callTranscript = `${event.text || '语音识别失败'}。已连续失败 ${callErrorCount} 次，请稍后点“取消静音”重试。`;
+            state.callMuted = true;
+            $('callMute').classList.add('active');
+            $('callMute').setAttribute('aria-pressed', 'true');
+            $('callMuteLabel').textContent = '取消静音';
+            setCallStatus('error');
+            return;
+          }
           setCallStatus('error');
-          scheduleCallListening(1000);
+          scheduleCallListening(1000 * callErrorCount);
         }
         if (event.type === 'stopped' && !state.sending) {
           setCallStatus('listening');
@@ -2001,7 +2083,6 @@
       message: '正在生成任务规划…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Report still runs in its native thread. */ }
     renderPiDetail();
     renderBackgroundState();
     toast('任务规划生成已提交后台，完成后会通知你');
@@ -2049,8 +2130,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     state.butlerPlanMode = succeeded ? 'ai' : state.butlerPlanMode;
     render();

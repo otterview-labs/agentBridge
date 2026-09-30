@@ -18,10 +18,12 @@ before(() => {
 });
 after(() => fs.rmSync(root, { recursive: true, force: true }));
 
-function fragment(mode) {
-  return execFileSync(java, ['-cp', root, 'com.otterview.agentsessionbridge.FrpScriptHarness', mode],
+function fragment(mode, ...extra) {
+  return execFileSync(java, ['-cp', root, 'com.otterview.agentsessionbridge.FrpScriptHarness', mode, ...extra],
     { encoding: 'utf8' });
 }
+
+const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
 
 function fixture() {
   const home = fs.mkdtempSync(path.join(root, 'Home & Office '));
@@ -31,17 +33,12 @@ function fixture() {
   const env = { ...process.env, HOME: home, LC_ALL: 'C', PATH: `${bin}:/usr/bin:/bin`,
     work, archive: 'https://fixture.invalid/frp_0.61.1_darwin_arm64.tar.gz',
     ARCHIVE_FIXTURE: path.join(home, 'fixture.tar.gz'),
-    CHECKSUM_FIXTURE: path.join(home, 'checksums.txt'),
     LAUNCH_LOG: path.join(home, 'launch.log') };
   const executable = (name, script) => fs.writeFileSync(path.join(bin, name),
     `#!/bin/sh\nset -eu\n${script}`, { mode: 0o755 });
   executable('curl', `
-file="$ARCHIVE_FIXTURE"
-for arg in "$@"; do
-  [ "$arg" != https://fixture.invalid/checksums ] || file="$CHECKSUM_FIXTURE"
-done
 while [ "$#" -gt 0 ]; do
-  if [ "$1" = -o ]; then cp "$file" "$2"; exit 0; fi
+  if [ "$1" = -o ]; then cp "$ARCHIVE_FIXTURE" "$2"; exit 0; fi
   shift
 done
 exit 2
@@ -53,9 +50,7 @@ test('downloads verify the actual renamed archive outside the download working d
   const f = fixture();
   const data = Buffer.from('fixture-only archive, never installed');
   fs.writeFileSync(f.env.ARCHIVE_FIXTURE, data);
-  fs.writeFileSync(f.env.CHECKSUM_FIXTURE,
-    `${crypto.createHash('sha256').update(data).digest('hex')}  frp_0.61.1_darwin_arm64.tar.gz\n`);
-  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download')],
+  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download', sha256(data))],
     { cwd: f.home, env: f.env, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ASB_STAGE=checksum/);
@@ -63,16 +58,15 @@ test('downloads verify the actual renamed archive outside the download working d
   assert.equal(fs.readFileSync(path.join(f.work, 'frp.tar.gz'), 'utf8'), data.toString());
 });
 
-test('bad, missing and duplicate checksums fail before installation', () => {
-  for (const checksum of [
-    `${'0'.repeat(64)}  frp_0.61.1_darwin_arm64.tar.gz\n`,
-    `${'0'.repeat(64)}  another-archive.tar.gz\n`,
-    `${'0'.repeat(64)}  frp_0.61.1_darwin_arm64.tar.gz\n`.repeat(2)
+test('a wrong pinned checksum or an unlisted archive fails before installation', () => {
+  for (const [archive, pinned] of [
+    ['https://fixture.invalid/frp_0.61.1_darwin_arm64.tar.gz', '0'.repeat(64)],
+    ['https://fixture.invalid/frp_0.61.1_linux_mips.tar.gz', sha256('fixture')]
   ]) {
     const f = fixture();
+    f.env.archive = archive;
     fs.writeFileSync(f.env.ARCHIVE_FIXTURE, 'fixture');
-    fs.writeFileSync(f.env.CHECKSUM_FIXTURE, checksum);
-    const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download')],
+    const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download', pinned)],
       { cwd: f.home, env: f.env, encoding: 'utf8' });
     assert.notEqual(result.status, 0);
     assert.doesNotMatch(result.stdout, /ASB_STAGE=install/);
@@ -80,10 +74,52 @@ test('bad, missing and duplicate checksums fail before installation', () => {
   }
 });
 
+test('pinned checksums come from the app, never from the download source', () => {
+  const script = fragment('pinned', '0.61.1');
+  assert.match(script, /frp_0\.61\.1_linux_amd64\.tar\.gz\) expected=bff260b68ca7b1461182a46c4f34e9709ba32764eed30a15dd94ac97f50a2c40/);
+  assert.doesNotMatch(script, /checksums\.txt/);
+  const unsupported = spawnSync(java, ['-cp', root, 'com.otterview.agentsessionbridge.FrpScriptHarness', 'pinned', '0.1.0'],
+    { encoding: 'utf8' });
+  assert.notEqual(unsupported.status, 0);
+});
+
+test('an unsupported saved version fails only when a download is actually needed', () => {
+  const script = fragment('refuse', "0.62.1'; touch pwned; '");
+  const result = spawnSync('/bin/sh', ['-eu', '-c', script], { cwd: root, encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /no pinned checksum/);
+  assert.equal(fs.existsSync(path.join(root, 'pwned')), false);
+  assert.match(fragment('refuse', '0.61.1'), /expected=/);
+});
+
+test('service directories are reset to modes the service account can use', () => {
+  const script = fragment('directories');
+  assert.match(script, /chmod 0755 \/opt\/asb-frp \/opt\/asb-frp\/bin/);
+  assert.match(script, /chown root:asb-frp \/etc\/asb-frp/);
+  assert.match(script, /chmod 0750 \/etc\/asb-frp/);
+});
+
+test('the service account step reuses an existing account and fails clearly otherwise', () => {
+  const existing = fixture();
+  existing.executable('id', 'exit 0\n');
+  let result = spawnSync('/bin/sh', ['-eu', '-c', `SUDO=''\n${fragment('service-account')}`],
+    { cwd: existing.home, env: existing.env, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+
+  const missing = fixture();
+  missing.executable('id', 'exit 1\n');
+  missing.executable('useradd', 'exit 9\n');
+  missing.executable('adduser', 'exit 9\n');
+  result = spawnSync('/bin/sh', ['-eu', '-c', `SUDO=''\n${fragment('service-account')}`],
+    { cwd: missing.home, env: missing.env, encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /asb-frp service account/);
+});
+
 test('a download error stops before checksum or install', () => {
   const f = fixture();
   f.executable('curl', 'echo \"fixture download timeout\" >&2; exit 28\n');
-  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download')],
+  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download', sha256('unused'))],
     { cwd: f.home, env: f.env, encoding: 'utf8' });
   assert.notEqual(result.status, 0);
   assert.doesNotMatch(result.stdout, /ASB_STAGE=checksum|ASB_STAGE=install/);
@@ -94,33 +130,44 @@ test('GitHub downloads fall back to a checksum-verified mirror', () => {
   f.env.archive = 'https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_darwin_arm64.tar.gz';
   const data = Buffer.from('mirror archive fixture');
   fs.writeFileSync(f.env.ARCHIVE_FIXTURE, data);
-  fs.writeFileSync(f.env.CHECKSUM_FIXTURE,
-    `${crypto.createHash('sha256').update(data).digest('hex')}  frp_0.61.1_darwin_arm64.tar.gz\n`);
   f.executable('curl', `
 mirror=0
 for arg in "$@"; do case "$arg" in https://gh-proxy.com/*) mirror=1 ;; esac; done
 [ "$mirror" -eq 1 ] || { echo "fixture primary download timeout" >&2; exit 28; }
-url=
 while [ "$#" -gt 0 ]; do
-  case "$1" in
-    https://*) url=$1 ;;
-    -o)
-      file="$ARCHIVE_FIXTURE"
-      case "$url" in *checksums.txt) file="$CHECKSUM_FIXTURE" ;; esac
-    cp "$file" "$2"; exit 0
-    ;;
-  esac
+  if [ "$1" = -o ]; then cp "$ARCHIVE_FIXTURE" "$2"; exit 0; fi
   shift
 done
 exit 2
 `);
-  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download-github')],
+  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download', sha256(data))],
     { cwd: f.home, env: f.env, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /ASB_STAGE=install/);
 });
 
-test('Mac launch agent uses escaped absolute paths and the GUI domain', () => {
+test('a tampered mirror archive is rejected', () => {
+  const f = fixture();
+  f.env.archive = 'https://github.com/fatedier/frp/releases/download/v0.61.1/frp_0.61.1_darwin_arm64.tar.gz';
+  fs.writeFileSync(f.env.ARCHIVE_FIXTURE, 'tampered mirror archive');
+  f.executable('curl', `
+mirror=0
+for arg in "$@"; do case "$arg" in https://gh-proxy.com/*) mirror=1 ;; esac; done
+[ "$mirror" -eq 1 ] || exit 28
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = -o ]; then cp "$ARCHIVE_FIXTURE" "$2"; exit 0; fi
+  shift
+done
+exit 2
+`);
+  const result = spawnSync('/bin/sh', ['-eu', '-c', fragment('download', sha256('the real archive'))],
+    { cwd: f.home, env: f.env, encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /checksum mismatch/);
+});
+
+test('Mac launch agent uses escaped absolute paths and the GUI domain',
+  { skip: !fs.existsSync('/usr/bin/plutil') && 'needs macOS plutil' }, () => {
   const f = fixture();
   f.executable('launchctl', 'printf "%s\\n" "$*" >> "$LAUNCH_LOG"\ncase "$1" in print) echo "state = running" ;; esac\n');
   f.executable('sleep', 'exit 0\n');
@@ -147,7 +194,9 @@ test('Mac without a desktop session fails clearly without loading a service', ()
 
 test('all native installers use the verified fragment and visitor labels match teardown', () => {
   const bridge = fs.readFileSync(path.join(source, 'PhoneBridge.java'), 'utf8');
-  assert.equal((bridge.match(/FrpInstallSupport.download\(frpChecksumUrl\(server\)\)/g) || []).length, 3);
+  assert.equal((bridge.match(/FrpInstallSupport.downloadOrRefuse\(server.optString\("version"\)\)/g) || []).length, 3);
+  assert.equal((bridge.match(/FrpInstallSupport.serviceDirectories\(\)/g) || []).length, 3);
+  assert.equal((bridge.match(/FrpInstallSupport.serviceHardening\(\)/g) || []).length, 3);
   assert.doesNotMatch(bridge, /\/etc\/asb-frp\/\$\{label\}/);
   assert.doesNotMatch(bridge, /\(name \+ "-visitor"\)/);
   assert.doesNotMatch(bridge, /archive=\$\{archive\//);

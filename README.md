@@ -11,7 +11,7 @@ See who's working, who's waiting for you, and what to do next — at a glance.
 
 [![Download](https://img.shields.io/badge/Download-APK-blue?logo=android&logoColor=white&style=for-the-badge)](https://github.com/otterview-labs/agentBridge/releases)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-34%2F34-brightgreen?style=for-the-badge)](android/tests)
+[![CI](https://img.shields.io/github/actions/workflow/status/otterview-labs/agentBridge/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/otterview-labs/agentBridge)
 
 [Features](#-features) · [Screenshots](#-screenshots) · [Install](#-install) · [Architecture](#-architecture) · [中文介绍](#-中文介绍)
@@ -58,11 +58,11 @@ See who's working, who's waiting for you, and what to do next — at a glance.
 - **Cloud TTS** — natural voice replies via qwen3-tts, or use local engine
 - **Auto-recovery** — smart network self-healing for OEM-specific issues
 
-### 🔔 Smart Notifications
+### 🔔 Notifications
 
-- **Background monitoring** — checks task status every 2 minutes
-- **Instant alerts** — AI waiting for input, task completed, machine offline
-- **Zero configuration** — works out of the box once machines are added
+- **Keeps working when locked** — replies, discovery, refreshes and plans you start run in a foreground service until they finish
+- **Result alerts** — a system notification when each of them succeeds or fails
+- **No polling** — the app checks machines only when you refresh; it does not watch them in the background
 
 ### 🌐 Remote Access (FRP)
 
@@ -73,9 +73,10 @@ See who's working, who's waiting for you, and what to do next — at a glance.
 
 ### 🔒 Privacy & Security
 
-- **Zero backend** — phone connects directly to machines via SSH
-- **Local storage** — all credentials, conversations, and settings stay on your phone
-- **No cloud dependency** — works fully offline within your LAN
+- **No backend of ours** — the phone connects directly to your machines over SSH
+- **Encrypted credentials** — SSH passwords, keys and API keys are encrypted with an Android Keystore key, excluded from backups, and never handed to the WebView
+- **Pinned host keys** — a changed SSH host key blocks the connection until you reset it
+- **Your choice of cloud** — the office town works fully offline within your LAN. If you enable the butler, task titles, machine names, your recent chat and saved memories go to the model provider you configure; with DashScope voice, your audio goes to Alibaba Cloud
 
 ---
 
@@ -165,12 +166,14 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 ### Development Setup
 
 ```bash
-# Run UI tests (34 tests)
-cd android
+# UI, FRP installer and reply-script tests (Node.js 20+ and a JDK)
+cd android/tests
 npm ci
 npx playwright install chromium
-node --test tests/phone-ui.test.cjs
+npm test
 ```
+
+The app's interface, prompts and voice recognition are Chinese-only for now.
 
 ---
 
@@ -207,9 +210,9 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 | 🏢 **像素办公室** | 机器=办公室，任务=小人，动画实时反映状态 |
 | 🤖 **AI 管家** | 智能助手，可 SSH 到机器查询实时任务数据 |
 | 📞 **语音通话** | 全屏电话界面，流式语音识别，AI 语音回复 |
-| 🔔 **智能通知** | AI 等待输入或任务完成时自动推送提醒 |
+| 🔔 **结果通知** | 回复、找任务、刷新、生成规划完成或失败时推送通知；锁屏后仍会跑完 |
 | 🌐 **远程访问** | FRP 加密隧道，随时随地管理局域网机器 |
-| 🔒 **隐私安全** | 零后端依赖，所有数据保存在手机本地 |
+| 🔒 **隐私安全** | 没有自建后端；密码、私钥、API Key 用系统密钥库加密，不进备份。启用管家或语音后，相关内容会发送给你配置的模型服务商 |
 
 ### 快速开始
 
