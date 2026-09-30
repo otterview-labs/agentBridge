@@ -27,10 +27,10 @@ android/keystore.properties
 *.keystore
 
 # Backend modules stay private; only the Android app is open-sourced.
-src/
-public/
-site/
-test/
+/src/
+/public/
+/site/
+/test/
 docs/hapi-capability-sync.md
 # Backend-only files (private)
 .env.example
