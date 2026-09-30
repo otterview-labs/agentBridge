@@ -812,6 +812,78 @@ final class PhoneBridge {
     }
   }
 
+  /**
+   * Streaming chat completion using SSE. Returns the full response text but
+   * calls onPartial as chunks arrive, enabling real-time UI updates and
+   * early TTS. Falls back to non-streaming if SSE fails.
+   */
+  private String chatCompletionStream(JSONObject model, JSONArray messages, JSONArray tools,
+      java.util.function.Consumer<String> onPartial) throws Exception {
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL(model.getString("baseUrl") + "/chat/completions");
+      connection = activity.openModelConnection(url);
+      connection.setRequestMethod("POST");
+      connection.setConnectTimeout(15_000);
+      connection.setReadTimeout(120_000);
+      connection.setDoOutput(true);
+      connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
+      connection.setRequestProperty("Content-Type", "application/json");
+      connection.setRequestProperty("Accept", "text/event-stream");
+      JSONObject request = new JSONObject()
+          .put("model", model.getString("modelId"))
+          .put("messages", messages)
+          .put("max_tokens", 1800)
+          .put("temperature", 0.2)
+          .put("stream", true);
+      if (tools != null && tools.length() > 0) request.put("tools", tools);
+      if (model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
+        request.put("enable_thinking", false);
+      }
+      byte[] payload = request.toString().getBytes(StandardCharsets.UTF_8);
+      connection.setFixedLengthStreamingMode(payload.length);
+      try (java.io.OutputStream output = connection.getOutputStream()) { output.write(payload); }
+      int status = connection.getResponseCode();
+      if (status >= 400) {
+        String body = readStream(connection.getErrorStream(), 100_000);
+        throw new IllegalStateException("模型返回 HTTP " + status);
+      }
+      // Read SSE stream
+      InputStream stream = connection.getInputStream();
+      java.io.BufferedReader reader = new java.io.BufferedReader(
+          new java.io.InputStreamReader(stream, StandardCharsets.UTF_8));
+      StringBuilder full = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (!line.startsWith("data: ")) continue;
+        String data = line.substring(6).trim();
+        if (data.equals("[DONE]")) break;
+        try {
+          JSONObject chunk = new JSONObject(data);
+          JSONArray choices = chunk.optJSONArray("choices");
+          if (choices == null || choices.length() == 0) continue;
+          JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
+          if (delta == null) continue;
+          String content = delta.optString("content", "");
+          if (!content.isEmpty()) {
+            full.append(content);
+            if (onPartial != null) onPartial.accept(full.toString());
+          }
+        } catch (Exception ignored) {
+          // Skip malformed chunks
+        }
+      }
+      if (full.length() == 0) throw new IllegalStateException("模型流式返回为空");
+      return full.toString();
+    } catch (java.io.IOException error) {
+      if (error instanceof java.net.UnknownHostException) activity.noteNetworkDeath();
+      // Fall back to non-streaming on network errors
+      return chatCompletion(model, messages, tools);
+    } finally {
+      if (connection != null) connection.disconnect();
+    }
+  }
+
   private JSONArray buildButlerTools() throws Exception {
     return new JSONArray()
         .put(new JSONObject()
