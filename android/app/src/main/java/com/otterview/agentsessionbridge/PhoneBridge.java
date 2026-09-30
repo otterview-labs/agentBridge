@@ -2818,15 +2818,33 @@ final class PhoneBridge {
   }
 
   private List<JSONObject> listCodexDesktopTasks(Session session, int machineId) throws Exception {
+    // Read the session index first — it has all sessions with human-readable names
+    Map<String, String> titleByThread = new HashMap<>();
+    for (String line : run(session, "cat \"$HOME/.codex/session_index.jsonl\" 2>/dev/null || true").split("\\n")) {
+      JSONObject entry = parseObject(line);
+      if (entry == null) continue;
+      String id = entry.optString("id").toLowerCase();
+      String title = entry.optString("thread_name");
+      if (!id.isEmpty() && !title.isEmpty()) titleByThread.put(id, title);
+    }
+
+    // Detect active threads via lock files
     String lockValue = run(session, "find \"$HOME/.codex/thread-writer-locks\" -maxdepth 1 -type f "
         + "-name '*.lock' ! -name '.coordination.lock' -exec basename {} .lock \\; 2>/dev/null || true");
-    List<String> threadIds = new ArrayList<>();
+    Set<String> activeThreadIds = new HashSet<>();
     for (String value : lockValue.split("\\n")) {
       String threadId = value.trim().toLowerCase();
-      if (threadId.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) threadIds.add(threadId);
+      if (threadId.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) activeThreadIds.add(threadId);
+    }
+
+    // Include all indexed sessions (not just locked ones), capped to recent 30
+    List<String> threadIds = new ArrayList<>(activeThreadIds);
+    for (String id : titleByThread.keySet()) {
+      if (!activeThreadIds.contains(id) && threadIds.size() < 30) threadIds.add(id);
     }
     if (threadIds.isEmpty()) return Collections.emptyList();
 
+    // Find transcript files
     StringBuilder findExpression = new StringBuilder("find \"$HOME/.codex/sessions\" -type f \\( ");
     for (String threadId : threadIds) findExpression.append("-name '*").append(threadId).append(".jsonl' -o ");
     findExpression.setLength(findExpression.length() - 3);
@@ -2841,15 +2859,6 @@ final class PhoneBridge {
       for (String threadId : threadIds) {
         if (clean.toLowerCase().endsWith(threadId + ".jsonl")) transcriptByThread.put(threadId, clean);
       }
-    }
-
-    Map<String, String> titleByThread = new HashMap<>();
-    for (String line : run(session, "cat \"$HOME/.codex/session_index.jsonl\" 2>/dev/null || true").split("\\n")) {
-      JSONObject entry = parseObject(line);
-      if (entry == null) continue;
-      String id = entry.optString("id").toLowerCase();
-      String title = entry.optString("thread_name");
-      if (!id.isEmpty() && !title.isEmpty()) titleByThread.put(id, title);
     }
 
     StringBuilder script = new StringBuilder();
