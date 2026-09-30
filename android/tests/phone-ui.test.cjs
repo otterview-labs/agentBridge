@@ -413,9 +413,18 @@ test('offline employees show historical status with no work animation', async t 
   assert.equal(await recorded.getAttribute('data-record'), 'true');
   assert.equal(await recorded.locator('.employeeBubble').textContent(), '上次');
   assert.match(await recorded.locator('.stateChip').textContent(), /上次：会话空闲/);
-  assert.equal(await recorded.locator('.pixelAvatar').evaluate(el => getComputedStyle(el).animationName), 'none');
-  assert.notEqual(await page.locator('[data-task-id="1"] .pixelAvatar')
-    .evaluate(el => getComputedStyle(el).animationName), 'none');
+  // Query and read in one page task: the office can re-render when the
+  // butler overview finishes loading, and a replaced node reports no style.
+  const animation = selector => page.evaluate(css => {
+    const node = document.querySelector(css);
+    return { name: node ? getComputedStyle(node).animationName : 'missing',
+      connected: Boolean(node && node.isConnected),
+      state: node ? node.closest('[data-task-id]')?.getAttribute('data-state') : null };
+  }, selector);
+  const idle = await animation('[data-task-id="3"] .pixelAvatar');
+  assert.equal(idle.name, 'none', JSON.stringify(idle));
+  const running = await animation('[data-task-id="1"] .pixelAvatar');
+  assert.notEqual(running.name, 'none', JSON.stringify(running));
 });
 
 test('task drafts remain separate when closing and reopening sheets', async t => {

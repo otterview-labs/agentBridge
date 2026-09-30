@@ -559,7 +559,8 @@ final class PhoneBridge {
   }
 
   private String validateDirectModelUrl(String value) throws Exception {
-    String clean = value == null ? "" : value.trim().replaceAll("/+$", "");
+    String clean = value == null ? "" : value.trim();
+    while (clean.endsWith("/")) clean = clean.substring(0, clean.length() - 1);
     if (clean.isEmpty()) throw new IllegalArgumentException("模型 Base URL 不能为空");
     URL url = new URL(clean);
     boolean local = url.getHost().equals("localhost") || url.getHost().equals("127.0.0.1")
@@ -1360,8 +1361,8 @@ final class PhoneBridge {
       int sshPort = Math.max(1, Math.min(65_535, input.optInt("port", 22)));
       int bindPort = Math.max(1024, Math.min(65_535, input.optInt("bindPort", 7001)));
       String version = input.optString("version", "0.61.1").trim();
-      String downloadBase = input.optString("downloadBase", "https://github.com/fatedier/frp/releases/download")
-          .trim().replaceAll("/+$", "");
+      String downloadBase = input.optString("downloadBase", "https://github.com/fatedier/frp/releases/download").trim();
+      while (downloadBase.endsWith("/")) downloadBase = downloadBase.substring(0, downloadBase.length() - 1);
       JSONObject savedServer = store.frpServer();
       boolean keptVersion = savedServer != null && version.equals(savedServer.optString("version"));
       // A version saved by an older release stays usable where FRP is already
@@ -1372,7 +1373,9 @@ final class PhoneBridge {
       }
       // The base is spliced into an installer script; allow only a plain HTTPS URL.
       // Prefix mirrors such as https://mirror.example/https://github.com/... are allowed.
-      if (!downloadBase.matches("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~%+:@=-]*)*")) {
+      // One flat character class after the host: no nested quantifiers to backtrack on.
+      if (downloadBase.length() > 300
+          || !downloadBase.matches("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~%+:@=/-]*)?")) {
         throw new IllegalArgumentException("下载源必须是 https:// 开头的普通地址，不能带空格、引号或查询参数");
       }
       boolean keyAuth = "key".equals(input.optString("authType"));
