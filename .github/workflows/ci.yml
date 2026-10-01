@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   tests:
-    name: UI, installer and reply-script tests
+    name: UI, installer, reply and native regression tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 17
-        # frp-install and reply-script tests compile the Java script builders.
+        # Script and native regression tests compile Java builders and harnesses.
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
@@ -42,7 +42,7 @@ jobs:
         run: npm test
 
   build:
-    name: Build debug APK
+    name: Build debug APK and Android lint
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -80,4 +80,18 @@ jobs:
         run: |
           set -euo pipefail
           cd android
-          ./gradlew --no-daemon --stacktrace assembleDebug
+          ./gradlew --no-daemon --stacktrace assembleDebug lintDebug
+
+  check:
+    # Keep the required check name in the main-branch ruleset. It succeeds only
+    # when both the regression suite and Android build/lint succeeded.
+    name: check
+    runs-on: ubuntu-latest
+    needs: [tests, build]
+    if: always()
+    steps:
+      - name: Require all CI jobs to pass
+        env:
+          TEST_RESULT: ${{ needs.tests.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: test "$TEST_RESULT" = success && test "$BUILD_RESULT" = success

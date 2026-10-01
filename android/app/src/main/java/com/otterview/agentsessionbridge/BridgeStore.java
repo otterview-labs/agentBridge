@@ -36,6 +36,7 @@ final class BridgeStore {
   private static final String KEY_HOST_KEYS = "host_keys";
   private static final String KEY_SEQUENCE = "id_sequence";
   private static final String KEY_STUDIO_MODEL = "studio_model";
+  private static final String KEY_STUDIO_VOICE = "studio_voice";
 
   private final SharedPreferences prefs;
   private final SecretBox secrets = new SecretBox();
@@ -104,6 +105,16 @@ final class BridgeStore {
 
   synchronized JSONArray studioMessages() throws Exception {
     return new JSONArray(prefs.getString("studio_messages", "[]"));
+  }
+
+  synchronized JSONObject studioVoice() throws Exception {
+    return new JSONObject(readSealed(KEY_STUDIO_VOICE, "{}"));
+  }
+
+  synchronized void saveStudioVoice(JSONObject value) {
+    if (!writeSealed(prefs.edit(), KEY_STUDIO_VOICE, value.toString()).commit()) {
+      throw new IllegalStateException("语音配置保存失败，请检查手机存储空间");
+    }
   }
 
   synchronized void saveStudioMessages(JSONArray value) {
@@ -465,7 +476,7 @@ final class BridgeStore {
    */
   private void dropUnreadableSealedValues() {
     SharedPreferences.Editor editor = prefs.edit();
-    for (String key : new String[] { KEY_MACHINES, KEY_FRP_SERVER, KEY_FRP_RELAYS, KEY_STUDIO_MODEL }) {
+    for (String key : new String[] { KEY_MACHINES, KEY_FRP_SERVER, KEY_FRP_RELAYS, KEY_STUDIO_MODEL, KEY_STUDIO_VOICE }) {
       String raw = prefs.getString(key, null);
       if (raw != null && SecretBox.isSealed(raw) && !sealedCache.containsKey(key)) {
         Log.w("AgentBridgeStore", "dropping " + key + ": its Keystore key no longer exists");
@@ -476,20 +487,20 @@ final class BridgeStore {
   }
 
   private SharedPreferences.Editor writeSealed(SharedPreferences.Editor editor, String key, String value) {
-    sealedCache.put(key, value);
     try {
-      if (!secrets.hasKey()) dropUnreadableSealedValues();
-    } catch (Exception ignored) {
-      // seal() below reports a broken Keystore.
-    }
-    try {
-      return editor.putString(key, secrets.seal(value));
+      boolean hadKey = secrets.hasKey();
+      // Finish encryption before touching either the editor or the read cache.
+      // A failed save must never make unsaved credentials appear as persisted.
+      String sealed = secrets.seal(value);
+      if (!hadKey) dropUnreadableSealedValues();
+      // Reads repopulate this only after the caller applies/commits the editor.
+      // Invalidation also handles a failed commit or a multi-value save that
+      // fails before its editor is applied.
+      sealedCache.remove(key);
+      return editor.putString(key, sealed);
     } catch (Exception error) {
-      // Keeping the app usable matters more than refusing to save on a device
-      // with a broken Keystore; backups are disabled, so the plain value stays
-      // in app-private storage.
-      Log.w("AgentBridgeStore", "Keystore unavailable; storing " + key + " unsealed", error);
-      return editor.putString(key, value);
+      Log.w("AgentBridgeStore", "cannot seal " + key, error);
+      throw new IllegalStateException("加密存储保存失败，本次配置未保存。请稍后重试，或重启手机后再打开 App。", error);
     }
   }
 

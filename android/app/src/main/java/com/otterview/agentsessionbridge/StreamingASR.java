@@ -44,6 +44,7 @@ public final class StreamingASR {
     void onFinal(String text);
     void onError(String message);
     void onReady();
+    default void onStopped() { }
   }
 
   private final Listener listener;
@@ -127,7 +128,7 @@ public final class StreamingASR {
                 return;
               }
               startCapture();
-              mainHandler.post(listener::onReady);
+              mainHandler.post(() -> { if (running.get() && !settled.get()) listener.onReady(); });
               break;
             case "result-generated":
               handleResult(json.optJSONObject("payload"));
@@ -149,7 +150,7 @@ public final class StreamingASR {
       @Override
       public void onClosed(WebSocket webSocket, int code, String reason) {
         running.set(false);
-        settle();
+        if (!settled.get()) fail("语音连接提前关闭，请检查网络或语音服务权限");
       }
 
       @Override
@@ -158,6 +159,9 @@ public final class StreamingASR {
         fail("ASR 连接失败，请检查网络");
       }
     });
+    mainHandler.postDelayed(() -> {
+      if (!taskStarted && !settled.get()) fail("语音服务连接超时，请检查网络或北京地域 API Key");
+    }, 15_000);
   }
 
   private void handleResult(JSONObject payload) {
@@ -278,7 +282,10 @@ public final class StreamingASR {
     synchronized (committed) {
       text = (committed + pendingSentence).trim();
     }
-    if (!discard && !text.isEmpty()) mainHandler.post(() -> listener.onFinal(text));
+    if (!discard) {
+      if (!text.isEmpty()) mainHandler.post(() -> listener.onFinal(text));
+      else mainHandler.post(listener::onStopped);
+    }
     closeSocket();
   }
 

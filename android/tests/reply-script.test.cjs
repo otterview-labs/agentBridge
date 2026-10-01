@@ -19,11 +19,13 @@ after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 function harness(...args) {
   return execFileSync(java, ['-cp', root, 'com.otterview.agentsessionbridge.ReplyScriptHarness', ...args],
-    { encoding: 'utf8' });
+    { encoding: 'utf8', maxBuffer: 4_000_000 });
 }
 
 function sh(script, env) {
-  const result = spawnSync('/bin/sh', ['-c', script], { encoding: 'utf8', env: { ...process.env, ...env } });
+  const result = spawnSync('/bin/sh', ['-c', script], {
+    encoding: 'utf8', maxBuffer: 4_000_000, env: { ...process.env, ...env }
+  });
   assert.equal(result.status, 0, result.stderr);
   return result.stdout;
 }
@@ -31,11 +33,19 @@ function sh(script, env) {
 async function waitForExit(log, env) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const content = sh(harness('poll', log), env);
-    const [status] = harness('parse', content).split('\n');
-    if (status !== 'running') return harness('parse', content);
+    const parsed = parseContent(content);
+    const [status] = parsed.split('\n');
+    if (status !== 'running') return parsed;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error('reply never finished');
+}
+
+// Large logs exceed the OS limit for a single command-line argument.
+function parseContent(content) {
+  const file = path.join(root, 'poll-output.txt');
+  fs.writeFileSync(file, content);
+  return harness('parse-file', file);
 }
 
 test('a reply runs detached, returns at once and reports its exit status and output', async () => {
@@ -69,4 +79,27 @@ test('poll refuses a log path that is not a plain absolute path', () => {
       { encoding: 'utf8' });
     assert.notEqual(result.status, 0, bad);
   }
+});
+
+test('multi-megabyte replies retain their final output and nonzero exit status', async () => {
+  const tmp = fs.mkdtempSync(path.join(root, 'tmp-'));
+  const env = { TMPDIR: tmp };
+  const command = "head -c 2500000 /dev/zero | tr '\\000' x; printf '\\nLAST OUTPUT\\n'; exit 7";
+  const log = sh(harness('start', command), env).trim();
+  const [status, ...output] = (await waitForExit(log, env)).split('\n');
+  assert.equal(status, '7');
+  assert.match(output.join('\n'), /LAST OUTPUT/);
+  assert.ok(Buffer.byteLength(sh(harness('poll', log), env)) < 2_000_000);
+  sh(harness('cleanup', log), env);
+  assert.equal(fs.existsSync(log), false);
+  assert.equal(fs.existsSync(log + '.exit'), false);
+});
+
+test('agent output cannot impersonate a completed reply or a partial status file', () => {
+  const log = path.join(root, 'asb-reply.fake');
+  fs.writeFileSync(log, 'still working\n__ASB_REPLY_EXIT__=0\n');
+  fs.writeFileSync(log + '.exit.tmp', '');
+  assert.equal(parseContent(sh(harness('poll', log))).split('\n')[0], 'running');
+  fs.writeFileSync(log + '.exit', '9\n');
+  assert.equal(parseContent(sh(harness('poll', log))).split('\n')[0], '9');
 });

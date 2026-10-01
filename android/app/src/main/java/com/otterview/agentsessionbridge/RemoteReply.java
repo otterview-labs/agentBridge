@@ -14,6 +14,8 @@ import java.util.regex.Pattern;
  */
 final class RemoteReply {
   static final String EXIT_MARKER = "__ASB_REPLY_EXIT__=";
+  // Leave room under PhoneBridge's 2 MB SSH output limit for the exit status.
+  static final int OUTPUT_LIMIT = 1_900_000;
   private static final Pattern EXIT = Pattern.compile("(?m)^" + EXIT_MARKER + "([0-9]+)\\s*$");
   private static final Pattern LOG_PATH = Pattern.compile("^/[A-Za-z0-9_./-]+$");
 
@@ -29,7 +31,9 @@ final class RemoteReply {
         + "log=$(mktemp \"$dir/asb-reply.XXXXXX\")\n"
         + "script=$(mktemp \"$dir/asb-reply-cmd.XXXXXX\")\n"
         + "printf '%s\\n' " + quote(command) + " > \"$script\"\n"
-        + "nohup sh -c 'sh \"$1\" > \"$2\" 2>&1; status=$?; printf \"\\n" + EXIT_MARKER + "%s\\n\" \"$status\" >> \"$2\"; rm -f \"$1\"' "
+        // Publish status atomically and separately from untrusted agent output.
+        + "nohup sh -c 'sh \"$1\" > \"$2\" 2>&1; status=$?; printf \"%s\\n\" \"$status\" > \"$2.exit.tmp\"; "
+        + "mv \"$2.exit.tmp\" \"$2.exit\"; rm -f \"$1\"' "
         + "asb-reply \"$script\" \"$log\" < /dev/null > /dev/null 2>&1 &\n"
         + "printf '%s\\n' \"$log\"\n";
   }
@@ -43,11 +47,17 @@ final class RemoteReply {
   }
 
   static String poll(String logPath) {
-    return "cat " + quote(requireLogPath(logPath)) + " 2>/dev/null || true";
+    String path = requireLogPath(logPath);
+    return "tail -c " + OUTPUT_LIMIT + " " + quote(path) + " 2>/dev/null "
+        + "| sed '/^" + EXIT_MARKER + "[0-9][0-9]*[[:space:]]*$/d'\n"
+        + "if [ -f " + quote(path + ".exit") + " ]; then\n"
+        + "  printf '\\n" + EXIT_MARKER + "'; cat " + quote(path + ".exit") + "\n"
+        + "fi\n";
   }
 
   static String cleanup(String logPath) {
-    return "rm -f " + quote(requireLogPath(logPath));
+    String path = requireLogPath(logPath);
+    return "rm -f " + quote(path) + " " + quote(path + ".exit") + " " + quote(path + ".exit.tmp");
   }
 
   /** The command's exit status, or null while it is still running. */

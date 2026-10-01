@@ -6,8 +6,8 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.38
-versionCode: 54
+versionName: 0.5.39
+versionCode: 55
 minSdk: 24
 targetSdk: 35
 package: com.otterview.agentsessionbridge.debug
@@ -54,6 +54,8 @@ android/app/build/outputs/apk/debug/app-debug.apk
   so a reply starting with `-` reaches the agent as text.
 - Connection tests, discovery, LAN scans and FRP deployment run as native
   background calls; the page shows progress instead of freezing.
+- Cloud speech synthesis also runs in the background. Hanging up or starting
+  another capture cancels pending synthesis and discards late speech results.
 - Sheets lock background scrolling and keyboard focus. Escape and Android Back
   close the active sheet before leaving the app. Task sheets also close on an
   outside tap.
@@ -63,7 +65,8 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - Private machine/task storage in Android app storage. SSH passwords, private
   keys, the model API key and FRP secrets are encrypted with a non-exportable
   Android Keystore key (AES-GCM); values stored in plain text by older
-  versions are encrypted on first read. Cloud backup and device-to-device
+  versions are encrypted on first read. If encryption fails, the save reports
+  an error instead of writing plaintext or caching an unsaved value. Cloud backup and device-to-device
   transfer are disabled. The WebView never receives stored credentials: the
   edit form shows "已保存" and an empty field keeps the saved value.
 - SSH host keys are pinned on first connection. If a key changes the app
@@ -104,15 +107,31 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - Optional secure public access through FRP. Each machine can be set to
   `off`, `auto`, or `public`; private machines use STCP tunnels and do not
   expose their SSH ports to the internet.
+- The office uses cream surfaces, forest-green accents and pixel employees.
+  Butler chat appears before collapsible confirmation and planning sections.
 - Butler chat uses a fixed bottom composer, quick prompts, immediate local
   message echo, a typing indicator, and optional Chinese speech playback.
 - The butler model is called directly from Android using an OpenAI-compatible
   `/chat/completions` endpoint. There is no Hub address, Hub token, device
   upload, or desktop Hub round trip.
+- Saving a model shows **模型待验证**. **验证连接** sends a real completion
+  request in a background operation without adding it to chat history; success
+  records a verification timestamp. Failed chat keeps the typed message and a
+  retry action during the page session, including after refreshing the overview.
+- Pasted `/chat/completions` URLs are normalized to the base URL. Endpoints
+  that explicitly reject tools can fall back to plain text on the first request.
+- Voice settings can save a separate, Keystore-encrypted DashScope Beijing API
+  key for ASR and TTS, independent of the text model. With no separate key, an
+  exact `dashscope.aliyuncs.com` model host supplies the fallback key.
+  Other regions need their own endpoint support and are not silently reused.
+- Before calling, the app checks available recognition and speech services.
+  Missing services lead to voice settings; microphone permission is requested
+  at capture time. A silent ASR completion releases the listening state, and
+  hanging up discards late transcription results and pending permission starts.
 - Butler conversations, explicit memories, and generated task plans are stored
   in Android app-private storage.
 - Butler voice input supports press-and-hold, tap-to-toggle, and slide-up
-  cancellation. When the butler model points at DashScope, speech is streamed
+  cancellation. When a Beijing DashScope speech key is available, speech is streamed
   to `paraformer-realtime-v2`: press-to-talk collects every sentence until the
   finger lifts, a call ends the user's turn after one sentence. Otherwise the
   system recognizer is used, with `qwen3-asr-flash` as the fallback. The
@@ -206,18 +225,26 @@ uses TLS, a strong random server token, and a unique STCP secret per machine.
 
 ## Butler voice setup
 
-Voice needs no server. Configure the butler model with a DashScope
-(阿里云百炼) OpenAI-compatible base URL to enable streaming recognition
-(`paraformer-realtime-v2`), cloud recognition (`qwen3-asr-flash`) and cloud
-speech (`qwen3-tts-flash`). With any other provider the phone's own speech
-recognizer and Text-to-Speech engine are used. Audio is sent to DashScope only
-in the first case.
+Voice needs no self-hosted server. In **语音设置 → 云端语音配置**, save a
+DashScope (阿里云百炼) Beijing-region API key to enable streaming recognition
+(`paraformer-realtime-v2`), fallback cloud recognition (`qwen3-asr-flash`) and
+cloud speech (`qwen3-tts-flash`). The text model can use another provider. With
+no separate voice key, a Beijing DashScope text-model key is reused; with no
+cloud key, the phone needs working native recognition and Chinese TTS engines.
+Cloud recognition sends microphone audio to DashScope, and cloud TTS sends
+reply text. Other regions' keys are not interchangeable with Beijing keys.
+
+To diagnose a phone setup: save the model, tap **验证连接**, send a short text
+message, then use **试听管家声音** and the composer microphone. Once both work,
+tap **拨给管家**. A successful model check verifies a completion, not voice
+permissions or ASR/TTS entitlements. HTTP 401/403, 404 and 429 errors are shown
+with configuration, permission and quota hints.
 
 ## Release
 
 The published APK is at
 <https://github.com/otterview-labs/agentbridge/releases/latest/download/agentbridge.apk>,
-linked from the download page at <https://otterview-labs.github.io/agentbridge/>.
+linked from the download page at <https://otterview-labs.github.io/agentBridge/>.
 Both are stable permalinks: the release URL always resolves to the newest
 release, so neither has to be updated when a version ships. The page itself
 is served from the `gh-pages` branch; its source is not part of this
@@ -253,7 +280,9 @@ read them.
 ## Tests
 
 CI runs these on every push and pull request (`.github/workflows/ci.yml`),
-together with `assembleDebug`. Locally, with Node.js 20+ and a JDK:
+together with `assembleDebug` and `lintDebug`. Java API desugaring keeps
+`java.time` and `java.nio.file` available on the minimum SDK, Android 7.
+Locally, with Node.js 20+ and a JDK:
 
 ```bash
 cd android/tests
@@ -271,7 +300,12 @@ npm test
   account step, and XML-safe Mac paths (the plist check needs macOS).
 - `reply-script.test.cjs` runs the detached reply launcher with a real shell:
   it returns at once, survives quotes, `$()` and leading dashes in the reply,
-  and reports the exit status.
+  and reports the exit status even with multi-megabyte output. Exit status is
+  published atomically in a separate file; agent text cannot forge completion.
+- `native-regression.test.cjs` compiles production storage and speech methods
+  with platform fakes. It checks failed encryption preserves saved values,
+  synthesis leaves the UI thread free, and cancellation drops stale results.
+  It does not exercise the device Keystore, microphone, or media player.
 
 ## Current limitations
 

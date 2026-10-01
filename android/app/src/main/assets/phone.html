@@ -26,6 +26,7 @@
   </header>
 
   <section class="summary" id="summary">
+    <div class="townScene" aria-hidden="true"><i class="townWindow"></i><i class="townPlant"></i><i class="townDesk"></i></div>
     <div class="summaryMain">
       <strong id="taskCount">0 位员工</strong>
       <button id="attentionCount" type="button" disabled title="查看待输入任务">0 个待输入</button>
@@ -45,13 +46,13 @@
       <article class="butlerHero">
         <header class="butlerHeroHeader">
           <div>
-            <p class="eyebrow">管家</p>
-            <h2 id="piSheetTitle">管家</h2>
+            <p class="eyebrow">你的小镇管家</p>
+            <h2 id="piSheetTitle">今天，先忙哪一件？</h2>
             <p id="piMeta">模型未连接</p>
           </div>
           <div class="officeActions">
-            <button class="smallAction dark" type="button" id="openCloudFromButler">连接模型</button>
-            <button class="smallAction" type="button" id="refreshButler">刷新</button>
+            <button class="smallAction" type="button" id="openCloudFromButler">配置模型</button>
+            <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态">↻</button>
           </div>
         </header>
         <div class="butlerHeroBody">
@@ -59,11 +60,27 @@
           <div class="butlerAdvice">
             <strong id="butlerEmployeeName">正在读取待输入</strong>
             <p id="butlerEmployeeSub">连接模型后生成今日建议。</p>
-            <span class="stateChip attention">管家建议</span>
           </div>
         </div>
       </article>
 
+      <div class="connectionHint" id="connectionHint">
+        <span id="butlerConnectionText">先配置模型，就可以开始聊天。</span>
+        <button type="button" id="checkButlerModel">验证连接</button>
+      </div>
+
+      <section class="butlerSection butlerConversation">
+        <header><h3>聊聊眼前的事</h3><small id="butlerMessageLabel">未配置</small></header>
+        <div id="piMessages" class="piMessages" role="log" aria-live="polite" aria-label="管家对话"></div>
+      </section>
+
+      <details class="butlerDetails" id="butlerAttentionDetails">
+        <summary>需要你确认 <small id="butlerAttentionCount">0 件</small></summary>
+        <div id="piAttention" class="plainList"></div>
+      </details>
+
+      <details class="butlerDetails" id="butlerPlanDetails">
+        <summary>今日与明日安排 <small id="butlerPlanPreview">展开查看</small></summary>
       <section class="butlerSection aiSummarySection">
         <header>
           <div>
@@ -71,7 +88,7 @@
             <small id="butlerReportMeta">AI 总结</small>
           </div>
           <div class="planModeToggle" role="group" aria-label="任务规划视图">
-            <button type="button" data-plan-mode="ai" class="active">AI 总结</button>
+            <button type="button" data-plan-mode="ai" class="active">管家整理</button>
             <button type="button" data-plan-mode="records">原始记录</button>
           </div>
         </header>
@@ -86,16 +103,7 @@
           <div id="piTomorrow" class="plainList"></div>
         </div>
       </section>
-
-      <section class="butlerSection">
-        <header><h3>需要确认</h3><small>等待你输入</small></header>
-        <div id="piAttention" class="plainList"></div>
-      </section>
-
-      <section class="butlerSection">
-        <header><h3>对话</h3><small id="butlerMessageLabel">未连接</small></header>
-        <div id="piMessages" class="piMessages"></div>
-      </section>
+      </details>
 
     </section>
     <section id="offices" class="view"></section>
@@ -233,13 +241,16 @@
     </header>
     <form id="cloudForm">
       <div class="modelFields">
-        <p class="formNote">管家模型 · OpenAI 格式</p>
-        <label>Base URL<input id="modelBaseUrl" type="url" placeholder="https://api.z.ai/api/v1" required></label>
+        <p class="formNote">填入你正在使用的模型服务</p>
+        <label>Base URL<input id="modelBaseUrl" type="url" placeholder="https://服务商地址/v1" required></label>
         <label>Model<input id="modelId" placeholder="glm-5.3" required></label>
         <label>API Key<input id="modelApiKey" type="password" autocomplete="off" placeholder="已保存时可不填"></label>
       </div>
+      <p class="formNote">地址通常以 /v1 结尾，也可粘贴完整的 /chat/completions 地址。模型名称需与服务商后台一致。</p>
       <p class="formNote">模型由手机直连调用；API Key 保存在应用私有存储，不会显示在页面状态里。</p>
       <button class="primaryAction wide" type="submit">保存模型配置</button>
+      <button class="ghostAction wide" type="button" id="testModelConnection">验证当前已保存配置</button>
+      <p class="connectionResult" id="modelCheckResult" role="status">保存只会记录配置；验证成功后再开始聊天。</p>
     </form>
   </section>
 </div>
@@ -255,6 +266,13 @@
     </header>
     <form id="voiceForm" onSubmit="return false">
       <p class="formNote" id="ttsEngineStatus">正在读取本机语音引擎…</p>
+      <p class="formNote" id="voiceInputStatus">正在读取识别与麦克风状态…</p>
+      <details class="voiceServiceDetails" id="voiceServiceDetails">
+        <summary>云端语音配置 <small id="voiceServiceState">可单独配置</small></summary>
+        <label>百炼 API Key（北京地域）<input id="voiceApiKey" type="password" autocomplete="off" placeholder="已有密钥可留空"></label>
+        <p class="formNote">供语音识别和播报使用，可与聊天模型不同。使用北京地域百炼聊天模型时，未单独配置会沿用模型密钥。录音和播报文字会发送到百炼。</p>
+        <div class="voiceServiceActions"><button type="button" class="smallAction dark" id="saveVoiceService">保存语音密钥</button><button type="button" class="smallAction" id="clearVoiceService">清除独立密钥</button></div>
+      </details>
       <div class="voiceSettingRow">
         <span>语音播报</span>
         <label class="miniSwitch"><input type="checkbox" id="voiceSpeakReplySetting" checked><i></i></label>
@@ -274,7 +292,7 @@
         <strong id="voicePitchEcho">1.00</strong>
       </div>
       <button type="button" class="primaryAction wide" id="ttsPreview">试听管家声音</button>
-      <p class="formNote">本机引擎不可用时自动切换云端语音/云端识别（qwen3-tts / qwen3-asr，需管家模型为阿里云百炼地址）。语速和音调仅对本机引擎生效。通话模式下识别失败会自动重试。</p>
+      <p class="formNote">先试听，再轻点聊天框旁的麦克风测试识别，两项正常后即可通话。语速和音调仅对本机声音生效。</p>
     </form>
   </section>
 </div>
@@ -283,7 +301,7 @@
   <section class="callStage">
     <header>
       <div>
-        <p class="eyebrow">AGENTBRIDGE CALL</p>
+        <p class="eyebrow">管家在这里</p>
         <h2 id="callTitle">管家通话</h2>
       </div>
       <span class="callTimer" id="callTimer">00:00</span>
@@ -291,6 +309,7 @@
     <div class="callAvatar" id="callAvatar" aria-hidden="true"></div>
     <strong class="callStatus" id="callStatus">正在接通…</strong>
     <p class="callTranscript" id="callTranscript">说话后会自动发给管家，管家回复后继续聆听。</p>
+    <button type="button" class="callRecovery hidden" id="callRetry">重新聆听</button>
     <div class="callWave" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
     <div class="callControls">
       <button type="button" id="callMute" class="callControl" aria-pressed="false"><span>🎤</span><span id="callMuteLabel">静音</span></button>
@@ -316,14 +335,14 @@
   <div class="chatInputRow">
     <button class="voiceButton" id="voiceButton" type="button" aria-label="按住说话，也可以轻点开始或结束">🎤</button>
     <label class="sr-only" for="piInput">问管家安排</label>
-    <textarea id="piInput" rows="1" placeholder="问管家，或按住麦克风说话"></textarea>
+    <textarea id="piInput" rows="1" maxlength="4000" placeholder="说说你想做的事…"></textarea>
     <button class="sendButton" id="sendPi" type="button" aria-label="发送">↑</button>
   </div>
   <div class="voiceOptions">
     <button type="button" id="voiceAutoSend" class="active" aria-pressed="true">说完自动发送</button>
     <button type="button" id="voiceSpeakReply" class="active" aria-pressed="true">语音播报</button>
     <button type="button" id="openVoiceSettings">语音设置</button>
-    <button type="button" id="startCall" class="callToggle">通话模式</button>
+    <button type="button" id="startCall" class="callToggle">拨给管家 ↗</button>
     <span id="voiceStateText">点击麦克风开始说话</span>
   </div>
 </div>

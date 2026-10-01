@@ -82,7 +82,7 @@ async function openPhone(t, options = {}) {
     const studio = {
       date: '2026-09-20', timeZone: 'Asia/Shanghai',
       scope: '当前手机的 SSH 记录、本机记忆和本机模型配置；不经过 Hub。',
-      model: { ready: Boolean(options.modelReady), label: options.modelReady ? 'test-model' : '模型未配置' },
+      model: { ready: Boolean(options.modelReady), verifiedAt: options.modelVerified ? checkedAt : '', label: options.modelReady ? 'test-model' : '模型未配置' },
       modelSettings: {
         enabled: Boolean(options.modelReady), provider: 'openai-compatible',
         modelId: options.modelReady ? 'test-model' : '', baseUrl: options.modelReady ? 'https://model.example.test/v1' : '',
@@ -93,10 +93,13 @@ async function openPhone(t, options = {}) {
       report: { completed: [], ongoing: [], suggestions: [] }
     };
     window.sendCount = 0;
+    window.chatCount = 0;
     window.tailCount = 0;
     window.voiceCalls = [];
     window.callCalls = [];
     let chatOperation;
+    let modelCheckOperation;
+    let hasVoiceKey = false;
     window.AgentBridge = {
       state: () => ++reads > 1 && options.stateFails
         ? fail('读取失败') : ok(data),
@@ -109,6 +112,12 @@ async function openPhone(t, options = {}) {
         };
         studio.model = { ready: true, label: input.modelId };
         return ok(studio);
+      },
+      beginStudioModelCheck: () => {
+        studio.model.verifiedAt = options.modelCheckFails ? '' : checkedAt;
+        modelCheckOperation = { id: 'test-model-check', state: options.modelCheckFails ? 'failed' : 'succeeded',
+          message: options.modelCheckFails ? '模型返回 HTTP 401，请检查 API Key' : '模型连接成功', studio };
+        return ok({ operation: modelCheckOperation });
       },
       discoverTasks: id => (options.failedIds || []).includes(id)
         ? fail('SSH 无法连接') : ok({ tasks: data.tasks }),
@@ -150,7 +159,8 @@ async function openPhone(t, options = {}) {
           taskId: id, stableKey: task.stableKey || '', machineId: task.machineId };
         return ok({ operation: tailOperation });
       },
-      operationState: () => {
+      operationState: id => {
+        if (id === 'test-model-check') return ok({ operation: modelCheckOperation });
         if (chatOperation) return ok({ operation: chatOperation });
         const current = operation?.kind === 'send' && (!tailOperation || window.sendCount)
           ? operation : tailOperation;
@@ -178,7 +188,9 @@ async function openPhone(t, options = {}) {
       },
       clearOperation: () => {},
       beginStudioMessage: content => {
-        chatOperation = { kind: 'chat', id: 'test-chat', state: 'succeeded', message: '管家已回复',
+        window.chatCount += 1;
+        chatOperation = { kind: 'chat', id: 'test-chat', state: options.chatFails ? 'failed' : 'succeeded',
+          message: options.chatFails ? '模型返回 HTTP 401，请检查 API Key' : '管家已回复',
           studio: { ...studio, messages: [
             { role: 'user', content },
             { role: 'assistant', content: '通话测试回复：先处理待输入员工。' }
@@ -217,7 +229,14 @@ async function openPhone(t, options = {}) {
         window.callCalls.push(['tts-settings', rate, pitch]);
         return ok({ rate, pitch });
       },
-      getTtsStatus: () => ok({ ready: true, engine: 'test-engine', language: 'zh-CN' })
+      getTtsStatus: () => ok({ ready: !options.voiceUnavailable || hasVoiceKey,
+        recognitionAvailable: !options.voiceUnavailable, cloudAvailable: hasVoiceKey,
+        hasVoiceKey, microphoneGranted: true, engine: 'test-engine', language: 'zh-CN' }),
+      saveVoiceService: payload => {
+        const input = JSON.parse(payload);
+        hasVoiceKey = input.clear ? false : Boolean(input.apiKey) || hasVoiceKey;
+        return ok({ hasVoiceKey });
+      }
     };
     if (options.savedCredentials) {
       Object.assign(data.machines[0], { hasPassword: true, password: 'must-not-appear' });
@@ -538,17 +557,74 @@ test('deleted employees move to a separate restorable list', async t => {
 test('butler model is configured directly without a Hub dependency', async t => {
   const page = await openPhone(t, { modelReady: false });
   await page.locator('[data-view="butler"]').click();
-  assert.equal(await page.locator('#cloudState').textContent(), '模型未连接');
+  assert.equal(await page.locator('#cloudState').textContent(), '配置模型');
   assert.equal(await page.locator('#sendPi').isDisabled(), true);
   await page.locator('#openCloudFromButler').click();
   await page.locator('#modelBaseUrl').fill('https://model.example.test/v1');
   await page.locator('#modelId').fill('test-model');
   await page.locator('#modelApiKey').fill('test-only-secret');
   await page.locator('#cloudForm button[type="submit"]').click();
-  await page.waitForFunction(() => document.getElementById('cloudState').textContent === '模型已连接');
+  await page.waitForFunction(() => document.getElementById('cloudState').textContent === '模型待验证');
+  assert.equal(await page.locator('#cloudBackdrop').isVisible(), true);
+  await page.locator('#testModelConnection').click();
+  await page.waitForFunction(() => document.getElementById('cloudState').textContent === '模型已验证');
   assert.equal(await page.locator('#piMeta').textContent(), 'test-model');
   assert.equal(await page.locator('#modelApiKey').inputValue(), '');
   assert.equal(await page.evaluate(() => document.body.innerText.includes('test-only-secret')), false);
+});
+
+test('failed model verification stays visible and does not claim a connection', async t => {
+  const page = await openPhone(t, { modelReady: true, modelCheckFails: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#checkButlerModel').click();
+  await page.waitForFunction(() => document.getElementById('butlerConnectionText').textContent.includes('HTTP 401'));
+  assert.equal(await page.locator('#cloudState').textContent(), '连接异常');
+  assert.equal(await page.locator('#checkButlerModel').isEnabled(), true);
+});
+
+test('chat errors preserve the message and a working retry after a refresh', async t => {
+  const page = await openPhone(t, { modelReady: true, chatFails: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('请帮我看今天的进展');
+  await page.locator('#sendPi').click();
+  await page.getByRole('button', { name: '重试这条消息' }).waitFor();
+  assert.equal(await page.locator('#piInput').inputValue(), '请帮我看今天的进展');
+  assert.match(await page.locator('#piMessages').textContent(), /HTTP 401/);
+  await page.locator('#refreshButler').click();
+  await page.getByRole('button', { name: '重试这条消息' }).waitFor();
+  await page.getByRole('button', { name: '重试这条消息' }).click();
+  await page.waitForFunction(() => window.chatCount === 2);
+});
+
+test('call setup shows missing voice services and stores a separate voice key without exposing it', async t => {
+  const page = await openPhone(t, { modelReady: true, voiceUnavailable: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#voiceBackdrop').waitFor();
+  assert.equal(await page.locator('#callBackdrop').isHidden(), true);
+  assert.match(await page.locator('#voiceInputStatus').textContent(), /尚未就绪/);
+  await page.locator('#voiceApiKey').fill('voice-test-secret');
+  await page.locator('#saveVoiceService').click();
+  assert.equal(await page.locator('#voiceApiKey').inputValue(), '');
+  assert.match(await page.locator('#voiceServiceState').textContent(), /独立密钥已保存/);
+  assert.equal(await page.evaluate(() => document.body.innerText.includes('voice-test-secret')), false);
+  await page.locator('#voiceBackdrop [data-close]').click();
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  await page.locator('#callEnd').click();
+});
+
+test('butler puts chat above collapsed planning without horizontal overflow', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  assert.equal(await page.locator('#butlerPlanDetails').getAttribute('open'), null);
+  const layout = await page.evaluate(() => ({
+    chatBottom: document.getElementById('piMessages').getBoundingClientRect().bottom,
+    dockTop: document.getElementById('butlerChatDock').getBoundingClientRect().top,
+    overflow: document.documentElement.scrollWidth > innerWidth
+  }));
+  assert.equal(layout.overflow, false);
+  assert.ok(layout.chatBottom <= layout.dockTop, JSON.stringify(layout));
 });
 
 test('call mode supports voice in, TTS out, and continuous listening', async t => {
@@ -557,6 +633,14 @@ test('call mode supports voice in, TTS out, and continuous listening', async t =
   await page.locator('#startCall').click();
   await page.locator('#callBackdrop').waitFor();
   assert.match(await page.locator('#callStatus').textContent(), /聆听|接通/);
+  const avatarLayout = await page.evaluate(() => {
+    const avatar = document.querySelector('#callAvatar .pixelAvatar').getBoundingClientRect();
+    const stage = document.querySelector('.callStage').getBoundingClientRect();
+    return avatar.top >= stage.top && avatar.bottom <= stage.bottom
+      && avatar.left >= stage.left && avatar.right <= stage.right;
+  });
+  assert.equal(avatarLayout, true);
+  assert.equal(await page.locator('.app').getAttribute('inert'), '');
   assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'start' && call[1] === true)), true);
   await page.evaluate(() => window.phoneVoice.update({
     type: 'final', text: '今天最应该先处理什么？', autoSend: true
@@ -655,6 +739,91 @@ test('voice settings tune TTS rate and pitch and preview through the engine', as
   assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), true);
   await page.locator('#voiceBackdrop [data-close]').click();
   assert.equal(await page.locator('#voiceBackdrop').isHidden(), true);
+});
+
+test('a queued cloud reply keeps hang-up responsive and stops pending speech', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.evaluate(() => {
+    window.AgentBridge.speakText = () => {
+      window.callCalls.push(['speak', 'queued']);
+      return JSON.stringify({ ok: true, data: { queued: true, mode: 'cloud' } });
+    };
+    window.AgentBridge.stopSpeaking = () => {
+      window.callCalls.push(['stop-speaking']);
+      return JSON.stringify({ ok: true });
+    };
+  });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '查看任务', autoSend: true }));
+  await page.waitForFunction(() => window.callCalls.some(call => call[0] === 'speak'));
+  await page.locator('#callEnd').click();
+  assert.equal(await page.locator('#callBackdrop').isHidden(), true);
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'stop-speaking')), true);
+});
+
+test('hanging up while the model is thinking suppresses its later voice reply', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.evaluate(() => {
+    const read = window.AgentBridge.operationState;
+    window.AgentBridge.operationState = id => {
+      if (id === 'test-chat' && !window.releaseChat) {
+        return JSON.stringify({ ok: true, data: { operation: {
+          id, state: 'running', message: '思考中'
+        } } });
+      }
+      return read(id);
+    };
+  });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '查看任务', autoSend: true }));
+  await page.locator('#chatTyping').waitFor();
+  await page.locator('#callEnd').click();
+  await page.evaluate(() => { window.releaseChat = true; });
+  await page.waitForFunction(() => document.getElementById('piMessages').textContent.includes('通话测试回复'));
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), false);
+  assert.equal(await page.locator('#callBackdrop').isHidden(), true);
+});
+
+test('hanging up before the final transcript send timer prevents a late message', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.evaluate(() => {
+    window.phoneVoice.update({ type: 'final', text: '不应发送', autoSend: true });
+    document.getElementById('callEnd').click();
+  });
+  await new Promise(resolve => setTimeout(resolve, 400));
+  assert.equal(await page.locator('#chatTyping').count(), 0);
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), false);
+  assert.equal(await page.evaluate(() => window.chatCount), 0);
+});
+
+test('a new call resumes listening without playing the previous call reply', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.evaluate(() => {
+    const read = window.AgentBridge.operationState;
+    window.AgentBridge.operationState = id => id === 'test-chat' && !window.releaseChat
+      ? JSON.stringify({ ok: true, data: { operation: { id, state: 'running' } } })
+      : read(id);
+  });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '第一通电话', autoSend: true }));
+  await page.locator('#chatTyping').waitFor();
+  await page.locator('#callEnd').click();
+  await page.locator('#startCall').click();
+  await new Promise(resolve => setTimeout(resolve, 600));
+  assert.equal(await page.evaluate(() => window.voiceCalls.filter(call => call[0] === 'start').length), 1);
+  await page.evaluate(() => { window.releaseChat = true; });
+  await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length === 2);
+  assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), false);
+  assert.match(await page.locator('#callTranscript').textContent(), /通话已接通/);
+  await page.locator('#callEnd').click();
 });
 
 test('butler replies render markdown emphasis without raw asterisks', async t => {
@@ -781,4 +950,31 @@ test('SSH sockets bypass an always-on VPN through the physical network', () => {
   assert.match(source, /network\.bindSocket\(socket\)/);
   assert.match(source, /Inet4Address/);
   assert.match(manifest, /android\.permission\.ACCESS_NETWORK_STATE/);
+});
+
+test('late voice transcripts after hanging up cannot send a chat or replace a draft', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  await page.locator('#callEnd').click();
+  await page.locator('#piInput').fill('挂断后的新草稿');
+  await page.evaluate(() => window.phoneVoice.update({type: 'final', text: '旧录音结果', autoSend: true}));
+  await page.waitForTimeout(250);
+  assert.equal(await page.evaluate(() => window.chatCount), 0);
+  assert.equal(await page.locator('#piInput').inputValue(), '挂断后的新草稿');
+});
+
+test('speech playback failure remains visible and offers manual call recovery', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  await page.evaluate(() => window.phoneVoice.update({type: 'speak-error', text: '云端语音播放失败'}));
+  assert.match(await page.locator('#callTranscript').textContent(), /云端语音播放失败/);
+  await page.locator('#callRetry').waitFor();
+  await page.locator('#callRetry').click();
+  await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length === 2);
+  await page.locator('#callEnd').click();
+  assert.match(await page.locator('#piMessages').textContent(), /云端语音播放失败/);
 });

@@ -9,7 +9,7 @@
 Each machine becomes a pixel-art office. Each AI task becomes a cute employee.<br>
 See who's working, who's waiting for you, and what to do next — at a glance.
 
-[![Download](https://img.shields.io/badge/Download-APK-blue?logo=android&logoColor=white&style=for-the-badge)](https://github.com/otterview-labs/agentBridge/releases)
+[![Download](https://img.shields.io/badge/Download-APK-blue?logo=android&logoColor=white&style=for-the-badge)](https://otterview-labs.github.io/agentBridge/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/otterview-labs/agentBridge/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/otterview-labs/agentBridge)
@@ -84,7 +84,7 @@ See who's working, who's waiting for you, and what to do next — at a glance.
 
 ### Download APK
 
-[![Download APK](https://img.shields.io/badge/⬇️-Download_APK-blue?style=for-the-badge&logo=android&logoColor=white)](https://github.com/otterview-labs/agentBridge/releases)
+[![Download APK](https://img.shields.io/badge/⬇️-Download_APK-blue?style=for-the-badge&logo=android&logoColor=white)](https://otterview-labs.github.io/agentBridge/)
 
 ### Build from Source
 

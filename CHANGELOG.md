@@ -2,12 +2,27 @@
 
 Notable changes to agentBridge are documented here.
 
-## Unreleased
+## Android 0.5.39 — 2026-10-01
 
-### Android 0.5.38 — security and reliability fixes from the code review
+### Office UI and butler chat/call fixes
+
+- Cream and forest-green office surfaces retain the pixel employee identity;
+  butler conversations are prominent and planning sections are collapsible.
+- Model configuration and a successful connection check have separate states.
+  Checks run in the background, and chat failures keep the message and retry.
+- A separate encrypted Beijing DashScope speech key can be used alongside any
+  text model. Voice settings show recognition, playback and permission status.
+- Silent ASR completions no longer leave the UI stuck listening. Recording
+  flushes before another turn, and cancellation suppresses late transcripts.
+- Explicit tool incompatibilities fall back to text chat; pasted completion
+  URLs normalize correctly, and HTTP failures explain the next action.
+
+### Security and reliability fixes from the code review
 
 Security
 
+- Credential saves now fail explicitly when encryption is unavailable; there
+  is no plaintext fallback, and failed writes do not update the read cache.
 - SSH passwords, private keys, the model API key and FRP secrets are encrypted
   with an Android Keystore key; plain values from older versions are encrypted
   on first read. A transient Keystore failure shows an error instead of an
@@ -32,6 +47,14 @@ Security
 
 Reliability
 
+- Android 7 compatibility is restored with Java API desugaring, a compatible
+  recorder file overload, and audio usage fallbacks. CI now also runs Android lint.
+- Speech recognition and TTS services have package-visibility declarations,
+  and call audio routing declares the required audio-settings permission.
+- Cloud speech synthesis runs off the WebView thread. Hanging up cancels
+  pending synthesis and suppresses late replies, including across a new call.
+- Detached replies read a bounded log tail and a separate atomic exit status,
+  so large logs retain completion and failure information.
 - The "network self-heal" no longer kills the app. SSH sockets restore the
   process network binding to exactly what it was (previously the app could stay
   pinned to a VPN), hold it only during connect, and always use the 12-second

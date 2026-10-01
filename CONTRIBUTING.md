@@ -16,7 +16,7 @@ Node.js 20 or later for the tests.
 
 ```bash
 cd android
-./gradlew assembleDebug
+./gradlew assembleDebug lintDebug
 
 cd tests
 npm ci

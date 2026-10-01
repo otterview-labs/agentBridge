@@ -18,13 +18,17 @@ jobs:
   analyze:
     # The Java side holds the SSH credentials and builds every remote shell
     # command, so it is analysed as well as the WebView script.
-    name: Analyze ${{ matrix.language }}
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        language: [javascript-typescript, java-kotlin]
+        include:
+          - language: javascript-typescript
+            name: Analyze JavaScript and TypeScript
+          - language: java-kotlin
+            name: Analyze Java and Kotlin
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

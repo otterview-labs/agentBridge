@@ -62,9 +62,11 @@ final class PhoneBridge {
 
   String getDashScopeApiKey() {
     try {
+      String voiceKey = store.studioVoice().optString("apiKey", "").trim();
+      if (!voiceKey.isEmpty()) return voiceKey;
       JSONObject model = store.studioModel();
       String baseUrl = model.optString("baseUrl", "");
-      if (baseUrl.contains("dashscope.aliyuncs.com")) {
+      if (new URL(baseUrl).getHost().equals("dashscope.aliyuncs.com")) {
         return model.optString("apiKey", "");
       }
     } catch (Exception error) {
@@ -169,6 +171,7 @@ final class PhoneBridge {
   @JavascriptInterface
   public String beginStudioMessage(String content) {
     try {
+      readyStudioModel();
       String value = content == null ? "" : content.trim();
       if (value.isEmpty() || value.length() > 4000) {
         throw new IllegalArgumentException("消息须为 1–4000 字。");
@@ -205,6 +208,66 @@ final class PhoneBridge {
         }
       });
       return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  /** Checks a real completion in the background without adding it to chat history. */
+  @JavascriptInterface
+  public String beginStudioModelCheck() {
+    try {
+      JSONObject model = readyStudioModel();
+      int id = store.nextId();
+      JSONObject operation = registerOperation(id, "model", "正在验证模型连接…");
+      startWorker("agent-bridge-model-check-" + id, () -> {
+        try {
+          JSONArray messages = new JSONArray().put(new JSONObject()
+              .put("role", "user").put("content", "请仅回复：连接成功"));
+          JSONObject response = new JSONObject(chatCompletion(model, messages, null));
+          JSONArray choices = response.optJSONArray("choices");
+          JSONObject message = choices == null || choices.length() == 0
+              ? null : choices.getJSONObject(0).optJSONObject("message");
+          if (message == null || modelMessageText(message).isEmpty()) {
+            throw new IllegalStateException("接口可达，但模型没有返回文字，请检查模型名称");
+          }
+          synchronized (store) {
+            JSONObject current = store.studioModel();
+            if (!current.toString().equals(model.toString())) {
+              throw new IllegalStateException("配置已经变更，请重新验证当前模型");
+            }
+            model.put("verifiedAt", now());
+            store.saveStudioModel(model);
+          }
+          synchronized (operations) {
+            JSONObject current = operations.get(id);
+            if (current != null) current.put("state", "succeeded").put("phase", "succeeded")
+                .put("message", "模型连接成功").put("studio", localStudioSnapshot());
+          }
+        } catch (Exception error) {
+          try { updateOperation(id, "failed", error.getMessage(), ""); }
+          catch (Exception ignored) { }
+        }
+      });
+      return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  @JavascriptInterface
+  public String saveVoiceService(String payload) {
+    try {
+      JSONObject input = new JSONObject(payload);
+      JSONObject voice = store.studioVoice();
+      String key = input.optString("apiKey", "").trim();
+      if (input.optBoolean("clear")) key = "";
+      else if (key.isEmpty()) key = voice.optString("apiKey", "");
+      if (key.length() > 4096 || key.contains("\n") || key.contains("\r")) {
+        throw new IllegalArgumentException("语音 API Key 格式不正确");
+      }
+      store.saveStudioVoice(new JSONObject().put("apiKey", key));
+      return getTtsStatus();
     } catch (Exception error) {
       return failure(error);
     }
@@ -320,15 +383,13 @@ final class PhoneBridge {
       java.util.Map<String, Object> status = new java.util.LinkedHashMap<>();
       activity.getTtsStatus(status);
       JSONObject result = new JSONObject(status);
-      boolean cloudAvailable = false;
-      try {
-        JSONObject model = store.studioModel();
-        cloudAvailable = model.optBoolean("enabled", false)
-            && model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")
-            && !model.optString("apiKey", "").isEmpty();
-      } catch (Exception error) {
-        cloudAvailable = false;
-      }
+      String voiceKey = getDashScopeApiKey();
+      boolean cloudAvailable = voiceKey != null && !voiceKey.isEmpty();
+      result.put("localReady", result.optBoolean("ready"));
+      result.put("hasVoiceKey", !store.studioVoice().optString("apiKey", "").isEmpty());
+      result.put("recognitionAvailable", android.speech.SpeechRecognizer.isRecognitionAvailable(activity));
+      result.put("microphoneGranted", activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+          == android.content.pm.PackageManager.PERMISSION_GRANTED);
       result.put("cloudAvailable", cloudAvailable);
       if (!result.optBoolean("ready", false) && cloudAvailable) {
         result.put("ready", true);
@@ -343,20 +404,17 @@ final class PhoneBridge {
   }
 
   JSONObject transcribeVoiceAudio(String base64Audio, String contentType) throws Exception {
-    JSONObject model = readyStudioModel();
-    String baseUrl = model.optString("baseUrl", "");
-    if (!baseUrl.contains("dashscope.aliyuncs.com")) {
-      throw new IllegalStateException("系统语音不可用，且当前管家模型地址不支持云端识别；可换用阿里云百炼地址");
-    }
+    String key = getDashScopeApiKey();
+    if (key == null || key.isEmpty()) throw new IllegalStateException("请在语音设置中填写百炼北京地域 API Key");
     HttpURLConnection connection = null;
     try {
-      URL url = new URL(baseUrl + "/chat/completions");
+      URL url = new URL("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions");
       connection = activity.openModelConnection(url);
       connection.setRequestMethod("POST");
       connection.setConnectTimeout(15_000);
       connection.setReadTimeout(60_000);
       connection.setDoOutput(true);
-      connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
+      connection.setRequestProperty("Authorization", "Bearer " + key);
       connection.setRequestProperty("Content-Type", "application/json");
       // qwen3-asr-flash on the OpenAI-compatible endpoint expects input_audio
       // as a plain data-URI string; an object form returns InvalidParameter.
@@ -402,13 +460,10 @@ final class PhoneBridge {
       if (activity.speakText(text)) {
         return success(new JSONObject().put("speaking", true).put("mode", "local"));
       }
-      JSONObject model = readyStudioModel();
-      if (!model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
-        throw new IllegalStateException("本机语音不可用，且当前管家模型地址不支持云端语音");
-      }
-      String audioUrl = activity.synthesizeCloudSpeechUrl(model.getString("apiKey"), text);
-      activity.playSpeechUrl(audioUrl);
-      return success(new JSONObject().put("speaking", true).put("mode", "cloud"));
+      String key = getDashScopeApiKey();
+      if (key == null || key.isEmpty()) throw new IllegalStateException("请在语音设置中填写百炼北京地域 API Key，或启用本机语音引擎");
+      activity.speakCloudText(key, text);
+      return success(new JSONObject().put("speaking", true).put("mode", "cloud").put("queued", true));
     } catch (Exception error) {
       String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
       android.util.Log.w("AgentBridgeNative", "speakText failed", error);
@@ -514,6 +569,7 @@ final class PhoneBridge {
         .put("scope", "当前手机的 SSH 记录、本机记忆和本机模型配置；不经过 Hub。")
         .put("model", new JSONObject()
             .put("ready", modelReady)
+            .put("verifiedAt", model.optString("verifiedAt", ""))
             .put("label", modelReady ? model.optString("modelId") : "模型未配置"))
         .put("modelSettings", publicStudioModel(model))
         .put("machines", local.getJSONArray("machines"))
@@ -561,6 +617,7 @@ final class PhoneBridge {
   private String validateDirectModelUrl(String value) throws Exception {
     String clean = value == null ? "" : value.trim();
     while (clean.endsWith("/")) clean = clean.substring(0, clean.length() - 1);
+    if (clean.endsWith("/chat/completions")) clean = clean.substring(0, clean.length() - "/chat/completions".length());
     if (clean.isEmpty()) throw new IllegalArgumentException("模型 Base URL 不能为空");
     URL url = new URL(clean);
     boolean local = url.getHost().equals("localhost") || url.getHost().equals("127.0.0.1")
@@ -731,7 +788,18 @@ final class PhoneBridge {
     JSONArray tools = buildButlerTools();
     for (int round = 0; round < maxRounds; round++) {
       // The last round must answer in text, or every tool call so far is wasted.
-      String raw = chatCompletion(model, messages, tools, round == maxRounds - 1 ? "none" : null);
+      String raw;
+      try {
+        raw = chatCompletion(model, messages, tools, round == maxRounds - 1 ? "none" : null);
+      } catch (IllegalStateException error) {
+        String detail = String.valueOf(error.getMessage()).toLowerCase(java.util.Locale.ROOT);
+        // Some compatible endpoints support text chat but reject function calling.
+        // Retry only that explicit first-round incompatibility, before any tool ran.
+        if (round != 0 || !(detail.contains("http 400") || detail.contains("http 422"))
+            || !(detail.contains("tools") || detail.contains("tool_choice")
+              || detail.contains("function calling"))) throw error;
+        raw = chatCompletion(model, messages, null);
+      }
       JSONObject response = new JSONObject(raw);
       JSONArray choices = response.optJSONArray("choices");
       if (choices == null || choices.length() == 0) break;
@@ -739,7 +807,7 @@ final class PhoneBridge {
       if (message == null) break;
       JSONArray toolCalls = message.optJSONArray("tool_calls");
       if (toolCalls == null || toolCalls.length() == 0) {
-        String content = message.optString("content", "").trim();
+        String content = modelMessageText(message);
         if (!content.isEmpty()) return content;
         break;
       }
@@ -763,6 +831,19 @@ final class PhoneBridge {
 
   private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools) throws Exception {
     return chatCompletion(model, messages, tools, null);
+  }
+
+  private String modelMessageText(JSONObject message) {
+    Object content = message.opt("content");
+    if (content instanceof String) return ((String) content).trim();
+    if (!(content instanceof JSONArray)) return "";
+    StringBuilder text = new StringBuilder();
+    JSONArray parts = (JSONArray) content;
+    for (int i = 0; i < parts.length(); i++) {
+      JSONObject part = parts.optJSONObject(i);
+      if (part != null && part.optString("type").equals("text")) text.append(part.optString("text"));
+    }
+    return text.toString().trim();
   }
 
   private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools, String toolChoice) throws Exception {
@@ -795,8 +876,12 @@ final class PhoneBridge {
       InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
       String body = readStream(stream, 2_000_000);
       if (status >= 400) {
-        String detail = body.replaceAll("\\s+", " ").trim();
+        String detail = body.replace(model.getString("apiKey"), "[密钥已隐藏]").replaceAll("\\s+", " ").trim();
+        String hint = status == 401 || status == 403 ? "，请检查 API Key、地域和调用权限"
+            : status == 404 ? "，请检查 Base URL 和模型名称"
+            : status == 429 ? "，额度不足或请求过于频繁，请检查服务商控制台" : "";
         throw new IllegalStateException("模型返回 HTTP " + status
+            + hint
             + (detail.isEmpty() ? "" : "：" + detail.substring(0, Math.min(detail.length(), 200))));
       }
       return body;
