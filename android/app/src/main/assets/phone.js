@@ -1479,7 +1479,7 @@
       welcome.appendChild(element('span', 'welcomeMark', '···'));
       welcome.appendChild(element('h4', '', model.ready ? '从一句话开始' : '先接上你的模型'));
       welcome.appendChild(element('p', '', model.ready
-        ? '问进展、看任务输出、排优先级。需要回复任务时，打开对应员工卡片。'
+        ? '查进展、看输出、排优先级。'
         : '点上方「配置模型」，保存后验证连接。'));
       $('piMessages').appendChild(welcome);
     } else {
