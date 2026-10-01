@@ -1,363 +1,196 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="下载 agentBridge 安卓应用：在手机上查看和回复远程机器的 Codex、Claude 会话，和管家聊天、语音通话。">
-  <title>agentBridge — 安卓下载</title>
-  <link rel="icon" href="icon.png">
-  <style>
-    :root {
-      color-scheme: light;
-      --bg: #ffffff;
-      --fg: #1a1a1a;
-      --accent: #2d5a27;
-      --muted: #666666;
-      --border: #eeeeee;
-      --spacing: 24px;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--fg);
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-      font-size: 15px;
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: inherit; text-underline-offset: 3px; }
-    a:hover { color: var(--accent); }
-    a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; }
-    .skip-link { position: absolute; top: -60px; left: 24px; padding: 8px 16px; background: var(--fg); color: white; z-index: 1; }
-    .skip-link:focus { top: 12px; }
-    header {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 40px var(--spacing) 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 600;
-      font-size: 18px;
-      letter-spacing: -0.01em;
-    }
-    .brand img { width: 28px; height: 28px; }
-    .brand small { font-size: 12px; color: var(--muted); font-weight: 400; }
-    .header-link { font-size: 13px; }
-
-    main {
-      max-width: 1000px;
-      margin: 0 auto;
-      padding: 0 var(--spacing) 80px;
-    }
-
-    /* Hero Section */
-    .hero {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 60px;
-      align-items: center;
-      padding: 36px 0 48px;
-      border-bottom: 1px solid var(--border);
-    }
-    .hero-text h1 {
-      font-size: 42px;
-      line-height: 1.2;
-      margin: 0 0 24px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-    .eyebrow { font-size: 13px; color: var(--accent); margin: 0 0 16px; }
-    .hero-text .lede {
-      font-size: 18px;
-      color: var(--muted);
-      margin-bottom: 32px;
-      max-width: 480px;
-    }
-    .download-group {
-      margin-bottom: 24px;
-    }
-    .btn-download {
-      display: inline-block;
-      padding: 14px 32px;
-      background: var(--accent);
-      color: #fff;
-      text-decoration: none;
-      font-weight: 600;
-      border-radius: 4px;
-      transition: opacity 0.2s;
-    }
-    .btn-download:hover { opacity: 0.9; color: #fff; }
-    .hero-meta {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 12px;
-    }
-    .hero-meta span { border-bottom: 1px solid #eee; padding-bottom: 1px; }
-
-    .hero-image { margin: 0; justify-self: center; max-width: 286px; }
-    .hero-image figcaption { margin-top: 12px; font-size: 12px; color: var(--muted); }
-    .hero-image img {
-      display: block;
-      width: 100%;
-      height: auto;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-    }
-
-    /* Features Section */
-    .section-title {
-      font-size: 20px;
-      font-weight: 600;
-      margin: 60px 0 30px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .section-title::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
-    }
-
-    .screenshots {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      margin-bottom: 60px;
-    }
-    .screenshot-item figure { margin: 0; }
-    .screenshot-item img {
-      display: block;
-      max-width: 286px;
-      width: 100%;
-      height: auto;
-      border: 1px solid var(--border);
-    }
-    .screenshot-item figcaption {
-      margin-top: 16px;
-      font-weight: 600;
-      font-size: 16px;
-    }
-    .screenshot-item .desc {
-      font-size: 14px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-    .sample-note { font-size: 12px; color: var(--muted); margin: -32px 0 48px; }
-
-    /* Instructions & FAQ */
-    .info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 60px;
-      padding-top: 20px;
-    }
-    .info-section h3 {
-      font-size: 20px;
-      margin: 0 0 20px;
-      font-weight: 600;
-    }
-    .info-section ol {
-      padding-left: 20px;
-      margin: 0;
-    }
-    .info-section li {
-      margin-bottom: 16px;
-      color: #333;
-    }
-    .info-section .desc { color: var(--muted); font-size: 13px; margin: 20px 0 0; }
-    .note-box {
-      font-size: 13px;
-      color: var(--muted);
-      padding: 20px;
-      background: #f9f9f9;
-      border-left: 3px solid var(--accent);
-      margin-top: 30px;
-    }
-
-    details {
-      border-bottom: 1px solid var(--border);
-    }
-    summary {
-      padding: 20px 0;
-      cursor: pointer;
-      font-weight: 600;
-      list-style: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    summary::after {
-      content: "+";
-      font-weight: normal;
-      color: var(--muted);
-    }
-    details[open] summary::after { content: "−"; }
-    details p {
-      margin: 0 0 20px;
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.7;
-    }
-
-    footer {
-      margin-top: 80px;
-      padding-top: 30px;
-      border-top: 1px solid var(--border);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    /* Responsive */
-    @media (max-width: 800px) {
-      .hero { grid-template-columns: 1fr; gap: 40px; padding: 40px 0; }
-      .hero-text h1 { font-size: 32px; }
-      .screenshots { grid-template-columns: 1fr; }
-      .info-grid { grid-template-columns: 1fr; gap: 40px; }
-    }
-    @media (max-width: 600px) {
-      header { padding-top: 24px; }
-      .hero { padding-top: 24px; }
-      .hero-text .lede { font-size: 16px; }
-      .brand { font-size: 16px; gap: 8px; }
-      .brand small { display: none; }
-      .screenshot-item img { margin-inline: auto; }
-      .btn-download { width: 100%; text-align: center; }
-      .section-title { margin-top: 40px; }
-      footer { margin-top: 48px; gap: 16px 24px; }
-    }
-    @media (max-width: 375px) {
-      main { padding: 0 16px 60px; }
-      .hero-text h1 { font-size: 28px; }
-      .btn-download { width: 100%; text-align: center; }
-    }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f3f0e7">
+<meta name="description" content="agentBridge 安卓版：通过 SSH 连接 Mac 或 Linux，在手机上查看、回复 Codex 和 Claude 会话，也能和管家聊天、通话。">
+<title>agentBridge · 把办公室带在身边</title>
+<link rel="icon" href="icon.png">
+<style>
+:root{color-scheme:light;--paper:#f3f0e7;--ink:#242721;--sub:#62655b;--orange:#d74b27;--line:#c9cbbf;--olive:#dfe3d2;--mono:ui-monospace,SFMono-Regular,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-underline-offset:4px}
+button{font:inherit;color:inherit}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid var(--orange);outline-offset:5px}
+.skip{position:absolute;top:-70px;left:20px;background:var(--ink);color:var(--paper);padding:12px;z-index:2}
+.skip:focus{top:12px}
+.wrap{max-width:1200px;padding:0 40px;margin:auto}
+header{min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--ink)}
+.wordmark{display:flex;align-items:center;gap:12px;font-size:15px;font-weight:650;letter-spacing:.02em}
+.wordmark img{width:34px;height:34px;image-rendering:pixelated}
+.wordmark small{font-size:11px;font-weight:400;color:var(--sub);letter-spacing:0}
+nav{display:flex;gap:28px;font-size:13px}
+nav a{text-decoration:none;min-height:44px;display:flex;align-items:center}
+nav a:hover{color:var(--orange)}
+.brandline{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:30px 0 28px}
+h1{font-size:clamp(70px,11.2vw,142px);line-height:.95;font-weight:800;letter-spacing:-.075em;margin:0 0 0 -7px}
+h1 span{font-weight:450}
+.edition{font-family:var(--mono);font-size:11px;line-height:1.8;text-align:right;white-space:nowrap;padding-bottom:5px;color:var(--sub)}
+.edition b{color:var(--ink);font-weight:500}
+.hero{display:grid;grid-template-columns:1fr 1.04fr;gap:64px;padding:22px 0 48px;align-items:stretch}
+.hero-copy{display:flex;flex-direction:column;align-items:flex-start;padding-top:18px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--sub);margin:0 0 24px;display:flex;align-items:center;gap:8px}
+.kicker::before{content:"";width:7px;height:7px;background:var(--orange)}
+h2{font-size:clamp(28px,3.5vw,43px);line-height:1.3;letter-spacing:-.035em;margin:0;font-weight:650}
+.intro{font-size:16px;line-height:1.85;color:var(--sub);margin:20px 0 28px;max-width:420px}
+.connection{display:flex;align-items:center;gap:14px;font-size:12px;margin-bottom:40px}
+.connection span{line-height:1.7}
+.connection small{font-size:10px;color:var(--sub);font-family:var(--mono)}
+.connection i{width:54px;border-top:1px solid var(--sub);position:relative;display:block;font-style:normal}
+.connection i::after{content:"";position:absolute;right:0;top:-3px;width:5px;height:5px;border-top:1px solid var(--sub);border-right:1px solid var(--sub);transform:rotate(45deg)}
+.connection em{font:10px var(--mono);color:var(--sub);position:absolute;top:-17px;left:16px}
+.download-area{width:100%;margin-top:0;padding-top:8px}
+.download{display:inline-flex;align-items:center;justify-content:space-between;gap:44px;min-height:64px;background:var(--orange);color:#fff9ef;text-decoration:none;padding:0 24px;font-size:16px;font-weight:600;border:1px solid var(--orange);transition:background .15s,transform .15s}
+.download:hover{background:#bd3d1e;transform:translateY(-2px)}
+.download .arrow{font-size:25px;line-height:1;font-weight:400}
+.release-meta{display:flex;gap:12px;flex-wrap:wrap;margin:15px 0 0;font:11px/1.6 var(--mono);color:var(--sub)}
+.release-meta span+span{border-left:1px solid var(--line);padding-left:12px}
+.install-note{font-size:11px;color:var(--sub);line-height:1.7;margin:14px 0 0}
+.stage{background:var(--olive);border:1px solid var(--ink);display:flex;flex-direction:column;position:relative;min-width:0}
+.stage-head{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--ink);font:10px var(--mono);letter-spacing:.03em}
+.stage-label{display:flex;align-items:center;gap:7px}
+.stage-label::before{content:"";display:block;width:6px;height:6px;background:var(--ink)}
+.stage-body{position:relative;min-height:456px;display:grid;place-items:center;padding:16px 36px 24px;background-image:linear-gradient(#24272109 1px,transparent 1px),linear-gradient(90deg,#24272109 1px,transparent 1px);background-size:24px 24px}
+.side-note{position:absolute;left:18px;top:24px;font:9px/1.7 var(--mono);writing-mode:vertical-rl;letter-spacing:.13em;color:var(--sub)}
+.phone{margin:0;width:210px;max-width:100%;padding:7px;background:var(--ink);border-radius:22px;box-shadow:9px 11px 0 #a7ad9955;position:relative}
+.phone img{display:block;width:100%;height:auto;aspect-ratio:390/844;border-radius:15px;background:#f5f2e9}
+.phone::after{content:"";position:absolute;right:-2px;top:94px;width:3px;height:30px;background:var(--ink)}
+.preview-note{position:absolute;right:16px;bottom:17px;font:10px var(--mono);color:var(--sub);margin:0}
+.preview-tabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--ink)}
+.preview-tabs button{border:0;border-right:1px solid var(--ink);background:transparent;padding:15px 8px;min-height:49px;cursor:pointer;font-size:12px}
+.preview-tabs button:last-child{border-right:0}
+.preview-tabs button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.preview-tabs button:not([aria-pressed="true"]):hover{background:#ffffff55}
+.preview-tabs .num{font:10px var(--mono);margin-right:8px;opacity:.65}
+.preview-description{margin:12px 0 0;font-size:12px;line-height:1.7;color:var(--sub);min-height:41px}
+.hero-preview{min-width:0}
+.divider{display:flex;gap:18px;align-items:center;font:11px var(--mono);color:var(--sub);padding:24px 0;border-top:1px solid var(--ink)}
+.divider span:last-child{margin-left:auto}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:36px;padding:8px 0 52px}
+.feature{border-top:1px solid var(--line);padding-top:18px}
+.feature .number{font:11px var(--mono);color:var(--orange)}
+h3{font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.4;margin:20px 0 12px}
+.feature p{font-size:13px;line-height:1.85;color:var(--sub);margin:0}
+.guide{display:grid;grid-template-columns:.75fr 1.25fr;gap:80px;padding:48px 0 56px;border-top:1px solid var(--ink)}
+.guide-heading p{font-size:13px;line-height:1.8;color:var(--sub);max-width:260px;margin:18px 0 0}
+.guide-heading .kicker{margin-bottom:18px}
+.guide h2{font-size:32px}
+details{border-bottom:1px solid var(--line)}
+summary{list-style:none;display:flex;align-items:center;gap:16px;min-height:70px;padding:15px 0;cursor:pointer;font-size:14px;font-weight:550;line-height:1.5}
+summary::-webkit-details-marker{display:none}
+summary .number{font:11px var(--mono);color:var(--sub)}
+summary::after{content:"+";font:22px var(--mono);margin-left:auto;color:var(--sub)}
+details[open] summary::after{content:"−"}
+.detail-content{font-size:13px;line-height:1.9;color:var(--sub);padding:0 0 22px 32px}
+.detail-content p{margin:0 0 12px}
+.detail-content p:last-child{margin-bottom:0}
+.detail-content ol{padding-left:20px;margin:0 0 14px}
+.detail-content li{padding-left:3px;margin-bottom:8px}
+.detail-content a{color:var(--ink)}
+.closing{padding:30px 0;border-top:1px solid var(--ink);display:flex;align-items:center;justify-content:space-between;gap:24px}
+.closing p{font-size:14px;margin:0;font-weight:550}
+.closing a{font-size:13px;color:var(--orange)}
+footer{border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:24px;padding:24px 0 32px;font:11px/1.8 var(--mono);color:var(--sub)}
+.footer-links{display:flex;gap:20px;flex-wrap:wrap}
+footer a{text-decoration:none}
+footer a:hover{text-decoration:underline}
+@media(min-width:1300px){.stage-body{min-height:478px}.phone{width:220px}}
+@media(max-width:960px){.wrap{padding:0 28px}.hero{gap:32px}.stage-body{padding-inline:40px}.intro{font-size:14px}.connection{margin-bottom:24px}.guide{gap:40px}.features{gap:24px}.edition{font-size:10px}}
+@media(max-width:720px){.wrap{padding:0 20px}header{min-height:72px}.wordmark{font-size:13px;gap:9px}.wordmark small{display:none}.wordmark img{width:28px;height:28px}nav{gap:18px;font-size:11px}.brandline{padding:28px 0 22px;display:block}h1{font-size:clamp(59px,13.6vw,94px);margin-left:-3px}.edition{display:none}.hero{grid-template-columns:1fr;gap:28px;padding:0 0 32px}.hero-copy{padding-top:0}.hero-copy .kicker{margin-bottom:16px}h2{font-size:30px}.intro{font-size:14px;margin:14px 0 20px;max-width:490px}.connection{display:none}.download-area{padding-top:0}.download{display:flex;width:100%;min-height:58px}.release-meta{font-size:10px;gap:10px;margin-top:12px}.release-meta span+span{padding-left:10px}.install-note{font-size:10px;margin-top:10px}.stage-body{min-height:454px;padding-top:24px}.phone{width:184px}.preview-description{font-size:11px;min-height:0}.divider{font-size:10px;padding:21px 0}.features{grid-template-columns:1fr;gap:0;padding-bottom:28px}.feature{display:grid;grid-template-columns:30px 1fr;gap:8px 12px;padding:20px 0}.feature .number{padding-top:4px}.feature h3{font-size:17px;margin:0}.feature p{grid-column:2;font-size:12px}.guide{grid-template-columns:1fr;gap:24px;padding:32px 0}.guide h2{font-size:28px}.guide-heading p{max-width:none;font-size:12px;margin-top:14px}.guide-heading .kicker{margin-bottom:12px}summary{min-height:64px;font-size:13px}.detail-content{font-size:12px}.closing{padding:24px 0;align-items:flex-start}.closing p{font-size:12px;line-height:1.7;max-width:180px}.closing a{font-size:12px;white-space:nowrap;line-height:1.7}footer{flex-direction:column;gap:12px;font-size:10px}.footer-links{gap:18px}}
+@media(max-width:720px){.phone{width:226px}.stage-body{padding-top:20px;padding-bottom:26px;padding-inline:30px}}
+@media(max-width:360px){.wrap{padding-inline:16px}nav{gap:12px}h1{font-size:56px}.release-meta{gap:8px}.release-meta span+span{padding-left:8px}.stage-body{padding-inline:30px}.phone{width:210px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
 </head>
 <body>
-  <a class="skip-link" href="#main">跳到下载与说明</a>
-  <header>
-    <div class="brand">
-      <img src="icon.png" alt="" width="28" height="28">
-      <span>agentBridge</span><small>办公小镇</small>
+<a class="skip" href="#download">跳到下载</a>
+<div class="wrap">
+<header>
+  <div class="wordmark"><img src="icon.png" alt="" width="34" height="34"><span>办公小镇</span><small>手机上的工作台</small></div>
+  <nav aria-label="页面导航"><a href="#guide">使用说明</a><a href="https://github.com/otterview-labs/agentBridge">GitHub ↗</a></nav>
+</header>
+<main>
+  <div class="brandline">
+    <h1>agent<span>Bridge</span></h1>
+    <div class="edition"><b>ANDROID EDITION</b><br>开源 / 远程会话客户端</div>
+  </div>
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+      <p class="kicker">CODEX · CLAUDE · SSH</p>
+      <h2 id="hero-title">电脑里的任务，<br>在手机上接着做。</h2>
+      <p class="intro">连接你的 Mac 或 Linux，看进展、回消息、处理待确认事项。需要讨论时，也可以和管家聊天、通话。</p>
+      <div class="connection" aria-label="手机通过 SSH 连接 Mac 或 Linux"><span>你的电脑<br><small>Mac / Linux</small></span><i aria-hidden="true"><em>SSH</em></i><span>你的手机<br><small>Android</small></span></div>
+      <div class="download-area" id="download">
+        <a class="download" href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk"><span>下载安卓版</span><span class="arrow" aria-hidden="true">↗</span></a>
+        <p class="release-meta"><span id="release-version">v0.5.39</span><span>Android 7.0+</span><span id="release-size">1.5 MB</span><span>正式签名</span></p>
+        <p class="install-note">直接下载 APK · 已安装旧正式版，可覆盖更新</p>
+      </div>
     </div>
-    <a class="header-link" href="https://github.com/otterview-labs/agentBridge">GitHub ↗</a>
-  </header>
-
-  <main id="main">
-    <section class="hero" aria-labelledby="title">
-      <div class="hero-text">
-        <p class="eyebrow">Android 应用 / 开源</p>
-        <h1 id="title">Codex / Claude 的<br>安卓会话客户端</h1>
-        <p class="lede">通过 SSH 连接你的 Mac 或 Linux，在手机上看任务输出、回复指令、处理待确认事项。电脑继续运行，手机随时接上。</p>
-
-        <div class="download-group">
-          <a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk" class="btn-download">下载安卓 APK ↓</a>
-          <div class="hero-meta">
-            <span id="release-version">v0.5.39</span> · Android 7.0+ · <span id="release-size">1.5 MB</span> · 正式签名版
-          </div>
+    <div class="hero-preview">
+      <div class="stage">
+        <div class="stage-head"><span class="stage-label">应用预览</span><span id="preview-index">01 / 03</span></div>
+        <div class="preview-tabs" role="group" aria-label="切换应用截图">
+          <button type="button" aria-pressed="true" data-view="office"><span class="num" aria-hidden="true">01</span>办公室</button>
+          <button type="button" aria-pressed="false" data-view="butler"><span class="num" aria-hidden="true">02</span>管家聊天</button>
+          <button type="button" aria-pressed="false" data-view="call"><span class="num" aria-hidden="true">03</span>语音通话</button>
         </div>
-        <p style="font-size: 13px; color: var(--muted); margin: 0;">首次安装按系统提示允许浏览器安装应用。旧正式版可直接覆盖更新。</p>
+        <div class="stage-body">
+          <span class="side-note" aria-hidden="true">AGENTBRIDGE / ANDROID</span>
+          <figure class="phone"><img id="preview-image" src="office-0.5.39.jpg" alt="办公室页面：像素员工、任务进展与待确认事项" width="390" height="844" fetchpriority="high"></figure>
+          <p class="preview-note">样例记录截图</p>
+        </div>
       </div>
-      <figure class="hero-image">
-        <img src="office-0.5.39.jpg" alt="办公室页面：像素员工、任务进展与待确认事项" width="390" height="844" fetchpriority="high">
-        <figcaption>办公室 · 任务与待确认事项</figcaption>
-      </figure>
-    </section>
-
-    <h2 class="section-title">管家：文字与语音</h2>
-
-    <div class="screenshots">
-      <div class="screenshot-item">
-        <figure>
-          <img src="butler-0.5.39.jpg" alt="管家页面：模型连接验证、对话记录与输入框" width="390" height="844" loading="lazy" decoding="async">
-          <figcaption>文字聊天</figcaption>
-          <p class="desc">使用你配置的模型。先验证连接，再发送消息；发送失败可保留原文重试。</p>
-        </figure>
-      </div>
-      <div class="screenshot-item">
-        <figure>
-          <img src="call-0.5.39.jpg" alt="管家通话页面：聆听状态、麦克风、扬声器与挂断按钮" width="390" height="844" loading="lazy" decoding="async">
-          <figcaption>语音通话</figcaption>
-          <p class="desc">配置好识别与播报后，直接和管家说话。支持本地引擎，也可单独配置云端语音。</p>
-        </figure>
-      </div>
+      <p class="preview-description" id="preview-description" aria-live="polite">查看机器和任务，打开员工卡片继续处理。状态由手动刷新获取。</p>
     </div>
-    <p class="sample-note">以上为样例记录截图。连接与通话状态以手机上的实际结果为准。</p>
-
-    <h2 class="section-title">装好以后</h2>
-
-    <div class="info-grid">
-      <section class="info-section">
-        <h3>01 / 连接电脑</h3>
-        <ol>
-          <li>使用「发现机器」或手动添加 SSH 地址、账号与凭据。</li>
-          <li>点击「找任务」，导入机器上的 Codex、Claude 会话。</li>
-          <li>通过卡片查看输出、回复指令，或处理待确认事项。</li>
-        </ol>
-        <p class="desc">手机直接通过 SSH 连接。电脑无需安装 agentBridge 服务，任务状态由手动刷新获取。</p>
-      </section>
-      <section class="info-section">
-        <h3>02 / 聊天与通话</h3>
-        <ol>
-          <li>在「管家 → 配置模型」填写服务商地址、模型名与 API Key，保存后点击「验证连接」。</li>
-          <li>发送文字验证模型回复。失败将保留原文供重试。</li>
-          <li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li>
-          <li>两项正常后，点击「拨给管家」，允许麦克风权限。</li>
-        </ol>
-      </section>
+  </section>
+  <div class="divider"><span>一个 App，三种用法</span><span>01 — 03</span></div>
+  <section class="features" aria-label="主要功能">
+    <div class="feature"><span class="number">01</span><h3>办公室，装进口袋</h3><p>发现机器，导入 Codex、Claude 会话。查看输出、回复指令，处理任务里的待确认事项。</p></div>
+    <div class="feature"><span class="number">02</span><h3>有事，和管家聊</h3><p>接上自己的模型服务。验证连接后开始对话，发送失败会保留原文，方便重试。</p></div>
+    <div class="feature"><span class="number">03</span><h3>想说话，就拨过去</h3><p>试听声音、测试麦克风，再开始通话。语音服务可以单独配置，也支持本机引擎。</p></div>
+  </section>
+  <section class="guide" id="guide" aria-labelledby="guide-title">
+    <div class="guide-heading"><p class="kicker">开始使用</p><h2 id="guide-title">接上电脑，<br>再接上管家。</h2><p>手机直接通过 SSH 连接电脑。<br>电脑无需安装 agentBridge 服务。</p></div>
+    <div class="guide-details">
+      <details><summary><span class="number">01</span>连接电脑与导入会话</summary><div class="detail-content"><ol><li>打开 App，用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。</li><li>点击「找任务」，导入机器上已有的 Codex、Claude 会话。</li><li>打开员工卡片查看输出、回复指令，或处理待确认事项。</li></ol><p>任务状态由手动刷新获取；远程电脑上的会话需要已存在。</p></div></details>
+      <details><summary><span class="number">02</span>文字聊天与语音通话</summary><div class="detail-content"><ol><li>在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点击「验证连接」。</li><li>先发一句文字，确认模型能回复。</li><li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li><li>两项正常后，点击「拨给管家」，允许麦克风权限。</li></ol><p>本机识别或中文播报不可用时，在「语音设置 → 云端语音配置」填写<strong>百炼北京地域 API Key</strong>。语音密钥和聊天模型可以分开设置。未配置云端语音时，需要手机上可用的识别与播报引擎。</p><p>页面截图使用样例记录，连接和通话状态以手机上的实际结果为准。</p></div></details>
+      <details><summary><span class="number">03</span>安装、更新与版本说明</summary><div class="detail-content"><p>支持 Android 7.0 及以上。首次安装 APK 时，按系统提示允许浏览器安装应用。正式版可覆盖同一签名的旧正式版；调试版包名不同，会作为另一款应用保留。</p><p>下载来自 GitHub Releases，APK 由仓库 CI 从版本标签构建，使用固定发布密钥签名。下载未开始时，可以到<a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>里选择 agentbridge.apk。</p><p><strong>0.5.39：</strong>调整办公室和管家页布局；新增模型连接验证、消息失败重试与独立语音配置；修复识别卡住、录音切换、挂断后的旧结果误发，以及 Android 7 兼容、凭据加密和远程回复完成状态问题。</p></div></details>
+      <details><summary><span class="number">04</span>数据保存与隐私</summary><div class="detail-content"><p>配置、对话与记录保存在手机应用私有存储。密码与 API Key 使用 Android Keystore 加密，应用没有统计上报。</p><p>聊天会把必要的任务信息发送到你配置的模型服务。使用百炼云端语音时，录音或播报文字会发送到百炼。详见<a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a>。</p></div></details>
     </div>
-
-    <div class="note-box">
-      本机识别或中文播报不可用时，在「语音设置 → 云端语音配置」填写百炼北京地域 API Key。语音密钥与聊天模型可以分开设置；未配置云端语音时，需要手机上可用的识别与播报引擎。
-    </div>
-
-    <h2 class="section-title">版本与安装</h2>
-
-    <details>
-      <summary>0.5.39 更新日志</summary>
-      <p>新版保留像素办公室，调整管家页布局。新增模型连接验证、失败消息保留和重试、独立语音密钥配置。修复识别无结果卡住、录音切换、挂断后旧结果误发，以及 Android 7 兼容、凭据加密与远程回复完成状态问题。</p>
-    </details>
-    <details>
-      <summary>数据安全与隐私</summary>
-      <p>配置、对话与记录保存在手机应用私有存储；密码和 API Key 使用 Android Keystore 加密。聊天会把必要的任务信息发送到你配置的模型服务；使用百炼云端语音时，录音或播报文字会发送到百炼。应用没有统计上报。</p>
-    </details>
-    <details>
-      <summary>安装与版本说明</summary>
-      <p>下载按钮连接 GitHub Releases。APK 由仓库 CI 从版本标签构建，并使用固定发布密钥签名，可覆盖同一签名的旧正式版。调试版包名不同，会作为另一款应用保留。若下载未开始，可到下方「全部版本」手动下载 agentbridge.apk。</p>
-    </details>
-
-    <footer>
-      <a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>
-      <a href="https://github.com/otterview-labs/agentBridge">源码仓库</a>
-      <a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/android-app.md">Android 文档</a>
-      <a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a>
-      <span>Apache-2.0</span>
-    </footer>
-  </main>
-
-  <script>
-    fetch('https://api.github.com/repos/otterview-labs/agentBridge/releases/latest')
-      .then(function(response){if(!response.ok)throw new Error();return response.json();})
-      .then(function(release){
-        var asset=(release.assets||[]).find(function(item){return item.name==='agentbridge.apk';});
-        if(!asset)return;
-        var version=String(release.tag_name||'').replace(/^android-v/,'');
-        if(version)document.getElementById('release-version').textContent='v'+version;
-        if(asset.size)document.getElementById('release-size').textContent=(asset.size/1024/1024).toFixed(1)+' MB';
-      })
-      .catch(function(){});
-  </script>
+  </section>
+  <div class="closing"><p>电脑继续运行，你可以先出门。</p><a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk">下载 agentBridge ↗</a></div>
+</main>
+<footer><div class="footer-links"><a href="https://github.com/otterview-labs/agentBridge">源码仓库 ↗</a><a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a><a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/android-app.md">Android 文档</a></div><span>agentBridge / Apache-2.0</span></footer>
+</div>
+<script>
+(function(){
+  var views={
+    office:{image:'office-0.5.39.jpg',alt:'办公室页面：像素员工、任务进展与待确认事项',index:'01 / 03',description:'查看机器和任务，打开员工卡片继续处理。状态由手动刷新获取。'},
+    butler:{image:'butler-0.5.39.jpg',alt:'管家页面：模型连接验证、对话记录与输入框',index:'02 / 03',description:'配置自己的模型服务，验证连接后开始文字聊天。发送失败可保留原文重试。'},
+    call:{image:'call-0.5.39.jpg',alt:'管家通话页面：聆听状态、麦克风、扬声器与挂断按钮',index:'03 / 03',description:'测试识别与播报后开始通话。连接和通话状态以手机上的实际结果为准。'}
+  };
+  var buttons=document.querySelectorAll('[data-view]');
+  var preview=document.getElementById('preview-image');
+  buttons.forEach(function(button){button.addEventListener('click',function(){
+    var view=views[button.dataset.view];
+    if(!view)return;
+    preview.src=view.image;preview.alt=view.alt;
+    document.getElementById('preview-index').textContent=view.index;
+    document.getElementById('preview-description').textContent=view.description;
+    buttons.forEach(function(item){item.setAttribute('aria-pressed',String(item===button));});
+  });});
+  fetch('https://api.github.com/repos/otterview-labs/agentBridge/releases/latest')
+    .then(function(response){if(!response.ok)throw new Error();return response.json();})
+    .then(function(release){
+      var asset=(release.assets||[]).find(function(item){return item.name==='agentbridge.apk';});
+      if(!asset)return;
+      var version=String(release.tag_name||'').replace(/^android-v/,'');
+      if(version)document.getElementById('release-version').textContent='v'+version;
+      if(asset.size)document.getElementById('release-size').textContent=(asset.size/1024/1024).toFixed(1)+' MB';
+    }).catch(function(){});
+})();
+</script>
 </body>
 </html>
