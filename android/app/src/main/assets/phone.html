@@ -46,8 +46,8 @@
       <article class="butlerHero">
         <header class="butlerHeroHeader">
           <div>
-            <p class="eyebrow">你的小镇管家</p>
-            <h2 id="piSheetTitle">今天，先忙哪一件？</h2>
+            <p class="eyebrow">小镇管家</p>
+            <h2 id="piSheetTitle">聊聊任务</h2>
             <p id="piMeta">模型未连接</p>
           </div>
           <div class="officeActions">
@@ -58,19 +58,19 @@
         <div class="butlerHeroBody">
           <span class="employeeStage" id="piAvatar" aria-hidden="true"></span>
           <div class="butlerAdvice">
-            <strong id="butlerEmployeeName">正在读取待输入</strong>
-            <p id="butlerEmployeeSub">连接模型后生成今日建议。</p>
+            <strong id="butlerEmployeeName">正在查看任务</strong>
+            <p id="butlerEmployeeSub">配置模型后，就能聊聊任务。</p>
           </div>
         </div>
       </article>
 
       <div class="connectionHint" id="connectionHint">
-        <span id="butlerConnectionText">先配置模型，就可以开始聊天。</span>
+        <span id="butlerConnectionText">先配置模型，再开始聊天。</span>
         <button type="button" id="checkButlerModel">验证连接</button>
       </div>
 
       <section class="butlerSection butlerConversation">
-        <header><h3>聊聊眼前的事</h3><small id="butlerMessageLabel">未配置</small></header>
+        <header><h3>和管家聊聊</h3><small id="butlerMessageLabel">未配置</small></header>
         <div id="piMessages" class="piMessages" role="log" aria-live="polite" aria-label="管家对话"></div>
       </section>
 
@@ -84,16 +84,16 @@
       <section class="butlerSection aiSummarySection">
         <header>
           <div>
-            <h3>任务规划</h3>
+            <h3>任务安排</h3>
             <small id="butlerReportMeta">AI 总结</small>
           </div>
-          <div class="planModeToggle" role="group" aria-label="任务规划视图">
+          <div class="planModeToggle" role="group" aria-label="任务安排视图">
             <button type="button" data-plan-mode="ai" class="active">管家整理</button>
             <button type="button" data-plan-mode="records">原始记录</button>
           </div>
         </header>
-        <button class="smallAction dark reportRefresh" id="generateReport" type="button">重新生成规划</button>
-        <p class="aiSummary" id="butlerAiSummary">尚未生成今日总结。</p>
+        <button class="smallAction dark reportRefresh" id="generateReport" type="button">整理任务</button>
+        <p class="aiSummary" id="butlerAiSummary">点「整理任务」，看看今天的进展。</p>
         <div class="dayGroup" aria-label="今日">
           <span>今日</span>
           <div id="piToday" class="plainList"></div>
@@ -220,11 +220,11 @@
         <pre class="output" id="taskOutput"></pre>
       </details>
       <section class="replySuggestions" aria-label="回复建议">
-        <div class="replySuggestionsHeader"><strong>回复思路</strong><button class="ghostAction" id="generateReplySuggestions">帮我拟回复</button></div>
-        <p id="replySuggestionStatus" role="status" aria-live="polite">结合最近同步的会话生成建议，选择后填入草稿。</p>
+        <div class="replySuggestionsHeader"><strong>回复建议</strong><button class="ghostAction" id="generateReplySuggestions">帮我写回复</button></div>
+        <p id="replySuggestionStatus" role="status" aria-live="polite">根据上次刷新的内容，帮你写几句。</p>
         <div id="replySuggestionChoices"></div>
       </section>
-      <label class="replyLabel">回复此会话<textarea id="replyText" rows="4" placeholder="写下指令或需要补充的信息"></textarea></label>
+      <label class="replyLabel">给员工的消息<textarea id="replyText" rows="4" placeholder="写下你要回复的内容"></textarea></label>
       <div class="taskActions">
         <button class="ghostAction" id="renameTask">改名</button>
         <button class="ghostAction deleteAction" id="deleteTask">删除</button>
@@ -246,16 +246,16 @@
     </header>
     <form id="cloudForm">
       <div class="modelFields">
-        <p class="formNote">填入你正在使用的模型服务</p>
+        <p class="formNote">填写你的模型服务</p>
         <label>Base URL<input id="modelBaseUrl" type="url" placeholder="https://服务商地址/v1" required></label>
         <label>Model<input id="modelId" placeholder="glm-5.3" required></label>
         <label>API Key<input id="modelApiKey" type="password" autocomplete="off" placeholder="已保存时可不填"></label>
       </div>
       <p class="formNote">地址通常以 /v1 结尾，也可粘贴完整的 /chat/completions 地址。模型名称需与服务商后台一致。</p>
-      <p class="formNote">模型由手机直连调用；API Key 保存在应用私有存储，不会显示在页面状态里。</p>
+      <p class="formNote">手机直接连接模型服务。API Key 保存在 App 内，不会在页面显示。</p>
       <button class="primaryAction wide" type="submit">保存模型配置</button>
-      <button class="ghostAction wide" type="button" id="testModelConnection">验证当前已保存配置</button>
-      <p class="connectionResult" id="modelCheckResult" role="status">保存只会记录配置；验证成功后再开始聊天。</p>
+      <button class="ghostAction wide" type="button" id="testModelConnection">验证连接</button>
+      <p class="connectionResult" id="modelCheckResult" role="status">保存后，点「验证连接」试一下。</p>
     </form>
   </section>
 </div>

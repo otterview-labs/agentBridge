@@ -591,23 +591,23 @@
     const entry = task ? state.replySuggestions.get(task.id) : null;
     const busy = Boolean(task && (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)));
     button.disabled = !task || Boolean(entry?.running) || busy;
-    button.textContent = entry?.running ? '正在拟回复…' : entry?.result ? '重新拟回复' : '帮我拟回复';
+    button.textContent = entry?.running ? '正在写…' : entry?.result ? '换一组' : '帮我写回复';
     const status = $('replySuggestionStatus');
-    if (!task) { status.textContent = '任务记录已变化，请重新选择员工。'; return; }
-    if (entry?.running) { status.textContent = '正在分析这位员工的最近同步记录，可以继续写草稿或切换员工。'; return; }
+    if (!task) { status.textContent = '找不到这条记录了，请重新选择员工。'; return; }
+    if (entry?.running) { status.textContent = '正在看这段对话，你可以先写。'; return; }
     if (entry && entry.key !== replyContextKey(task)) {
-      status.textContent = '会话记录已更新，请重新拟回复。';
+      status.textContent = '记录更新了，请重新写一组。';
       return;
     }
     if (entry?.error) { status.textContent = entry.error; return; }
     if (!entry?.result) {
       status.textContent = state.studio?.model?.ready
-        ? '结合最近同步的会话生成建议，选择后填入草稿。'
-        : '使用你配置的管家模型拟回复。也可以直接填写并发送。';
+        ? '根据上次刷新的内容，帮你写几句。'
+        : '先配置模型，也可以自己写。';
       return;
     }
     const result = entry.result;
-    status.textContent = `${result.summary} · AI 拟稿，基于最近同步记录。${result.decisionRequired ? '需要你决定，建议仅帮助澄清或暂缓。' : '选择后可编辑，再点发送。'}`;
+    status.textContent = `${result.summary} · AI 草稿，参考上次刷新记录。${result.decisionRequired ? '怎么回，你来定。' : ''}`;
     result.choices.forEach(choice => {
       const pick = element('button', 'replySuggestionChoice');
       pick.type = 'button';
@@ -617,16 +617,16 @@
         const current = currentTask();
         if (!current || current.id !== task.id || replyContextKey(current) !== entry.key
             || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) {
-          toast('会话状态已变化，请重新拟回复'); return;
+          toast('记录变了，请重新写一组'); return;
         }
         const draft = $('replyText').value.trim();
         if (draft && draft !== choice.text.trim()) {
-          toast('已有草稿，先清空输入框再选择建议'); return;
+          toast('你已经写了内容，清空后再选'); return;
         }
         $('replyText').value = choice.text;
         state.drafts.set(task.id, choice.text);
         $('replyText').focus();
-        toast('已填入草稿，请检查后发送');
+        toast('已填入，改好再发送');
       });
       container.appendChild(pick);
     });
@@ -637,7 +637,7 @@
     if (!task || state.replySuggestions.get(task.id)?.running
         || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) return;
     if (!state.studio?.model?.ready) {
-      toast('先配置模型，再生成回复建议');
+      toast('先配置模型，再帮你写回复');
       if (closeSheet('taskBackdrop')) openCloudSheet();
       return;
     }
@@ -647,7 +647,7 @@
     let operationId = null;
     try {
       const started = JSON.parse(AgentBridge.beginBridgeCall('generateReplySuggestions', JSON.stringify([task.id])));
-      if (!started.ok) throw new Error(started.error || '无法开始拟回复');
+      if (!started.ok) throw new Error(started.error || '没能开始写回复，请再试一次');
       operationId = started.data.operation.id;
       const deadline = Date.now() + 210000;
       let failures = 0;
@@ -658,33 +658,33 @@
         catch (error) { read = { ok: false }; }
         if (!read.ok) {
           if (++failures < 3 && Date.now() < deadline) continue;
-          throw new Error('暂时无法读取回复建议，请重新生成或自行填写');
+          throw new Error('没读到回复建议，可以重试或自己写');
         }
         failures = 0;
         const operation = read.data.operation;
         if (operation.state === 'running') {
-          if (Date.now() >= deadline) throw new Error('拟回复超时，请重新生成或自行填写');
+          if (Date.now() >= deadline) throw new Error('等得有点久，可以重试或自己写');
           continue;
         }
         if (operation.state !== 'succeeded' || !operation.result?.ok) {
-          throw new Error(operation.result?.error || operation.message || '回复建议生成失败');
+          throw new Error(operation.result?.error || operation.message || '没写出回复建议，可以重试');
         }
         const result = operation.result.data;
         const latest = state.tasks.find(item => item.id === task.id);
         if (!latest || replyContextKey(result?.context) !== entry.key || replyContextKey(latest) !== entry.key) {
-          throw new Error('会话记录已更新，请重新拟回复');
+          throw new Error('记录更新了，请重新写一组');
         }
         if (result.source !== 'model' || typeof result.summary !== 'string'
             || !Array.isArray(result.choices) || result.choices.length < 2 || result.choices.length > 3
             || result.choices.some(choice => typeof choice.label !== 'string' || !choice.label.trim()
               || typeof choice.text !== 'string' || !choice.text.trim() || choice.text.length > 600)) {
-          throw new Error('模型未返回可用的回复建议，请重新生成或自行填写');
+          throw new Error('没写出合适的建议，可以重试或自己写');
         }
         entry.result = result;
         break;
       }
     } catch (error) {
-      entry.error = error.message || '回复建议生成失败，请自行填写';
+      entry.error = error.message || '没写出回复建议，可以自己写';
     } finally {
       entry.running = false;
       if (operationId !== null) {
@@ -1554,10 +1554,10 @@
     $('piAvatar').appendChild(element('span', 'employeeBubble', attention.length ? `${attention.length} 个待输入` : '管家待命'));
     $('openCloudFromButler').textContent = model.ready ? '模型设置' : '配置模型';
     $('piMeta').textContent = model.ready && modelText ? modelText : '模型未连接';
-    $('piSheetTitle').textContent = '今天，先忙哪一件？';
+    $('piSheetTitle').textContent = '聊聊任务';
     $('butlerEmployeeName').textContent = attention.length
       ? `有 ${attention.length} 件事等你确认`
-      : tomorrowItems.length ? '明日安排已准备' : '有想法，就来聊聊';
+      : tomorrowItems.length ? '明天的安排在这里' : '想问哪件事？';
     $('butlerEmployeeSub').textContent = cleanButlerText(suggestion);
     document.querySelectorAll('[data-plan-mode]').forEach((button) => {
       button.classList.toggle('active', button.dataset.planMode === state.butlerPlanMode);
@@ -1568,39 +1568,39 @@
       ? `${savedReport.model || modelText || 'AI'} · ${checkTime(savedReport.generatedAt)}`
       : '尚未生成';
     $('butlerAiSummary').textContent = state.butlerPlanMode === 'records'
-      ? '以下内容直接来自当前已同步任务记录，未经 AI 总结。空闲、执行中或待输入都不等同于人工验收完成。'
+      ? '这里是上次刷新的任务记录。“空闲”可能是做完了，也可能只是暂停。'
       : lastReport && lastReport.summary
       ? planSummary
-      : '把当前任务整理成今天的重点和明天的安排。';
+      : '看看今天做了什么，明天先做什么。';
     $('butlerMessageLabel').textContent = model.ready ? (modelText || '模型已配置') : '未配置模型';
     $('butlerAttentionCount').textContent = `${attention.length} 件`;
     $('butlerPlanPreview').textContent = lastReport ? '已有安排' : '尚未整理';
-    const connectionText = state.modelChecking ? '正在发起实际请求，验证模型连接…'
-      : state.modelCheckError || (model.verifiedAt ? '模型验证成功，可以聊天或拨给管家。'
-        : model.ready ? '配置已保存，先验证一次连接。' : '先配置模型，就可以开始聊天。');
+    const connectionText = state.modelChecking ? '正在测试连接…'
+      : state.modelCheckError || (model.verifiedAt ? '连接正常，可以聊天了。'
+        : model.ready ? '配置已保存，点「验证连接」试一下。' : '先配置模型，再开始聊天。');
     $('butlerConnectionText').textContent = connectionText;
     $('connectionHint').classList.toggle('error', Boolean(state.modelCheckError));
     $('checkButlerModel').textContent = !model.ready ? '配置模型' : state.modelChecking ? '验证中…' : '验证连接';
     $('checkButlerModel').disabled = state.modelChecking || state.sending;
 
     renderPlainRows($('piToday'), todayItems, 'today', state.butlerPlanMode === 'records'
-      ? '当前没有可展示的今日记录。'
-      : '规划生成后会显示已完成与推进中的具体事项。');
+      ? '今天还没有记录。'
+      : '点「整理任务」，看看今天做了什么。');
     renderPlainRows($('piTomorrow'), tomorrowItems, 'tomorrow', state.butlerPlanMode === 'records'
-      ? '当前没有可展示的明日建议。'
-      : '规划生成后会显示明天建议执行的具体事项。');
+      ? '还没有明天的安排。'
+      : '点「整理任务」，想想明天先做什么。');
     renderPlainRows($('piAttention'), attention.map(task => ({
       title: task.title, label: task.requiredInput
-    })), 'attention', '当前没有等待输入的事项。');
+    })), 'attention', '暂时没有任务等你回复。');
 
     $('piMessages').replaceChildren();
     const messages = Array.isArray(studio.messages) ? studio.messages.slice(-20) : [];
     if (!messages.length && !state.pendingChat && !state.failedChat) {
       const welcome = element('div', 'chatWelcome');
       welcome.appendChild(element('span', 'welcomeMark', '···'));
-      welcome.appendChild(element('h4', '', model.ready ? '从一句话开始' : '先接上你的模型'));
+      welcome.appendChild(element('h4', '', model.ready ? '想问哪件事？' : '模型还没配置'));
       welcome.appendChild(element('p', '', model.ready
-        ? '查进展、看输出、排优先级。'
+        ? '可以问问任务做到哪了。'
         : '点上方「配置模型」，保存后验证连接。'));
       $('piMessages').appendChild(welcome);
     } else {
@@ -1627,7 +1627,7 @@
     $('sendPi').disabled = state.sending || Boolean(state.failedChat?.operation) || !$('piInput').value.trim();
     const reportRunning = state.backgroundReports.size > 0;
     $('generateReport').disabled = !model.ready || reportRunning;
-    $('generateReport').textContent = reportRunning ? '规划生成中…' : '重新生成规划';
+    $('generateReport').textContent = reportRunning ? '规划生成中…' : '整理任务';
     requestAnimationFrame(() => {
       const messages = $('piMessages');
       if (messages) messages.scrollTop = messages.scrollHeight;
@@ -1685,7 +1685,7 @@
     if (!state.failedChat?.operation) state.failedChat = null;
     state.chatNotices = [];
     $('modelApiKey').value = '';
-    $('modelCheckResult').textContent = '配置已保存。点击下方验证，确认地址、密钥和模型都能使用。';
+    $('modelCheckResult').textContent = '已保存，点「验证连接」试一下。';
     $('modelCheckResult').classList.remove('error');
     render();
     toast('配置已保存，请验证连接');
@@ -1699,7 +1699,7 @@
     const button = $('testModelConnection');
     button.disabled = true;
     document.querySelector('#cloudForm button[type="submit"]').disabled = true;
-    $('modelCheckResult').textContent = '正在发起实际请求…';
+    $('modelCheckResult').textContent = '正在测试连接…';
     $('modelCheckResult').classList.remove('error');
     renderPiDetail();
     let operation;
@@ -1717,8 +1717,8 @@
       }
       if (operation.state !== 'succeeded') throw new Error(operation.message || '验证失败');
       state.studio = operation.studio || state.studio;
-      $('modelCheckResult').textContent = '连接成功。可以关闭设置，输入一句话或开始通话。';
-      toast('模型验证成功，可以开始聊天');
+      $('modelCheckResult').textContent = '连接正常，可以发消息了。';
+      toast('连接正常，可以聊天了');
     } catch (error) {
       state.modelCheckError = error.message || '验证失败，请检查配置';
       $('modelCheckResult').textContent = state.modelCheckError;
@@ -2403,7 +2403,7 @@
 
   function generateTodayReport() {
     if (state.backgroundReports.size) {
-      toast('任务规划正在后台生成，完成后会通知你');
+      toast('任务安排正在后台生成，完成后会通知你');
       return;
     }
     const date = state.studio && state.studio.date
@@ -2413,21 +2413,21 @@
     try {
       parsed = JSON.parse(AgentBridge.beginStudioReport(date));
     } catch (error) {
-      parsed = { ok: false, error: '无法提交任务规划生成任务' };
+      parsed = { ok: false, error: '无法提交任务安排生成任务' };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '无法提交任务规划生成任务');
+      toast(parsed.error || '无法提交任务安排生成任务');
       return;
     }
     const operation = parsed.data.operation;
     state.backgroundReports.set(date, {
       operation,
-      message: '正在生成任务规划…',
+      message: '正在生成任务安排…',
       startedAt: operation.startedAt || Date.now()
     });
     renderPiDetail();
     renderBackgroundState();
-    toast('任务规划生成已提交后台，完成后会通知你');
+    toast('任务安排生成已提交后台，完成后会通知你');
     void pollBackgroundReport(date, operation);
   }
 
@@ -2441,15 +2441,15 @@
         try {
           parsed = JSON.parse(AgentBridge.operationState(startedOperation.id));
         } catch (error) {
-      parsed = { ok: false, error: '无法读取任务规划状态' };
+      parsed = { ok: false, error: '无法读取任务安排状态' };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法读取任务规划状态');
+        if (!parsed.ok) throw new Error(parsed.error || '无法读取任务安排状态');
         const operation = parsed.data.operation;
         entry.operation = operation;
-        entry.message = operation.message || '正在生成任务规划…';
+        entry.message = operation.message || '正在生成任务安排…';
         renderPiDetail();
         renderBackgroundState();
-        if (operation.state === 'failed') throw new Error(operation.message || '任务规划生成失败');
+        if (operation.state === 'failed') throw new Error(operation.message || '任务安排生成失败');
         if (operation.state !== 'running') break;
       }
 
@@ -2458,9 +2458,9 @@
       if (operation.task) state.studio = operation.task;
       state.butlerPlanMode = 'ai';
       try { localStorage.setItem('butlerPlanMode', 'ai'); } catch (error) { /* in-memory mode still works */ }
-      finishBackgroundReport(date, true, '任务规划已生成');
+      finishBackgroundReport(date, true, '任务安排已生成');
     } catch (error) {
-      finishBackgroundReport(date, false, `任务规划生成失败：${error.message || String(error)}`);
+      finishBackgroundReport(date, false, `任务安排生成失败：${error.message || String(error)}`);
     }
   }
 
