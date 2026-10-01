@@ -1920,9 +1920,10 @@ final class PhoneBridge {
     }
   }
 
-  /** Bridge methods that open SSH connections and must not run on the page's thread. */
+  /** Network-bound bridge methods that must not run on the page's thread. */
   private static final Set<String> BACKGROUND_CALLS = new HashSet<>(Arrays.asList(
-      "discoverTasks", "probeMachine", "scanNetwork", "deployFrpServer", "deployFrpRelay", "disableFrpRelay"));
+      "discoverTasks", "probeMachine", "scanNetwork", "deployFrpServer", "deployFrpRelay", "disableFrpRelay",
+      "generateReplySuggestions"));
 
   /**
    * Runs a slow bridge method on a worker thread. A direct call from
@@ -1967,7 +1968,34 @@ final class PhoneBridge {
       case "deployFrpServer": return deployFrpServer();
       case "deployFrpRelay": return deployFrpRelay(args.getInt(0));
       case "disableFrpRelay": return disableFrpRelay(args.getInt(0));
+      case "generateReplySuggestions": return generateReplySuggestions(args.getInt(0));
       default: throw new IllegalArgumentException("不支持后台调用：" + method);
+    }
+  }
+
+  @JavascriptInterface
+  public String generateReplySuggestions(int taskId) {
+    try {
+      JSONObject task = store.task(taskId);
+      JSONObject context = ReplySuggestions.context(task);
+      if (task.optString("lastOutput").trim().isEmpty()
+          && task.optString("workSummary").trim().isEmpty()
+          && task.optString("requiredInput").trim().isEmpty()) {
+        throw new IllegalArgumentException("还没有员工输出，请先刷新输出再拟回复");
+      }
+      String response = chatCompletion(readyStudioModel(), ReplySuggestions.messages(task), null);
+      JSONObject payload = new JSONObject(response);
+      JSONArray choices = payload.optJSONArray("choices");
+      JSONObject message = choices == null || choices.length() == 0
+          ? null : choices.getJSONObject(0).optJSONObject("message");
+      if (message == null) throw new IllegalStateException("模型没有返回回复建议");
+      JSONObject suggestions = ReplySuggestions.normalize(
+          new JSONObject(ReplySuggestions.jsonText(modelMessageText(message))), ReplySuggestions.needsDecision(task));
+      suggestions.put("context", context).put("generatedAt", now());
+      return success(suggestions);
+    } catch (Exception error) {
+      if (error instanceof IllegalArgumentException || error instanceof IllegalStateException) return failure(error);
+      return failure(new IllegalStateException("回复建议生成失败，请重新生成或自行填写"));
     }
   }
 
@@ -3755,15 +3783,9 @@ final class PhoneBridge {
   }
 
   private static String suggestedReply(String input) {
-    if (input == null || input.isEmpty()) return "";
-    if (input.contains("可以授权") || input.contains("解除隔离")) return "可以授权，继续。";
-    if (input.contains("现象") || input.contains("异常") || input.contains("报错") || input.contains("结果")) return "我操作后的结果如下：";
-    if (input.contains("选") || input.contains("拍板") || input.contains("哪个方案")) return "选这个，继续。";
-    if (input.contains("要不要") || input.contains("是否")) return "要，继续。";
-    if (input.contains("确认") || input.contains("验收") || input.contains("审核")) return "确认，继续。";
-    if (input.contains("安装") || input.contains("装好后")) return "我已安装并测试，结果：";
-    if (input.contains("验证") || input.contains("测试")) return "我用真实场景验证，结果：";
-    return "继续，按你的建议处理。";
+    // Kept in stored task payloads for compatibility. Drafts now come only
+    // from the user or an explicitly selected model suggestion.
+    return "";
   }
 
   private static String shellQuote(String value) {

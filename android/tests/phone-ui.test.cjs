@@ -74,6 +74,7 @@ async function openPhone(t, options = {}) {
       data.tasks[0].title = 'VeryLongTaskTitle'.repeat(10);
       data.tasks[0].workspacePath = '/workspace/' + 'long-path'.repeat(20);
     }
+    if (options.legacySuggestion) data.tasks[1].suggestedReply = '确认，继续。';
     const ok = data => JSON.stringify({ ok: true, data });
     const fail = error => JSON.stringify({ ok: false, error });
     let reads = 0;
@@ -93,6 +94,8 @@ async function openPhone(t, options = {}) {
       report: { completed: [], ongoing: [], suggestions: [] }
     };
     window.sendCount = 0;
+    window.suggestionCount = 0;
+    const suggestionOperations = new Map();
     window.chatCount = 0;
     window.chatOperationsCleared = [];
     window.allowChatPoll = false;
@@ -107,6 +110,24 @@ async function openPhone(t, options = {}) {
       state: () => ++reads > 1 && options.stateFails
         ? fail('读取失败') : ok(data),
       studioOverview: () => ok(studio),
+      generateReplySuggestions: id => {
+        if (options.suggestionFails) return fail('模型返回 HTTP 401，请检查 API Key');
+        const task = structuredClone(data.tasks.find(item => item.id === id));
+        return ok({ source: 'model', context: task, decisionRequired: Boolean(task.requiredInput),
+          summary: `回应任务 ${id} 的待处理问题`, choices: options.invalidSuggestions ? [] : [
+            { label: '先看影响', text: '请列出这次操作的影响范围和回滚步骤，我看完再决定。', intent: 'clarify' },
+            { label: '暂缓操作', text: options.longSuggestion ? '说明需要补充的验证信息。'.repeat(35)
+              : '先暂停执行，保留当前状态，等我确认。', intent: 'hold' }
+          ] });
+      },
+      beginBridgeCall: (method, args) => {
+        if (method !== 'generateReplySuggestions') return fail('不支持的测试方法');
+        window.suggestionCount += 1;
+        const result = JSON.parse(window.AgentBridge.generateReplySuggestions(JSON.parse(args)[0]));
+        const operation = { id: `suggestion-${window.suggestionCount}`, state: 'running', result };
+        suggestionOperations.set(operation.id, operation);
+        return ok({ operation });
+      },
       saveStudioModel: payload => {
         const input = JSON.parse(payload);
         studio.modelSettings = {
@@ -163,6 +184,11 @@ async function openPhone(t, options = {}) {
         return ok({ operation: tailOperation });
       },
       operationState: id => {
+        if (suggestionOperations.has(id)) {
+          const operation = suggestionOperations.get(id);
+          return ok({ operation: { ...operation,
+            state: options.holdSuggestions && !window.releaseSuggestions ? 'running' : 'succeeded' } });
+        }
         if (id === 'test-model-check') return ok({ operation: modelCheckOperation });
         if (chatOperation) {
           if (options.chatPollFails && !window.allowChatPoll) return fail('临时状态读取失败');
@@ -258,6 +284,9 @@ async function openPhone(t, options = {}) {
     if (options.savedCredentials) {
       Object.assign(data.machines[0], { hasPassword: true, password: 'must-not-appear' });
     }
+    // Keep older fixtures on their direct-call path; suggestion scenarios
+    // expose the new drafting operation explicitly.
+    if (!options.modelReady) delete window.AgentBridge.beginBridgeCall;
     if (options.hostKeyChanged) {
       Object.assign(data.machines[0], { lastStatus: 'offline',
         lastError: '「Mac Pro · 开发办公室」的 SSH 主机指纹和上次不一致，已拒绝连接。' });
@@ -1032,4 +1061,93 @@ test('speech playback failure remains visible and offers manual call recovery', 
   await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length === 2);
   await page.locator('#callEnd').click();
   assert.match(await page.locator('#piMessages').textContent(), /云端语音播放失败/);
+});
+
+test('employee replies ignore legacy approval templates and require deliberate selection', async t => {
+  const page = await openPhone(t, { modelReady: true, legacySuggestion: true });
+  await page.locator('[data-task-id="2"]').click();
+  assert.equal(await page.locator('#replyText').inputValue(), '');
+  await page.locator('#generateReplySuggestions').click();
+  await page.locator('.replySuggestionChoice').first().waitFor();
+  assert.match(await page.locator('#replySuggestionStatus').textContent(), /AI 拟稿.*需要你决定/);
+  assert.equal(await page.locator('#replyText').inputValue(), '');
+  assert.equal(await page.evaluate(() => window.sendCount), 0);
+  await page.locator('.replySuggestionChoice').first().click();
+  assert.match(await page.locator('#replyText').inputValue(), /影响范围和回滚步骤/);
+  assert.equal(await page.evaluate(() => window.sendCount), 0);
+  await page.locator('.replySuggestionChoice').nth(1).click();
+  await expectToast(page, '已有草稿，先清空输入框再选择建议');
+  assert.match(await page.locator('#replyText').inputValue(), /影响范围和回滚步骤/);
+  if (process.env.SCREENSHOT_DIR) {
+    fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
+    await page.locator('#toast').waitFor({ state: 'hidden' });
+    await page.locator('.replySuggestions').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, 'phone-employee-replies.png') });
+  }
+});
+
+test('reply drafting reports missing model, provider and malformed response without canned suggestions', async t => {
+  for (const options of [{}, { modelReady: true, suggestionFails: true }, { modelReady: true, invalidSuggestions: true }]) {
+    const page = await openPhone(t, options);
+    await page.locator('[data-task-id="2"]').click();
+    await page.locator('#replyText').fill('我自己的草稿');
+    await page.locator('#generateReplySuggestions').click();
+    if (!options.modelReady) {
+      await page.locator('#cloudBackdrop:not(.hidden)').waitFor();
+      assert.equal(await page.evaluate(() => window.suggestionCount), 0);
+    } else {
+      await page.waitForFunction(() => /401|未返回可用/.test(document.getElementById('replySuggestionStatus').textContent));
+      assert.equal(await page.locator('.replySuggestionChoice').count(), 0);
+      assert.equal(await page.locator('#replyText').inputValue(), '我自己的草稿');
+      assert.equal(await page.locator('#sendTask').isEnabled(), true);
+    }
+    assert.equal(await page.evaluate(() => window.sendCount), 0);
+  }
+});
+
+test('late drafting results stay with their employee and preserve other drafts', async t => {
+  const page = await openPhone(t, { modelReady: true, holdSuggestions: true });
+  await page.locator('[data-task-id="2"]').click();
+  await page.locator('#generateReplySuggestions').click();
+  await page.evaluate(() => document.getElementById('generateReplySuggestions').click());
+  assert.equal(await page.evaluate(() => window.suggestionCount), 1);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('另一位员工的草稿');
+  await page.evaluate(() => { window.releaseSuggestions = true; });
+  await page.waitForFunction(() => window.chatOperationsCleared.some(id => String(id).startsWith('suggestion-')));
+  assert.equal(await page.locator('.replySuggestionChoice').count(), 0);
+  assert.equal(await page.locator('#replyText').inputValue(), '另一位员工的草稿');
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="2"]').click();
+  assert.equal(await page.locator('.replySuggestionChoice').count(), 2);
+  assert.match(await page.locator('#replySuggestionStatus').textContent(), /任务 2/);
+  assert.equal(await page.locator('#replyText').inputValue(), '');
+});
+
+test('output refresh invalidates suggestions for an older conversation', async t => {
+  const page = await openPhone(t, { modelReady: true, holdSuggestions: true });
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#generateReplySuggestions').click();
+  await page.locator('#replyText').fill('保留这条草稿');
+  await page.locator('#tailTask').click();
+  await page.waitForFunction(() => document.getElementById('taskOutput').textContent === '最新输出');
+  await page.evaluate(() => { window.releaseSuggestions = true; });
+  await page.waitForFunction(() => document.getElementById('generateReplySuggestions').disabled === false);
+  assert.match(await page.locator('#replySuggestionStatus').textContent(), /会话记录已更新/);
+  assert.equal(await page.locator('.replySuggestionChoice').count(), 0);
+  assert.equal(await page.locator('#replyText').inputValue(), '保留这条草稿');
+  await page.locator('#generateReplySuggestions').click();
+  await page.locator('.replySuggestionChoice').first().waitFor();
+});
+
+test('long reply suggestions wrap within a narrow task sheet', async t => {
+  const page = await openPhone(t, { modelReady: true, longSuggestion: true });
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.locator('[data-task-id="2"]').click();
+  await page.locator('#generateReplySuggestions').click();
+  await page.locator('.replySuggestionChoice').first().waitFor();
+  const dimensions = await page.locator('.taskSheet').evaluate(sheet => ({ client: sheet.clientWidth, scroll: sheet.scrollWidth }));
+  assert.ok(dimensions.scroll <= dimensions.client + 1, JSON.stringify(dimensions));
+  assert.equal(await page.evaluate(() => window.sendCount), 0);
 });

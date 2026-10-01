@@ -13,6 +13,7 @@
     view: 'offices',
     currentTaskId: null,
     drafts: new Map(),
+    replySuggestions: new Map(),
     backgroundSends: new Map(),
     backgroundDiscovers: new Map(),
     backgroundTails: new Map(),
@@ -178,6 +179,7 @@
   $('replyText').addEventListener('input', () => {
     if (state.currentTaskId !== null) state.drafts.set(state.currentTaskId, $('replyText').value);
   });
+  $('generateReplySuggestions').addEventListener('click', generateTaskReplySuggestions);
 
   let sheetTrigger = null;
   function openSheet(id) {
@@ -535,7 +537,7 @@
     if (!task) return;
     state.currentTaskId = id;
     renderTaskDetail();
-    $('replyText').value = state.drafts.has(id) ? state.drafts.get(id) : task.suggestedReply || '';
+    $('replyText').value = state.drafts.get(id) || '';
     openSheet('taskBackdrop');
   }
 
@@ -550,6 +552,7 @@
     if (!task) {
       $('taskStatusLine').textContent = '本次未发现此会话，以下为上次记录';
       $('taskNeed').classList.add('hidden');
+      renderReplySuggestions(null);
       return;
     }
     $('taskAvatar').className = 'taskAvatarWrap';
@@ -572,6 +575,123 @@
     const outputPre = $('taskOutput');
     outputPre.replaceChildren();
     appendRichOutput(outputPre, task.lastOutput || '暂无输出');
+    renderReplySuggestions(task);
+  }
+
+  function replyContextKey(task) {
+    return JSON.stringify(['id', 'machineId', 'title', 'status', 'requiredInput',
+      'workSummary', 'lastOutput', 'updatedAt', 'externalSessionId', 'paneId']
+      .map(key => String(task?.[key] ?? '')));
+  }
+
+  function renderReplySuggestions(task) {
+    const button = $('generateReplySuggestions');
+    const container = $('replySuggestionChoices');
+    container.replaceChildren();
+    const entry = task ? state.replySuggestions.get(task.id) : null;
+    const busy = Boolean(task && (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)));
+    button.disabled = !task || Boolean(entry?.running) || busy;
+    button.textContent = entry?.running ? '正在拟回复…' : entry?.result ? '重新拟回复' : '帮我拟回复';
+    const status = $('replySuggestionStatus');
+    if (!task) { status.textContent = '任务记录已变化，请重新选择员工。'; return; }
+    if (entry?.running) { status.textContent = '正在分析这位员工的最近同步记录，可以继续写草稿或切换员工。'; return; }
+    if (entry && entry.key !== replyContextKey(task)) {
+      status.textContent = '会话记录已更新，请重新拟回复。';
+      return;
+    }
+    if (entry?.error) { status.textContent = entry.error; return; }
+    if (!entry?.result) {
+      status.textContent = state.studio?.model?.ready
+        ? '结合最近同步的会话生成建议，选择后填入草稿。'
+        : '使用你配置的管家模型拟回复。也可以直接填写并发送。';
+      return;
+    }
+    const result = entry.result;
+    status.textContent = `${result.summary} · AI 拟稿，基于最近同步记录。${result.decisionRequired ? '需要你决定，建议仅帮助澄清或暂缓。' : '选择后可编辑，再点发送。'}`;
+    result.choices.forEach(choice => {
+      const pick = element('button', 'replySuggestionChoice');
+      pick.type = 'button';
+      pick.disabled = busy;
+      pick.append(element('strong', '', choice.label), element('span', '', choice.text));
+      pick.addEventListener('click', () => {
+        const current = currentTask();
+        if (!current || current.id !== task.id || replyContextKey(current) !== entry.key
+            || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) {
+          toast('会话状态已变化，请重新拟回复'); return;
+        }
+        const draft = $('replyText').value.trim();
+        if (draft && draft !== choice.text.trim()) {
+          toast('已有草稿，先清空输入框再选择建议'); return;
+        }
+        $('replyText').value = choice.text;
+        state.drafts.set(task.id, choice.text);
+        $('replyText').focus();
+        toast('已填入草稿，请检查后发送');
+      });
+      container.appendChild(pick);
+    });
+  }
+
+  async function generateTaskReplySuggestions() {
+    const task = currentTask();
+    if (!task || state.replySuggestions.get(task.id)?.running
+        || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) return;
+    if (!state.studio?.model?.ready) {
+      toast('先配置模型，再生成回复建议');
+      if (closeSheet('taskBackdrop')) openCloudSheet();
+      return;
+    }
+    const entry = { key: replyContextKey(task), running: true };
+    state.replySuggestions.set(task.id, entry);
+    renderReplySuggestions(task);
+    let operationId = null;
+    try {
+      const started = JSON.parse(AgentBridge.beginBridgeCall('generateReplySuggestions', JSON.stringify([task.id])));
+      if (!started.ok) throw new Error(started.error || '无法开始拟回复');
+      operationId = started.data.operation.id;
+      const deadline = Date.now() + 210000;
+      let failures = 0;
+      for (;;) {
+        await sleep(300);
+        let read;
+        try { read = JSON.parse(AgentBridge.operationState(operationId)); }
+        catch (error) { read = { ok: false }; }
+        if (!read.ok) {
+          if (++failures < 3 && Date.now() < deadline) continue;
+          throw new Error('暂时无法读取回复建议，请重新生成或自行填写');
+        }
+        failures = 0;
+        const operation = read.data.operation;
+        if (operation.state === 'running') {
+          if (Date.now() >= deadline) throw new Error('拟回复超时，请重新生成或自行填写');
+          continue;
+        }
+        if (operation.state !== 'succeeded' || !operation.result?.ok) {
+          throw new Error(operation.result?.error || operation.message || '回复建议生成失败');
+        }
+        const result = operation.result.data;
+        const latest = state.tasks.find(item => item.id === task.id);
+        if (!latest || replyContextKey(result?.context) !== entry.key || replyContextKey(latest) !== entry.key) {
+          throw new Error('会话记录已更新，请重新拟回复');
+        }
+        if (result.source !== 'model' || typeof result.summary !== 'string'
+            || !Array.isArray(result.choices) || result.choices.length < 2 || result.choices.length > 3
+            || result.choices.some(choice => typeof choice.label !== 'string' || !choice.label.trim()
+              || typeof choice.text !== 'string' || !choice.text.trim() || choice.text.length > 600)) {
+          throw new Error('模型未返回可用的回复建议，请重新生成或自行填写');
+        }
+        entry.result = result;
+        break;
+      }
+    } catch (error) {
+      entry.error = error.message || '回复建议生成失败，请自行填写';
+    } finally {
+      entry.running = false;
+      if (operationId !== null) {
+        try { AgentBridge.clearOperation(operationId); } catch (error) { /* Drafting has no remote side effects. */ }
+      }
+      if (state.currentTaskId === task.id) renderReplySuggestions(currentTask());
+    }
   }
 
   function renderTaskStatusCard(task) {
@@ -895,6 +1015,7 @@
     });
     // Submission is accepted. Keep the draft empty to avoid an accidental duplicate.
     state.drafts.set(task.id, '');
+    state.replySuggestions.delete(task.id);
     if (state.currentTaskId === task.id) $('replyText').value = '';
     renderTaskDetail();
     renderBackgroundState();
