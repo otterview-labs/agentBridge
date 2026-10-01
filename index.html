@@ -119,13 +119,13 @@ footer a:hover{text-decoration:underline}
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
       <p class="kicker">CODEX · CLAUDE · SSH</p>
-      <h2 id="hero-title">电脑里的任务，<br>在手机上接着做。</h2>
-      <p class="intro">连接你的 Mac 或 Linux，看进展、回消息、处理待确认事项。需要讨论时，也可以和管家聊天、通话。</p>
+      <h2 id="hero-title">电脑上的任务，<br>手机上继续。</h2>
+      <p class="intro">查看 Codex、Claude 的进展，给它们发消息。连上自己的模型，还能和管家聊聊。</p>
       <div class="connection" aria-label="手机通过 SSH 连接 Mac 或 Linux"><span>你的电脑<br><small>Mac / Linux</small></span><i aria-hidden="true"><em>SSH</em></i><span>你的手机<br><small>Android</small></span></div>
       <div class="download-area" id="download">
         <a class="download" href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk"><span>下载安卓版</span><span class="arrow" aria-hidden="true">↗</span></a>
-        <p class="release-meta"><span id="release-version">v0.5.41</span><span>Android 7.0+</span><span id="release-size">1.5 MB</span><span>正式签名</span></p>
-        <p class="install-note">直接下载 APK · 已安装旧正式版，可覆盖更新</p>
+        <p class="release-meta"><span id="release-version">v0.5.42</span><span>Android 7.0+</span><span id="release-size">1.5 MB</span><span>正式签名</span></p>
+        <p class="install-note">下载 APK 安装 · 旧正式版可直接更新</p>
       </div>
     </div>
     <div class="hero-preview">
@@ -138,38 +138,38 @@ footer a:hover{text-decoration:underline}
         </div>
         <div class="stage-body">
           <span class="side-note" aria-hidden="true">AGENTBRIDGE / ANDROID</span>
-          <figure class="phone"><img id="preview-image" src="office-0.5.39.jpg" alt="办公室页面：像素员工、任务进展与待确认事项" width="390" height="844" fetchpriority="high"></figure>
+          <figure class="phone"><img id="preview-image" src="office-0.5.42.png" alt="办公室页面：像素员工、任务进展与待确认事项" width="390" height="844" fetchpriority="high"></figure>
           <p class="preview-note">样例记录截图</p>
         </div>
       </div>
-      <p class="preview-description" id="preview-description" aria-live="polite">查看机器和任务，打开员工卡片继续处理。状态由手动刷新获取。</p>
+      <p class="preview-description" id="preview-description" aria-live="polite">打开员工卡片，看输出、回消息。点击刷新，查看最新进展。</p>
     </div>
   </section>
   <div class="divider"><span>一个 App，三种用法</span><span>01 — 03</span></div>
   <section class="features" aria-label="主要功能">
-    <div class="feature"><span class="number">01</span><h3>办公室，装进口袋</h3><p>发现机器，导入 Codex、Claude 会话。查看输出、回复指令，处理任务里的待确认事项。</p></div>
-    <div class="feature"><span class="number">02</span><h3>有事，和管家聊</h3><p>接上自己的模型服务。验证连接后开始对话，发送失败会保留原文，方便重试。</p></div>
-    <div class="feature"><span class="number">03</span><h3>想说话，就拨过去</h3><p>试听声音、测试麦克风，再开始通话。语音服务可以单独配置，也支持本机引擎。</p></div>
+    <div class="feature"><span class="number">01</span><h3>看看任务做到哪了</h3><p>连上电脑，打开 Codex 或 Claude 会话。看输出、发指令，有需要确认的地方就回复。</p></div>
+    <div class="feature"><span class="number">02</span><h3>拿不准，问问管家</h3><p>配置自己的模型，聊任务，也能帮你写回复。发给员工的消息，仍由你确认发送。</p></div>
+    <div class="feature"><span class="number">03</span><h3>不想打字，就说</h3><p>先试试麦克风和声音。语音服务设置好后，就能拨给管家。</p></div>
   </section>
   <section class="guide" id="guide" aria-labelledby="guide-title">
-    <div class="guide-heading"><p class="kicker">开始使用</p><h2 id="guide-title">接上电脑，<br>再接上管家。</h2><p>手机直接通过 SSH 连接电脑。<br>电脑无需安装 agentBridge 服务。</p></div>
+    <div class="guide-heading"><p class="kicker">开始使用</p><h2 id="guide-title">先连电脑，<br>再打开任务。</h2><p>电脑要保持开机，并能通过 SSH 连接。<br>电脑不用安装 agentBridge。</p></div>
     <div class="guide-details">
-      <details><summary><span class="number">01</span>连接电脑与导入会话</summary><div class="detail-content"><ol><li>打开 App，用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。</li><li>点击「找任务」，导入机器上已有的 Codex、Claude 会话。</li><li>打开员工卡片查看输出、回复指令，或处理待确认事项。</li></ol><p>任务状态由手动刷新获取；远程电脑上的会话需要已存在。</p><p>不知道怎么回复时，可点击「帮我拟回复」，先配置管家模型。建议基于最近同步记录，选择后可编辑，再点击发送。</p></div></details>
-      <details><summary><span class="number">02</span>文字聊天与语音通话</summary><div class="detail-content"><ol><li>在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点击「验证连接」。</li><li>先发一句文字，确认模型能回复。</li><li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li><li>两项正常后，点击「拨给管家」，允许麦克风权限。</li></ol><p>本机识别或中文播报不可用时，在「语音设置 → 云端语音配置」填写<strong>百炼北京地域 API Key</strong>。语音密钥和聊天模型可以分开设置。未配置云端语音时，需要手机上可用的识别与播报引擎。</p><p>页面截图使用样例记录，连接和通话状态以手机上的实际结果为准。</p></div></details>
-      <details><summary><span class="number">03</span>安装、更新与版本说明</summary><div class="detail-content"><p>支持 Android 7.0 及以上。首次安装 APK 时，按系统提示允许浏览器安装应用。正式版可覆盖同一签名的旧正式版；调试版包名不同，会作为另一款应用保留。</p><p>下载来自 GitHub Releases，APK 由仓库 CI 从版本标签构建，使用固定发布密钥签名。下载未开始时，可以到<a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>里选择 agentbridge.apk。</p><p><strong>0.5.41：</strong>员工卡片新增「帮我拟回复」，用已配置的模型根据最近会话生成可选草稿。移除自动确认模板，授权与验收由你决定；建议不会覆盖已有草稿，刷新记录后需重新生成。管家支持查询和建议，派发指令请打开员工卡片。</p></div></details>
+      <details><summary><span class="number">01</span>连接电脑，找到任务</summary><div class="detail-content"><ol><li>打开 App，用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。</li><li>点击「找任务」，导入机器上已有的 Codex、Claude 会话。</li><li>打开员工卡片查看输出、回复指令，或处理待确认事项。</li></ol><p>电脑上要先有 Codex 或 Claude 会话。点击刷新，查看最新状态。</p><p>不知道怎么回，可以点「帮我写回复」。先配置管家模型，再选一条改成你想说的话。建议参考上次刷新的记录，选中后不会自动发送。</p></div></details>
+      <details><summary><span class="number">02</span>和管家聊天、通话</summary><div class="detail-content"><ol><li>在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点击「验证连接」。</li><li>先发一句文字，确认模型能回复。</li><li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li><li>麦克风和声音都正常后，点击「拨给管家」，允许使用麦克风。</li></ol><p>手机不能识别语音或读中文时，在「语音设置 → 云端语音配置」填写<strong>百炼北京地域 API Key</strong>。语音和聊天可以用不同的密钥。不用云端语音时，手机需要支持语音识别和中文播报。</p><p>截图里的任务是示例。连接和通话效果，请在自己的手机上测试。</p></div></details>
+      <details><summary><span class="number">03</span>安装与更新</summary><div class="detail-content"><p>需要 Android 7.0 或更高版本。下载 APK 后安装，首次安装时按提示允许浏览器安装应用。旧正式版可直接覆盖更新；调试版会作为另一款应用保留。</p><p>安装包发布在 GitHub Releases，使用同一发布密钥签名。下载没开始时，到<a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>里下载 agentbridge.apk。</p><p><strong>0.5.42：</strong>员工回复、聊天和连接提示的文字更短了。「帮我写回复」也会尽量用短句，少些套话。选中后可以修改，再点发送；授权和验收仍由你决定。</p></div></details>
       <details><summary><span class="number">04</span>数据保存与隐私</summary><div class="detail-content"><p>配置、对话与记录保存在手机应用私有存储。密码与 API Key 使用 Android Keystore 加密，应用没有统计上报。</p><p>聊天会把必要的任务信息发送到你配置的模型服务。使用百炼云端语音时，录音或播报文字会发送到百炼。详见<a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a>。</p></div></details>
     </div>
   </section>
-  <div class="closing"><p>电脑继续运行，你可以先出门。</p><a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk">下载 agentBridge ↗</a></div>
+  <div class="closing"><p>离开电脑，也能回消息。</p><a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk">下载 agentBridge ↗</a></div>
 </main>
 <footer><div class="footer-links"><a href="https://github.com/otterview-labs/agentBridge">源码仓库 ↗</a><a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a><a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/android-app.md">Android 文档</a></div><span>agentBridge / Apache-2.0</span></footer>
 </div>
 <script>
 (function(){
   var views={
-    office:{image:'office-0.5.39.jpg',alt:'办公室页面：像素员工、任务进展与待确认事项',index:'01 / 03',description:'查看机器和任务，打开员工卡片继续处理。状态由手动刷新获取。'},
-    butler:{image:'butler-0.5.39.jpg',alt:'管家页面：模型连接验证、对话记录与输入框',index:'02 / 03',description:'配置自己的模型服务，验证连接后开始文字聊天。发送失败可保留原文重试。'},
-    call:{image:'call-0.5.39.jpg',alt:'管家通话页面：聆听状态、麦克风、扬声器与挂断按钮',index:'03 / 03',description:'测试识别与播报后开始通话。连接和通话状态以手机上的实际结果为准。'}
+    office:{image:'office-0.5.42.png',alt:'办公室页面：像素员工、任务进展与待确认事项',index:'01 / 03',description:'打开员工卡片，看输出、回消息。点击刷新，查看最新进展。'},
+    butler:{image:'butler-0.5.42.png',alt:'管家页面：模型连接验证、对话记录与输入框',index:'02 / 03',description:'配置模型后，可以和管家聊任务。发消息前先验证连接。'},
+    call:{image:'call-0.5.42.png',alt:'管家通话页面：聆听状态、麦克风、扬声器与挂断按钮',index:'03 / 03',description:'先试试麦克风和声音，再开始通话。截图里的通话是示例。'}
   };
   var buttons=document.querySelectorAll('[data-view]');
   var preview=document.getElementById('preview-image');
