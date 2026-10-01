@@ -6,8 +6,8 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.39
-versionCode: 55
+versionName: 0.5.40
+versionCode: 56
 minSdk: 24
 targetSdk: 35
 package: com.otterview.agentsessionbridge.debug
@@ -120,6 +120,14 @@ android/app/build/outputs/apk/debug/app-debug.apk
   retry action during the page session, including after refreshing the overview.
 - Pasted `/chat/completions` URLs are normalized to the base URL. Endpoints
   that explicitly reject tools can fall back to plain text on the first request.
+- The butler has three read-only tools: refresh tasks, check machines, and read
+  current task output. It cannot dispatch replies or execute work; use an
+  employee card for those actions. Cached records include task/machine IDs and
+  timestamps. SSH refresh failures stay visible and never imply an empty office.
+- A conversation turn saves its question and answer together. Only one turn can
+  run at a time, including across Activity recreation. Temporary operation-read
+  failures resume the submitted request rather than sending it twice; committed
+  replies can also be recovered from local history by operation ID.
 - Voice settings can save a separate, Keystore-encrypted DashScope Beijing API
   key for ASR and TTS, independent of the text model. With no separate key, an
   exact `dashscope.aliyuncs.com` model host supplies the fallback key.

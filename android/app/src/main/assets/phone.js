@@ -1479,7 +1479,7 @@
       welcome.appendChild(element('span', 'welcomeMark', '···'));
       welcome.appendChild(element('h4', '', model.ready ? '从一句话开始' : '先接上你的模型'));
       welcome.appendChild(element('p', '', model.ready
-        ? '问进展、排优先级，或直接拨给我。'
+        ? '查进展、看输出、排优先级。'
         : '点上方「配置模型」，保存后验证连接。'));
       $('piMessages').appendChild(welcome);
     } else {
@@ -1503,7 +1503,7 @@
       appendChatNotice(state.failedChat.error, true);
     }
     state.chatNotices.forEach(notice => appendChatNotice(notice));
-    $('sendPi').disabled = state.sending || !$('piInput').value.trim();
+    $('sendPi').disabled = state.sending || Boolean(state.failedChat?.operation) || !$('piInput').value.trim();
     const reportRunning = state.backgroundReports.size > 0;
     $('generateReport').disabled = !model.ready || reportRunning;
     $('generateReport').textContent = reportRunning ? '规划生成中…' : '重新生成规划';
@@ -1561,7 +1561,7 @@
     if (!modelResult.ok) return;
     state.studio = modelResult.data;
     state.modelCheckError = '';
-    state.failedChat = null;
+    if (!state.failedChat?.operation) state.failedChat = null;
     state.chatNotices = [];
     $('modelApiKey').value = '';
     $('modelCheckResult').textContent = '配置已保存。点击下方验证，确认地址、密钥和模型都能使用。';
@@ -1619,6 +1619,10 @@
 
   function startCallMode() {
     if (state.callMode) return;
+    if (state.failedChat?.operation) {
+      toast('先在聊天中继续查看上一条消息的回复');
+      return;
+    }
     if (!state.studio?.model?.ready) {
       toast('先配置管家模型，再开始通话');
       openCloudSheet();
@@ -1791,14 +1795,19 @@
     }, delay);
   }
 
-  async function sendPiMessage() {
+  async function sendPiMessage(resume = false) {
     if (state.sending) return;
-    const value = $('piInput').value.trim();
+    const recovery = resume === true ? state.failedChat?.operation : null;
+    if (!recovery && state.failedChat?.operation) {
+      toast('上一条消息已提交，请先继续查看回复');
+      return;
+    }
+    const value = recovery ? state.failedChat.value : $('piInput').value.trim();
     if (!value) {
       toast('先输入要问管家的内容');
       return;
     }
-    if (!state.studio?.model?.ready) {
+    if (!recovery && !state.studio?.model?.ready) {
       toast('先配置管家模型，再发送消息');
       openCloudSheet();
       return;
@@ -1811,7 +1820,7 @@
     state.failedChat = null;
     state.chatNotices = [];
     $('sendPi').disabled = true;
-    $('piInput').value = '';
+    if (!recovery || $('piInput').value.trim() === value) $('piInput').value = '';
     autoResizeChatInput();
     renderPiDetail();
     if (state.callMode) {
@@ -1819,16 +1828,20 @@
       setCallStatus('thinking');
     }
     setChatTyping(true);
-    let operation;
+    let operation = recovery;
+    let terminal = false;
     try {
-      let parsed;
-      try {
-        parsed = JSON.parse(AgentBridge.beginStudioMessage(value));
-      } catch (error) {
-        parsed = { ok: false, error: '无法启动管家回复' };
+      if (!operation) {
+        let parsed;
+        try {
+          parsed = JSON.parse(AgentBridge.beginStudioMessage(value));
+        } catch (error) {
+          parsed = { ok: false, error: '无法启动管家回复' };
+        }
+        if (!parsed.ok) throw new Error(parsed.error || '无法启动管家回复');
+        operation = parsed.data.operation;
       }
-      if (!parsed.ok) throw new Error(parsed.error || '无法启动管家回复');
-      operation = parsed.data.operation;
+      let pollingFailures = 0;
       while (true) {
         await sleep(220);
         let currentResult;
@@ -1837,12 +1850,31 @@
         } catch (error) {
           currentResult = { ok: false, error: '无法读取管家回复状态' };
         }
-        if (!currentResult.ok) throw new Error(currentResult.error || '无法读取管家回复状态');
+        if (!currentResult.ok) {
+          // The bridge/Activity can be recreated after a turn committed but
+          // before the page read its operation. Match the stored turn by ID.
+          try {
+            const saved = JSON.parse(AgentBridge.studioOverview());
+            const reply = saved.ok && saved.data.messages?.find(message =>
+              message.id === `studio-${operation.id}-assistant`);
+            if (reply) currentResult = { ok: true, data: { operation: {
+              ...operation, state: 'succeeded', studio: { ...saved.data, reply }
+            } } };
+          } catch (error) { /* Keep waiting for the submitted operation. */ }
+          if (!currentResult.ok) {
+            pollingFailures += 1;
+            if (pollingFailures < 3) { await sleep(500); continue; }
+            throw new Error('消息已提交，暂时无法读取回复。请继续查看，避免重复发送。');
+          }
+        }
+        pollingFailures = 0;
         const current = currentResult.data.operation;
         setChatTyping(true, current.message);
         if (current.state !== 'running') {
-          if (current.state === 'failed') throw new Error(current.message || '管家回复失败');
+          if (!['failed', 'succeeded'].includes(current.state)) throw new Error('暂时无法确认回复状态，请继续查看');
+          terminal = true;
           operation = current;
+          if (current.state === 'failed') throw new Error(current.message || '管家回复失败');
           break;
         }
       }
@@ -1852,7 +1884,7 @@
       renderPiDetail();
       render();
       const messages = Array.isArray(state.studio.messages) ? state.studio.messages : [];
-      const reply = messages[messages.length - 1];
+      const reply = operation.studio?.reply || messages[messages.length - 1];
       if (stillInCall()) {
         state.callTranscript = reply?.role === 'assistant'
           ? `我：${value}\n管家：${reply.content}` : `我：${value}`;
@@ -1881,7 +1913,7 @@
       }
     } catch (error) {
       setChatTyping(false);
-      state.failedChat = { value, error: error.message || String(error) };
+      state.failedChat = { value, error: error.message || String(error), operation: terminal ? null : operation };
       if (!$('piInput').value.trim() && (callSession === null || stillInCall())) {
         $('piInput').value = value;
         autoResizeChatInput();
@@ -1895,7 +1927,7 @@
     } finally {
       state.sending = false;
       state.pendingChat = null;
-      if (operation) {
+      if (operation && terminal) {
         try { AgentBridge.clearOperation(operation.id); } catch (error) { /* Already cleared. */ }
       }
       renderPiDetail();
@@ -1988,10 +2020,14 @@
     const row = element('div', 'chatNotice');
     row.textContent = content;
     if (retry) {
-      const button = element('button', '', '重试这条消息');
+      const button = element('button', '', state.failedChat?.operation ? '继续查看回复' : '重试这条消息');
       button.type = 'button';
       button.addEventListener('click', () => {
         if (state.sending || !state.failedChat) return;
+        if (state.failedChat.operation) {
+          void sendPiMessage(true);
+          return;
+        }
         if ($('piInput').value.trim() && $('piInput').value.trim() !== state.failedChat.value) {
           toast('输入框中有新的草稿，请先发送或清空');
           return;
@@ -2027,7 +2063,7 @@
     const input = $('piInput');
     input.style.height = 'auto';
     input.style.height = `${Math.min(112, input.scrollHeight)}px`;
-    $('sendPi').disabled = state.sending || !input.value.trim();
+    $('sendPi').disabled = state.sending || Boolean(state.failedChat?.operation) || !input.value.trim();
   }
 
   function toggleVoiceInput() {

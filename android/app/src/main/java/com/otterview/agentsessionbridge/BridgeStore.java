@@ -44,6 +44,7 @@ final class BridgeStore {
   private final Map<String, String> sealedCache = new HashMap<>();
 
   private static BridgeStore instance;
+  private boolean studioTurnActive;
 
   /**
    * One store per process: an Activity recreated mid-operation must not get a
@@ -129,6 +130,32 @@ final class BridgeStore {
     messages.put(message);
     while (messages.length() > limit) messages.remove(0);
     saveStudioMessages(messages);
+  }
+
+  synchronized boolean beginStudioTurn() {
+    if (studioTurnActive) return false;
+    studioTurnActive = true;
+    return true;
+  }
+
+  synchronized void endStudioTurn() {
+    studioTurnActive = false;
+  }
+
+  /** Publish both sides with one commit; a failed save must never leave half a turn. */
+  synchronized JSONObject appendStudioTurn(String user, String answer, String createdAt, String turnId) throws Exception {
+    JSONArray messages = studioMessages();
+    JSONObject reply = new JSONObject().put("id", turnId + "-assistant")
+        .put("role", "assistant").put("content", answer).put("createdAt", createdAt);
+    messages.put(new JSONObject().put("id", turnId + "-user")
+        .put("role", "user").put("content", user).put("createdAt", createdAt));
+    messages.put(reply);
+    while (messages.length() > 100) messages.remove(0);
+    while (messages.length() > 0 && !"user".equals(messages.getJSONObject(0).optString("role"))) {
+      messages.remove(0);
+    }
+    saveStudioMessages(messages);
+    return reply;
   }
 
   synchronized JSONArray studioReports() throws Exception {

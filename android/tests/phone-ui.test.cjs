@@ -94,6 +94,9 @@ async function openPhone(t, options = {}) {
     };
     window.sendCount = 0;
     window.chatCount = 0;
+    window.chatOperationsCleared = [];
+    window.allowChatPoll = false;
+    window.speechTexts = [];
     window.tailCount = 0;
     window.voiceCalls = [];
     window.callCalls = [];
@@ -161,7 +164,10 @@ async function openPhone(t, options = {}) {
       },
       operationState: id => {
         if (id === 'test-model-check') return ok({ operation: modelCheckOperation });
-        if (chatOperation) return ok({ operation: chatOperation });
+        if (chatOperation) {
+          if (options.chatPollFails && !window.allowChatPoll) return fail('临时状态读取失败');
+          return ok({ operation: chatOperation });
+        }
         const current = operation?.kind === 'send' && (!tailOperation || window.sendCount)
           ? operation : tailOperation;
         if (!current) return fail('后台任务不存在');
@@ -186,7 +192,7 @@ async function openPhone(t, options = {}) {
         return ok({ operation: { ...current, state: 'succeeded', message: '回复已发送',
           task: structuredClone(data.tasks[0]) } });
       },
-      clearOperation: () => {},
+      clearOperation: id => window.chatOperationsCleared.push(id),
       beginStudioMessage: content => {
         window.chatCount += 1;
         chatOperation = { kind: 'chat', id: 'test-chat', state: options.chatFails ? 'failed' : 'succeeded',
@@ -195,6 +201,16 @@ async function openPhone(t, options = {}) {
             { role: 'user', content },
             { role: 'assistant', content: '通话测试回复：先处理待输入员工。' }
           ] } };
+        if (options.chatCommittedWhilePollLost) {
+          studio.messages = [
+            { id: 'studio-test-chat-user', role: 'user', content },
+            { id: 'studio-test-chat-assistant', role: 'assistant', content: '已保存的唯一回复' }
+          ];
+        }
+        if (options.chatReplyCorrelation) {
+          chatOperation.studio.reply = { role: 'assistant', content: '属于这次请求的回复' };
+          chatOperation.studio.messages.push({ role: 'assistant', content: '其他请求的回复' });
+        }
         return ok({ operation: chatOperation });
       },
       startVoiceInput: autoSend => {
@@ -209,7 +225,8 @@ async function openPhone(t, options = {}) {
         window.voiceCalls.push(['cancel']);
         return ok({ recording: false });
       },
-      speakText: () => {
+      speakText: text => {
+        window.speechTexts.push(text);
         window.callCalls.push(['speak']);
         return ok({ speaking: true });
       },
@@ -594,6 +611,44 @@ test('chat errors preserve the message and a working retry after a refresh', asy
   await page.getByRole('button', { name: '重试这条消息' }).waitFor();
   await page.getByRole('button', { name: '重试这条消息' }).click();
   await page.waitForFunction(() => window.chatCount === 2);
+});
+
+test('lost chat polling resumes the same submitted turn and preserves a new draft', async t => {
+  const page = await openPhone(t, { modelReady: true, chatPollFails: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('只提交一次的消息');
+  await page.locator('#sendPi').click();
+  await page.getByRole('button', { name: '继续查看回复' }).waitFor();
+  assert.equal(await page.evaluate(() => window.chatCount), 1);
+  assert.equal(await page.evaluate(() => window.chatOperationsCleared.includes('test-chat')), false);
+  await page.locator('#piInput').fill('另一条草稿');
+  assert.equal(await page.locator('#sendPi').isDisabled(), true);
+  await page.evaluate(() => { window.allowChatPoll = true; });
+  await page.getByRole('button', { name: '继续查看回复' }).click();
+  await page.waitForFunction(() => window.chatOperationsCleared.includes('test-chat'));
+  assert.equal(await page.evaluate(() => window.chatCount), 1);
+  assert.equal(await page.locator('#piInput').inputValue(), '另一条草稿');
+  assert.match(await page.locator('#piMessages').textContent(), /通话测试回复/);
+});
+
+test('a committed reply is recovered from storage when its operation is unavailable', async t => {
+  const page = await openPhone(t, { modelReady: true, chatPollFails: true, chatCommittedWhilePollLost: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('已成功但没读到状态');
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => document.getElementById('piMessages').textContent.includes('已保存的唯一回复'));
+  assert.equal(await page.getByRole('button', { name: '重试这条消息' }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: '继续查看回复' }).count(), 0);
+  assert.equal(await page.evaluate(() => window.chatCount), 1);
+});
+
+test('speech uses the reply belonging to this request rather than the last history entry', async t => {
+  const page = await openPhone(t, { modelReady: true, chatReplyCorrelation: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('给我本次回复');
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => window.speechTexts.length > 0);
+  assert.equal(await page.evaluate(() => window.speechTexts[0]), '属于这次请求的回复');
 });
 
 test('call setup shows missing voice services and stores a separate voice key without exposing it', async t => {
