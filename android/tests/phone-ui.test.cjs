@@ -419,7 +419,7 @@ test('reply completion displays fresh state, not the initial operation snapshot'
   await page.locator('[data-task-id="1"]').click();
   await page.locator('#replyText').fill('测试消息，不发送到真实机器');
   await page.locator('#sendTask').click();
-  await expectToast(page, '已提交后台执行，成功或失败会通知你');
+  await expectToast(page, '消息已提交，发送结果会通知你');
   await page.waitForFunction(() => document.getElementById('sendTask').disabled === false);
   assert.equal(await page.locator('#taskOutput').textContent(), '回复后的新输出');
   assert.match(await page.locator('#taskStatusLine').textContent(), /会话空闲/);
@@ -532,7 +532,7 @@ test('confirmed sends update from operation data even if state reads fail', asyn
   await page.locator('[data-task-id="1"]').click();
   await page.locator('#replyText').fill('只发送一次');
   await page.locator('#sendTask').click();
-  await expectToast(page, '已提交后台执行，成功或失败会通知你');
+  await expectToast(page, '消息已提交，发送结果会通知你');
   await page.waitForFunction(() => document.getElementById('sendTask').disabled === false);
   assert.equal(await page.locator('#replyText').inputValue(), '');
   await page.locator('[data-close="taskBackdrop"]').click();
@@ -1069,14 +1069,14 @@ test('employee replies ignore legacy approval templates and require deliberate s
   assert.equal(await page.locator('#replyText').inputValue(), '');
   await page.locator('#generateReplySuggestions').click();
   await page.locator('.replySuggestionChoice').first().waitFor();
-  assert.match(await page.locator('#replySuggestionStatus').textContent(), /AI 拟稿.*需要你决定/);
+  assert.match(await page.locator('#replySuggestionStatus').textContent(), /AI 草稿.*怎么回，你来定/);
   assert.equal(await page.locator('#replyText').inputValue(), '');
   assert.equal(await page.evaluate(() => window.sendCount), 0);
   await page.locator('.replySuggestionChoice').first().click();
   assert.match(await page.locator('#replyText').inputValue(), /影响范围和回滚步骤/);
   assert.equal(await page.evaluate(() => window.sendCount), 0);
   await page.locator('.replySuggestionChoice').nth(1).click();
-  await expectToast(page, '已有草稿，先清空输入框再选择建议');
+  await expectToast(page, '你已经写了内容，清空后再选');
   assert.match(await page.locator('#replyText').inputValue(), /影响范围和回滚步骤/);
   if (process.env.SCREENSHOT_DIR) {
     fs.mkdirSync(process.env.SCREENSHOT_DIR, { recursive: true });
@@ -1096,7 +1096,7 @@ test('reply drafting reports missing model, provider and malformed response with
       await page.locator('#cloudBackdrop:not(.hidden)').waitFor();
       assert.equal(await page.evaluate(() => window.suggestionCount), 0);
     } else {
-      await page.waitForFunction(() => /401|未返回可用/.test(document.getElementById('replySuggestionStatus').textContent));
+      await page.waitForFunction(() => /401|没写出合适/.test(document.getElementById('replySuggestionStatus').textContent));
       assert.equal(await page.locator('.replySuggestionChoice').count(), 0);
       assert.equal(await page.locator('#replyText').inputValue(), '我自己的草稿');
       assert.equal(await page.locator('#sendTask').isEnabled(), true);
@@ -1134,7 +1134,7 @@ test('output refresh invalidates suggestions for an older conversation', async t
   await page.waitForFunction(() => document.getElementById('taskOutput').textContent === '最新输出');
   await page.evaluate(() => { window.releaseSuggestions = true; });
   await page.waitForFunction(() => document.getElementById('generateReplySuggestions').disabled === false);
-  assert.match(await page.locator('#replySuggestionStatus').textContent(), /会话记录已更新/);
+  assert.match(await page.locator('#replySuggestionStatus').textContent(), /记录更新了/);
   assert.equal(await page.locator('.replySuggestionChoice').count(), 0);
   assert.equal(await page.locator('#replyText').inputValue(), '保留这条草稿');
   await page.locator('#generateReplySuggestions').click();

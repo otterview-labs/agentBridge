@@ -6,8 +6,8 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.41
-versionCode: 57
+versionName: 0.5.42
+versionCode: 58
 minSdk: 24
 targetSdk: 35
 package: com.otterview.agentsessionbridge.debug
@@ -37,7 +37,7 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - Offline or unchecked machines' employees show historical labels and stop
   animating. A successful connection check still does not imply live monitoring.
 - Employee reply inputs start empty; legacy keyword approval templates are ignored.
-  “帮我拟回复” uses the configured model to draft 2–3 choices from only the selected
+  “帮我写回复” uses the configured model to draft 2–3 choices from only the selected
   employee’s bounded, last-synced records. It runs in the background, does not
   append to butler chat, and has no employee tools. Choices fill an empty draft
   only after selection; the user still edits and sends. Human decisions and

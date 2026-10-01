@@ -656,14 +656,14 @@ final class PhoneBridge {
   private JSONArray studioChatMessages(JSONArray history, String value, JSONObject snapshot) throws Exception {
     JSONArray messages = new JSONArray();
     messages.put(new JSONObject().put("role", "system").put("content",
-        "你是 agentBridge 的手机管家小助手。你聪明、亲切、务实，像一个靠谱的技术管家。\n"
-            + "职责：帮用户管理多台机器上的 AI 编程任务（Claude/Codex 等），提供状态汇总、优先级建议和风险提醒。\n\n"
+        "你是 agentBridge 的管家，帮用户查看电脑上的 Codex、Claude 任务。\n"
+            + "职责：查进展、读输出，和用户讨论下一步。\n\n"
             + "回答规则：\n"
-            + "1. 先给一句直接的结论或建议，再展开细节。\n"
+            + "1. 直接回答用户的问题，简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
             + "2. 用任务名称说话，不要只报编号。例如「云端采集 agent 接入」比「S-252940」好得多。\n"
             + "3. 给出可操作的建议时说清楚：做什么、为什么、怎么判断做好了。\n"
             + "4. 待输入的任务最紧急（AI 在等用户回复），放在最前面提醒。\n"
-            + "5. 语气自然友好，像同事沟通，不要像数据库查询。\n"
+            + "5. 像同事发消息，句子短，具体说事。不写客套开场、口号、排比、‘首先其次最后’或‘综上所述’，少用‘基于、赋能、推进、闭环、优先级’等词。别自夸或反复介绍自己的功能。\n"
             + "6. 没有数据就直说，不要编造。\n"
             + "7. 你只能查询，不能派发指令、确认部署或执行任务。用户要求操作时，说清楚当前能力，并引导打开对应员工卡片回复；不能声称已经执行。\n"
             + "8. 不输出 JSON，不使用 Markdown 符号（**、#、表格）。\n"
@@ -1887,7 +1887,7 @@ final class PhoneBridge {
             throw new IllegalArgumentException("机器网络不可达：" + network.optString("summary"));
           }
 
-          updateOperation(operationId, "agent", "SSH 已可达，正在发送回原会话…", network);
+          updateOperation(operationId, "agent", "正在发送到原会话…", network);
           String raw = sendPrompt(id, prompt, actorId);
           JSONObject result = new JSONObject(raw);
           if (!result.optBoolean("ok")) {
@@ -1899,7 +1899,7 @@ final class PhoneBridge {
           String done = stillRunning ? "回复已送达，远程仍在处理，稍后点刷新查看结果" : "回复已发送";
           markOperation(operationId, "stillRunning", stillRunning);
           updateOperation(operationId, "succeeded", done, network, task);
-          activity.showTaskNotification("Agent Bridge", stillRunning ? done : "后台任务已执行");
+          activity.showTaskNotification("Agent Bridge", stillRunning ? done : "消息已发送");
         } catch (Exception error) {
           try {
             JSONObject current = operationById(operationId);
@@ -1981,21 +1981,21 @@ final class PhoneBridge {
       if (task.optString("lastOutput").trim().isEmpty()
           && task.optString("workSummary").trim().isEmpty()
           && task.optString("requiredInput").trim().isEmpty()) {
-        throw new IllegalArgumentException("还没有员工输出，请先刷新输出再拟回复");
+        throw new IllegalArgumentException("还没有员工输出，先点「刷新输出」");
       }
       String response = chatCompletion(readyStudioModel(), ReplySuggestions.messages(task), null);
       JSONObject payload = new JSONObject(response);
       JSONArray choices = payload.optJSONArray("choices");
       JSONObject message = choices == null || choices.length() == 0
           ? null : choices.getJSONObject(0).optJSONObject("message");
-      if (message == null) throw new IllegalStateException("模型没有返回回复建议");
+      if (message == null) throw new IllegalStateException("模型没返回建议，请再试一次");
       JSONObject suggestions = ReplySuggestions.normalize(
           new JSONObject(ReplySuggestions.jsonText(modelMessageText(message))), ReplySuggestions.needsDecision(task));
       suggestions.put("context", context).put("generatedAt", now());
       return success(suggestions);
     } catch (Exception error) {
       if (error instanceof IllegalArgumentException || error instanceof IllegalStateException) return failure(error);
-      return failure(new IllegalStateException("回复建议生成失败，请重新生成或自行填写"));
+      return failure(new IllegalStateException("没写出回复建议，可以重试或自己写"));
     }
   }
 
@@ -2411,7 +2411,7 @@ final class PhoneBridge {
               .put("suggestedReply", "")
               .put("updatedAt", now());
           if (outcome.finished) {
-            fields.put("lastOutput", "回复执行完成：\n" + outcome.output)
+            fields.put("lastOutput", "本次输出：\n" + outcome.output)
                 .put("status", outcome.output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle");
           } else {
             fields.put("lastOutput", "回复已送达，远程仍在处理（手机等了 " + (REPLY_WAIT_MS / 1000) + " 秒）。"
