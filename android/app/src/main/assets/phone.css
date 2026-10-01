@@ -207,6 +207,16 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 button:focus-visible { outline: 3px solid #a96940; outline-offset: 3px; }
 .workSummary { padding: 11px 12px; border-left: 5px solid #3f6b44; border-radius: 12px; background: #f1f4e8; color: #52604b; font-size: 12px; line-height: 1.7; white-space: pre-wrap; }
 .taskNeed { margin: 0; padding: 11px 12px; border-left: 5px solid #b3653f; border-radius: 12px; background: #fff0dd; color: #744b2b; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; max-width: 100%; box-sizing: border-box; }
+.replySuggestions { border-top: 1px solid #ded8cc; padding-top: 14px; }
+.replySuggestionsHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.replySuggestionsHeader strong { font-size: 14px; }
+#replySuggestionStatus { color: #716d64; font-size: 12px; line-height: 1.65; margin: 8px 0; overflow-wrap: anywhere; }
+#replySuggestionChoices { display: grid; gap: 8px; }
+.replySuggestionChoice { width: 100%; text-align: left; background: #faf8f2; border: 1px solid #ded8cc; border-radius: 10px; padding: 10px 12px; color: #39382f; font: inherit; cursor: pointer; }
+.replySuggestionChoice strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.replySuggestionChoice span { display: block; font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+.replySuggestionChoice:focus-visible { outline: 2px solid #9c613f; outline-offset: 2px; }
+.replySuggestionChoice:disabled { opacity: .5; cursor: default; }
 .conversationTimeline { display: grid; gap: 8px; }
 .conversationHeader { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 0 2px; }
 .conversationHeader strong { font-size: 13px; }
@@ -491,3 +501,5 @@ body.voice-listening .app { padding-bottom: 196px; }
 .callStage:not([data-status="listening"]):not([data-status="speaking"]) .callWave span { animation: none; }
 
 .callAvatar:before { content: ""; position: absolute; bottom: 6px; left: 19px; width: 100px; height: 14px; background: #dce5cc; border-radius: 50%; }
+
+.replySuggestionsHeader .ghostAction { flex: 0 0 auto; min-height: 36px; padding: 0 12px; font-size: 12px; }
