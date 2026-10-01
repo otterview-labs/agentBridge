@@ -1019,7 +1019,7 @@
     if (state.currentTaskId === task.id) $('replyText').value = '';
     renderTaskDetail();
     renderBackgroundState();
-    toast('已提交后台执行，成功或失败会通知你');
+    toast('消息已提交，发送结果会通知你');
     void pollBackgroundSend(task.id, operation);
   }
 
@@ -1057,7 +1057,7 @@
       }
       finishBackgroundSend(taskId, true, operation.stillRunning
         ? `${updatedTask ? compactTaskTitle(updatedTask) + '：' : ''}${operation.message || '回复已送达，远程仍在处理'}`
-        : updatedTask ? `任务已执行：${compactTaskTitle(updatedTask)}` : '后台任务已执行');
+        : updatedTask ? `消息已发送：${compactTaskTitle(updatedTask)}` : '消息已发送');
     } catch (error) {
       finishBackgroundSend(taskId, false, error.message || String(error));
     }

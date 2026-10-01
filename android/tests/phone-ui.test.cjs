@@ -419,7 +419,7 @@ test('reply completion displays fresh state, not the initial operation snapshot'
   await page.locator('[data-task-id="1"]').click();
   await page.locator('#replyText').fill('测试消息，不发送到真实机器');
   await page.locator('#sendTask').click();
-  await expectToast(page, '已提交后台执行，成功或失败会通知你');
+  await expectToast(page, '消息已提交，发送结果会通知你');
   await page.waitForFunction(() => document.getElementById('sendTask').disabled === false);
   assert.equal(await page.locator('#taskOutput').textContent(), '回复后的新输出');
   assert.match(await page.locator('#taskStatusLine').textContent(), /会话空闲/);
@@ -532,7 +532,7 @@ test('confirmed sends update from operation data even if state reads fail', asyn
   await page.locator('[data-task-id="1"]').click();
   await page.locator('#replyText').fill('只发送一次');
   await page.locator('#sendTask').click();
-  await expectToast(page, '已提交后台执行，成功或失败会通知你');
+  await expectToast(page, '消息已提交，发送结果会通知你');
   await page.waitForFunction(() => document.getElementById('sendTask').disabled === false);
   assert.equal(await page.locator('#replyText').inputValue(), '');
   await page.locator('[data-close="taskBackdrop"]').click();

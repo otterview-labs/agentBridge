@@ -1887,7 +1887,7 @@ final class PhoneBridge {
             throw new IllegalArgumentException("机器网络不可达：" + network.optString("summary"));
           }
 
-          updateOperation(operationId, "agent", "SSH 已可达，正在发送回原会话…", network);
+          updateOperation(operationId, "agent", "正在发送到原会话…", network);
           String raw = sendPrompt(id, prompt, actorId);
           JSONObject result = new JSONObject(raw);
           if (!result.optBoolean("ok")) {
@@ -1899,7 +1899,7 @@ final class PhoneBridge {
           String done = stillRunning ? "回复已送达，远程仍在处理，稍后点刷新查看结果" : "回复已发送";
           markOperation(operationId, "stillRunning", stillRunning);
           updateOperation(operationId, "succeeded", done, network, task);
-          activity.showTaskNotification("Agent Bridge", stillRunning ? done : "后台任务已执行");
+          activity.showTaskNotification("Agent Bridge", stillRunning ? done : "消息已发送");
         } catch (Exception error) {
           try {
             JSONObject current = operationById(operationId);
@@ -2411,7 +2411,7 @@ final class PhoneBridge {
               .put("suggestedReply", "")
               .put("updatedAt", now());
           if (outcome.finished) {
-            fields.put("lastOutput", "回复执行完成：\n" + outcome.output)
+            fields.put("lastOutput", "本次输出：\n" + outcome.output)
                 .put("status", outcome.output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle");
           } else {
             fields.put("lastOutput", "回复已送达，远程仍在处理（手机等了 " + (REPLY_WAIT_MS / 1000) + " 秒）。"
