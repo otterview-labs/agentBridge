@@ -3,94 +3,119 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>agentBridge Android 应用</title>
-<meta name="description" content="在手机上连自己的机器，查看并回复上面正在跑的 Claude Code / Codex 会话。">
+<meta name="description" content="下载 agentBridge 安卓应用：在手机上查看和回复远程机器的 Codex、Claude 会话，和管家聊天、语音通话。">
+<title>agentBridge 安卓下载 · 办公小镇</title>
 <link rel="icon" href="icon.png">
 <style>
-:root{
-  color-scheme:light;
-  --paper:#fffffc;--ink:#2b2b28;--muted:#66665f;
-  --line:#e3e3dd;--link:#2f5d43;--code:#f2f2ec;
-}
+:root{color-scheme:light;--paper:#f5f2e9;--ink:#294936;--muted:#67735e;--line:#d9dfcf}
 *{box-sizing:border-box}
-body{
-  margin:0;background:var(--paper);color:var(--ink);
-  font:16px/1.85 "PingFang SC","Microsoft YaHei",sans-serif;
-}
-.wrap{max-width:620px;margin:0 auto;padding:64px 24px 80px}
-a{color:var(--link)}
-a:focus-visible{outline:3px solid #8a6a2f;outline-offset:2px}
-h1{font-size:24px;line-height:1.4;margin:0 0 8px;font-weight:600}
-h2{font-size:18px;line-height:1.5;margin:40px 0 12px;font-weight:600}
-p{margin:0 0 16px}
-.lede{color:var(--muted)}
-.download{
-  display:inline-block;background:var(--link);color:#fffffc;text-decoration:none;
-  border-radius:8px;padding:14px 26px;font-size:16px;font-weight:600;min-height:48px;
-}
-.download:hover{background:#264c37}
-.download:focus-visible{outline:3px solid #8a6a2f;outline-offset:3px}
-.meta{margin:14px 0 16px;font-size:14px;color:var(--muted)}
-code{
-  font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
-  background:var(--code);padding:2px 5px;border-radius:4px;
-}
-.shots{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 16px}
-.shots img{width:184px;aspect-ratio:640/1410;flex:none;border:1px solid var(--line);border-radius:8px}
-footer{
-  margin-top:56px;padding-top:18px;border-top:1px solid var(--line);
-  font-size:14px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 18px;
-}
-@media (max-width:520px){
-  .wrap{padding:44px 18px 60px}
-  .shots img{width:calc(50% - 7px)}
-  .download{display:block;text-align:center}
-}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.8 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:960px;margin:auto;padding:38px 28px 64px}
+a{color:var(--ink);text-underline-offset:4px}
+a:focus-visible,summary:focus-visible{outline:3px solid #b36b43;outline-offset:4px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:28px;font-size:14px;font-weight:650}
+.brand img{width:32px;height:32px;image-rendering:pixelated}
+.hero{padding:34px;border-radius:22px;background:var(--ink);color:#faf7e9}
+.eyebrow{font-size:12px;color:#c6d4bb;letter-spacing:.08em;margin:0 0 12px}
+h1{font-size:clamp(28px,5vw,42px);line-height:1.4;margin:0 0 14px;font-weight:700;letter-spacing:-.03em}
+.lede{max-width:650px;color:#d6dfca;margin:0 0 25px;font-size:16px}
+.download{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:12px 28px;background:#e6edda;color:var(--ink);border-radius:11px;font-size:16px;font-weight:700;text-decoration:none}
+.download:hover{background:#f3f6e9}
+.meta{margin:14px 0 0;color:#c6d4bb;font-size:13px}
+.installHint{margin:16px 2px 28px;color:var(--muted);font-size:13px}
+h2{font-size:21px;line-height:1.5;margin:32px 0 14px;font-weight:650}
+p{margin:0 0 14px}
+.shots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:0}
+.shots figure{margin:0;min-width:0}
+.shots img{display:block;width:100%;height:auto;aspect-ratio:390/844;object-fit:cover;border:1px solid var(--line);border-radius:14px;background:#fffdf8}
+figcaption{margin-top:10px;font-size:14px;font-weight:600}
+.caption{margin-top:12px;font-size:12px;color:var(--muted)}
+.setup{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin:28px 0 20px}
+.setup section{border-top:1px solid var(--line)}
+.setup h2{margin-top:18px}
+ol{padding-left:22px;margin:0}
+li{margin:0 0 10px;color:#52634b;font-size:14px}
+.note{padding:16px 18px;background:#e8eddf;border-radius:12px;font-size:14px;line-height:1.9}
+details{padding:18px 0;border-top:1px solid var(--line);font-size:14px}
+summary{cursor:pointer;font-weight:600}
+details p{margin:14px 0 0;color:var(--muted)}
+footer{margin-top:26px;padding-top:20px;border-top:1px solid var(--line);display:flex;gap:12px 20px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+@media(max-width:600px){main{padding:24px 18px 40px}.brand{margin-bottom:20px}.hero{padding:26px 22px;border-radius:18px}.download{display:flex;width:100%}.shots{gap:10px}.shots img{border-radius:9px}figcaption{font-size:12px}.setup{grid-template-columns:1fr;gap:8px}.lede{font-size:14px}}
 </style>
 </head>
 <body>
-<main class="wrap">
+<main>
+  <div class="brand"><img src="icon.png" alt="" width="32" height="32">agentBridge · 办公小镇</div>
+  <section class="hero" aria-labelledby="title">
+    <p class="eyebrow">ANDROID · 在手机上照看你的工作</p>
+    <h1 id="title">办公室在电脑上，<br>进展在你手里。</h1>
+    <p class="lede">连接自己的 Mac 或 Linux，查看和回复正在运行的 Codex、Claude 会话。需要理清事情时，和管家聊聊，或直接拨给它。</p>
+    <a class="download" href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk">下载安卓 APK ↓</a>
+    <p class="meta"><span id="release-version">v0.5.39</span> · Android 7.0 及以上 · <span id="release-size">约 1.5 MB</span> · 正式签名版</p>
+  </section>
+  <p class="installHint">首次安装时，按系统提示允许浏览器安装应用。更新已有正式版时，可直接覆盖安装。</p>
 
-  <h1>agentBridge Android 应用</h1>
-  <p class="lede">在手机上连自己的机器，查看并回复上面正在跑的 Claude Code / Codex 会话。</p>
-
-  <p><a class="download"
-        href="https://github.com/otterview-labs/agentbridge/releases/latest/download/agentbridge.apk">下载 APK</a></p>
-  <p class="meta"><span id="release-version">最新版</span> · Android 7.0 及以上 · 约 300 KB · Apache&#8209;2.0</p>
-  <p>首次安装会被系统拦一次，需要在设置里允许「安装未知来源应用」。</p>
-
-  <h2>用法</h2>
-  <p>装完打开，用「发现机器」扫描局域网，或者填 SSH 地址和账号（密码或私钥）。</p>
-  <p>它走你机器上现有的 SSH，被连的机器不需要装 agentBridge。</p>
-  <p>如果你已经在跑 agentBridge 服务，App 也能连上去，跟网页端共用同一份数据。</p>
-  <p>语音输入用手机自带的识别；手机没有识别器时，录音发到你自己的 agentBridge 服务转写。</p>
-
+  <h2>小镇的新样子</h2>
   <div class="shots">
-    <img src="android-local.png" alt="本机记录" width="184">
-    <img src="android-report.png" alt="管家日报" width="184">
+    <figure><img src="office-0.5.39.jpg" alt="办公室页面：像素员工、任务进展和待确认状态" width="390" height="844"><figcaption>看见每个人的进展</figcaption></figure>
+    <figure><img src="butler-0.5.39.jpg" alt="管家页面：对话入口、模型验证与底部输入栏" width="390" height="844"><figcaption>把事情聊清楚</figcaption></figure>
+    <figure><img src="call-0.5.39.jpg" alt="管家通话页面：聆听状态、麦克风、扬声器和挂断按钮" width="390" height="844"><figcaption>也可以，直接说</figcaption></figure>
   </div>
+  <p class="caption">截图使用样例记录展示界面，连接和通话状态以你手机上的实际结果为准。</p>
 
-  <p>应用没有统计和上报，所有连接地址都是你自己填的。</p>
-  <p>APK 由本仓库的 CI 从 <code>android-v*</code> 标签构建，用固定的发布密钥签名。构建日志在 Actions 里，也可以对照源码自行构建。</p>
+  <div class="setup">
+    <section>
+      <h2>先接上你的办公室</h2>
+      <ol>
+        <li>打开 App，用「发现机器」扫描局域网，或手动添加 SSH 地址、账号与密码／私钥。</li>
+        <li>点击「找任务」，导入机器上的 Codex、Claude 会话。</li>
+        <li>打开员工卡片，查看输出、回复指令，或处理待确认的事项。</li>
+      </ol>
+      <p class="caption">手机直接通过 SSH 连接机器，被连接的电脑不需要安装 agentBridge 服务。任务状态由手动刷新获取。</p>
+    </section>
+    <section>
+      <h2>再和管家聊聊</h2>
+      <ol>
+        <li>在「管家 → 配置模型」填写服务商地址、模型名称和 API Key，保存后点击「验证连接」。</li>
+        <li>先发一句文字，确认模型能回复。发送失败会保留原文，并显示重试入口。</li>
+        <li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li>
+        <li>两项正常后，点击「拨给管家」，并允许麦克风权限。</li>
+      </ol>
+    </section>
+  </div>
+  <p class="note">本机识别或中文语音引擎不可用时，可在「语音设置 → 云端语音配置」填写百炼北京地域 API Key。语音密钥可以和聊天模型分开配置。没有配置云端语音时，通话需要手机上可用的识别与播报引擎。</p>
 
+  <details>
+    <summary>0.5.39 更新了什么？</summary>
+    <p>新版采用奶油白与深绿配色，保留像素员工，让聊天成为管家页的主要入口。新增实际模型连接验证、失败消息保留和重试、独立语音密钥配置；修正无文字识别结果卡住、录音切换和挂断后旧结果误发送。还包含 Android 7 兼容、凭据加密和远程回复完成状态修复。</p>
+  </details>
+  <details>
+    <summary>数据保存在哪里？</summary>
+    <p>机器配置、对话和记录保存在手机应用私有存储；密码与 API Key 使用 Android Keystore 加密，不显示在页面状态中。聊天会把必要的任务信息发送到你配置的模型服务；启用百炼云端语音时，录音或播报文字会发送到百炼。应用没有统计上报。</p>
+  </details>
+  <details>
+    <summary>下载和安装说明</summary>
+    <p>下载按钮连接到 GitHub Releases。APK 由仓库 CI 从版本标签构建，并使用固定发布密钥签名。正式版可覆盖同一签名的旧正式版；之前安装的调试版包名不同，会作为另一款应用保留。若浏览器未开始下载，可打开下方「全部版本」中的 agentbridge.apk。</p>
+  </details>
   <footer>
-    <a href="https://github.com/otterview-labs/agentbridge">源码仓库</a>
-    <a href="https://github.com/otterview-labs/agentbridge/blob/main/docs/android-app.md">Android 文档</a>
-    <a href="https://github.com/otterview-labs/agentbridge/releases">全部版本</a>
-    <a href="https://github.com/otterview-labs/agentbridge/blob/main/SECURITY.md">安全策略</a>
+    <a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>
+    <a href="https://github.com/otterview-labs/agentBridge">源码仓库</a>
+    <a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/android-app.md">Android 文档</a>
+    <a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a>
+    <span>Apache-2.0</span>
   </footer>
-
 </main>
 <script>
-  // Best effort only: the download button already points at /releases/latest,
-  // so the page stays correct if this never resolves.
-  fetch('https://api.github.com/repos/otterview-labs/agentbridge/releases/latest')
-    .then(function (response) { return response.ok ? response.json() : Promise.reject(new Error()); })
-    .then(function (release) {
-      var tag = String(release.tag_name || '').replace(/^android-v/, '').replace(/^v/, '');
-      if (tag) document.getElementById('release-version').textContent = 'v' + tag;
-    })
-    .catch(function () {});
+fetch('https://api.github.com/repos/otterview-labs/agentBridge/releases/latest')
+  .then(function(response){if(!response.ok)throw new Error();return response.json();})
+  .then(function(release){
+    var asset=(release.assets||[]).find(function(item){return item.name==='agentbridge.apk';});
+    if(!asset)return;
+    var version=String(release.tag_name||'').replace(/^android-v/,'');
+    if(version)document.getElementById('release-version').textContent='v'+version;
+    if(asset.size)document.getElementById('release-size').textContent=(asset.size/1024/1024).toFixed(1)+' MB';
+  })
+  .catch(function(){});
 </script>
 </body>
 </html>
