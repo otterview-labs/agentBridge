@@ -46,7 +46,7 @@ final class ReplySuggestions {
         .put("decisionRequired", needsDecision(task))
         .put("question", clip(task.optString("requiredInput", ""), 1000))
         .put("recentConversation", clip(task.optString("workSummary", ""), 3000))
-        .put("output", clip(task.optString("lastOutput", ""), 8000));
+        .put("output", latest(task.optString("lastOutput", ""), 8000));
     return new JSONArray()
         .put(new JSONObject().put("role", "system").put("content", policy))
         .put(new JSONObject().put("role", "user").put("content", record.toString()));
@@ -98,6 +98,10 @@ final class ReplySuggestions {
 
   private static String clip(String text, int limit) {
     return text.length() <= limit ? text : text.substring(0, limit) + "\n［后续已截断］";
+  }
+
+  private static String latest(String text, int limit) {
+    return text.length() <= limit ? text : "［前文已截断］\n" + text.substring(text.length() - limit);
   }
 
   private static IllegalStateException invalid() {
