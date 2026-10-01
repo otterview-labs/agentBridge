@@ -1,15 +1,16 @@
 version: 2
 updates:
-  - package-ecosystem: npm
-    directory: /
+  # JSch and OkHttp handle SSH and TLS for every machine the app controls.
+  - package-ecosystem: gradle
+    directory: /android
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    groups:
-      npm-production:
-        dependency-type: production
-      npm-development:
-        dependency-type: development
+  - package-ecosystem: npm
+    directory: /android/tests
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -19,6 +19,11 @@
     backgroundReports: new Map(),
     backgroundNotices: [],
     sending: false,
+    pendingChat: null,
+    failedChat: null,
+    chatNotices: [],
+    modelChecking: false,
+    modelCheckError: '',
     authType: 'password',
     frpAuthType: 'password',
     butlerPlanMode: loadButlerPlanMode(),
@@ -28,6 +33,7 @@
     voiceRate: loadVoiceNumber('voiceRate', 1),
     voicePitch: loadVoiceNumber('voicePitch', 1),
     voiceRecording: false,
+    acceptVoiceEvents: false,
     voiceLevel: 0,
     voiceStartedAt: 0,
     callMode: false,
@@ -53,6 +59,10 @@
   $('openCloudFromButler').addEventListener('click', openCloudSheet);
   $('refreshButler').addEventListener('click', () => void loadStudio());
   $('cloudForm').addEventListener('submit', saveCloudConnection);
+  $('testModelConnection').addEventListener('click', checkModelConnection);
+  $('checkButlerModel').addEventListener('click', checkModelConnection);
+  $('saveVoiceService').addEventListener('click', () => saveVoiceService(false));
+  $('clearVoiceService').addEventListener('click', () => saveVoiceService(true));
   $('sendPi').addEventListener('click', sendPiMessage);
   $('generateReport').addEventListener('click', generateTodayReport);
   if (window.PointerEvent) {
@@ -89,6 +99,7 @@
   $('callMute').addEventListener('click', toggleCallMute);
   $('callSpeaker').addEventListener('click', toggleCallSpeaker);
   $('callEnd').addEventListener('click', endCallMode);
+  $('callRetry').addEventListener('click', retryCallListening);
   document.querySelectorAll('[data-quick-prompt]').forEach((button) => {
     button.addEventListener('click', () => {
       $('piInput').value = button.dataset.quickPrompt;
@@ -98,7 +109,7 @@
   });
   $('piInput').addEventListener('input', autoResizeChatInput);
   $('piInput').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       void sendPiMessage();
     }
@@ -198,11 +209,18 @@
     return sheet ? closeSheet(sheet.id) : false;
   }
 
-  window.phoneUI = { closeTopSheet };
+  window.phoneUI = {
+    closeTopSheet,
+    notice(message) {
+      addBackgroundNotice('error', message);
+      renderBackgroundState();
+      toast(message);
+    }
+  };
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && closeTopSheet()) event.preventDefault();
     if (event.key !== 'Tab') return;
-    const sheet = document.querySelector('.sheetBackdrop:not(.hidden)');
+    const sheet = state.callMode ? $('callBackdrop') : document.querySelector('.sheetBackdrop:not(.hidden)');
     if (!sheet) return;
     const controls = Array.from(sheet.querySelectorAll(
       'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary'
@@ -231,8 +249,17 @@
   $('tailTask').addEventListener('click', refreshCurrentTask);
   $('sendTask').addEventListener('click', sendCurrentTask);
 
+  // Bridge methods that open SSH connections. A direct call blocks the page
+  // until it returns, so these run natively on a worker thread and are polled.
+  const BACKGROUND_CALLS = new Set([
+    'discoverTasks', 'probeMachine', 'scanNetwork', 'deployFrpServer', 'deployFrpRelay', 'disableFrpRelay'
+  ]);
+
   function call(method, busyText) {
     const args = Array.prototype.slice.call(arguments, 2);
+    if (BACKGROUND_CALLS.has(method) && typeof AgentBridge.beginBridgeCall === 'function') {
+      return callInBackground(method, busyText, args);
+    }
     return new Promise((resolve) => {
       showBusy(busyText);
       setTimeout(() => {
@@ -249,6 +276,37 @@
         resolve(parsed);
       }, 40);
     });
+  }
+
+  async function callInBackground(method, busyText, args) {
+    showBusy(busyText);
+    let parsed;
+    let operationId = null;
+    try {
+      const started = JSON.parse(AgentBridge.beginBridgeCall(method, JSON.stringify(args)));
+      if (!started.ok) throw new Error(started.error || '操作失败');
+      operationId = started.data.operation.id;
+      for (;;) {
+        await sleep(300);
+        const current = JSON.parse(AgentBridge.operationState(operationId));
+        if (!current.ok) throw new Error(current.error || '无法读取操作状态');
+        const operation = current.data.operation;
+        if (operation.state !== 'running') {
+          parsed = operation.result || { ok: false, error: operation.message || '操作失败' };
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('bridge call failed: ' + method + ': ' + (error && error.message ? error.message : String(error)));
+      parsed = { ok: false, error: error && error.message ? error.message : String(error) };
+    } finally {
+      if (operationId !== null) {
+        try { AgentBridge.clearOperation(operationId); } catch (error) { /* already cleared */ }
+      }
+    }
+    hideBusy();
+    if (!parsed.ok) toast(parsed.error || '操作失败');
+    return parsed;
   }
 
   async function loadState() {
@@ -376,7 +434,6 @@
       message: '正在发现员工…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderOffices();
     renderBackgroundState();
     toast('发现员工已提交后台，完成后会通知你');
@@ -423,8 +480,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     render();
     renderBackgroundState();
@@ -452,6 +507,16 @@
   async function editMachine(id) {
     const machine = state.machines.find((item) => item.id === id);
     if (machine) openMachineSheet(machine);
+  }
+
+  async function resetHostKey(id) {
+    const machine = state.machines.find((item) => item.id === id);
+    if (!machine) return;
+    if (!window.confirm(`只有在你确认「${machine.name}」重装过系统或换了机器时才重置。重置后下次连接会信任它当前的主机指纹。继续？`)) return;
+    const result = await call('resetHostKey', '重置主机指纹…', id);
+    if (!result.ok) return;
+    await call('probeMachine', `正在连接 ${machine.name}…`, id);
+    await loadState();
   }
 
   async function deleteMachine(id) {
@@ -732,7 +797,6 @@
       message: '正在刷新任务输出…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Native cleanup is best effort. */ }
     renderTaskDetail();
     renderBackgroundState();
     toast('刷新输出已提交后台，完成后会通知你');
@@ -792,8 +856,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     renderTaskDetail();
     renderBackgroundState();
@@ -834,7 +896,6 @@
     // Submission is accepted. Keep the draft empty to avoid an accidental duplicate.
     state.drafts.set(task.id, '');
     if (state.currentTaskId === task.id) $('replyText').value = '';
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Android-level background is best effort. */ }
     renderTaskDetail();
     renderBackgroundState();
     toast('已提交后台执行，成功或失败会通知你');
@@ -873,7 +934,9 @@
         const index = state.tasks.findIndex(item => item.id === taskId);
         if (index >= 0) state.tasks[index] = updatedTask;
       }
-      finishBackgroundSend(taskId, true, updatedTask ? `任务已执行：${compactTaskTitle(updatedTask)}` : '后台任务已执行');
+      finishBackgroundSend(taskId, true, operation.stillRunning
+        ? `${updatedTask ? compactTaskTitle(updatedTask) + '：' : ''}${operation.message || '回复已送达，远程仍在处理'}`
+        : updatedTask ? `任务已执行：${compactTaskTitle(updatedTask)}` : '后台任务已执行');
     } catch (error) {
       finishBackgroundSend(taskId, false, error.message || String(error));
     }
@@ -891,8 +954,6 @@
       if (state.currentTaskId === taskId) $('replyText').value = entry.prompt;
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     if (navigator.vibrate) {
       try { navigator.vibrate(succeeded ? [80, 60, 80] : [160, 80, 160]); } catch (error) { /* optional */ }
@@ -953,8 +1014,12 @@
     $('machineHost').value = machine ? machine.host : '';
     $('machineUsername').value = machine ? machine.username : '';
     $('machinePort').value = machine ? machine.port : 22;
-    $('machinePassword').value = machine ? machine.password || '' : '';
-    $('machineKey').value = machine ? machine.privateKey || '' : '';
+    // Saved credentials never reach the page; an empty field keeps them.
+    $('machinePassword').value = '';
+    $('machineKey').value = '';
+    $('machinePassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('machineKey').placeholder = machine && machine.hasPrivateKey
+      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.authType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-auth]').forEach((item) => item.classList.toggle('active', item.dataset.auth === state.authType));
     $('passwordLabel').classList.toggle('hidden', state.authType !== 'password');
@@ -971,8 +1036,11 @@
     $('frpHost').value = machine ? machine.host : '';
     $('frpUsername').value = machine ? machine.username : '';
     $('frpPort').value = machine ? machine.port : 22;
-    $('frpPassword').value = machine ? machine.password || '' : '';
-    $('frpKey').value = machine ? machine.privateKey || '' : '';
+    $('frpPassword').value = '';
+    $('frpKey').value = '';
+    $('frpPassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('frpKey').placeholder = machine && machine.hasPrivateKey
+      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.frpAuthType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-frp-auth]').forEach((item) => item.classList.toggle('active', item.dataset.frpAuth === state.frpAuthType));
     $('frpPasswordLabel').classList.toggle('hidden', state.frpAuthType !== 'password');
@@ -1190,6 +1258,9 @@
       title.appendChild(element('p', `officeCheck${machine.lastStatus === 'offline' ? ' failed' : ''}`, machineCheckText(machine)));
       const actions = element('div', 'officeActions');
       const deletedTasks = state.deletedTasks.filter(task => task.machineId === machine.id);
+      if (String(machine.lastError || '').includes('主机指纹')) {
+        actions.appendChild(actionButton('重置主机指纹', () => resetHostKey(machine.id), 'warn'));
+      }
       actions.appendChild(actionButton('测试', () => probeMachine(machine.id), 'advancedAction'));
       const discovering = state.backgroundDiscovers.has(machine.id);
       actions.appendChild(actionButton(discovering ? '发现中' : '找任务', discovering ? () => toast('这间办公室正在发现员工') : () => discoverMachine(machine.id), 'dark'));
@@ -1355,17 +1426,17 @@
     const tomorrowItems = state.butlerPlanMode === 'records' ? rawTomorrowItems : aiTomorrowItems;
     const suggestion = attention[0]
       ? `先处理「${attention[0].title}」：${attention[0].requiredInput}`
-      : (tomorrowItems[0] ? `明天可以先做：${tomorrowItems[0].title}` : '当前没有高优先级待输入。');
+      : (tomorrowItems[0] ? `明天可以先做：${tomorrowItems[0].title}` : '问我任务进展，或一起排个先后。');
 
     const modelText = model.label ? model.label.replace(/^Pi\s*[·:-]?\s*/u, '').trim() : '';
     $('piAvatar').replaceChildren(employeeSprite('pi', 2));
     $('piAvatar').appendChild(element('span', 'employeeBubble', attention.length ? `${attention.length} 个待输入` : '管家待命'));
     $('openCloudFromButler').textContent = model.ready ? '模型设置' : '配置模型';
     $('piMeta').textContent = model.ready && modelText ? modelText : '模型未连接';
-    $('piSheetTitle').textContent = '管家';
+    $('piSheetTitle').textContent = '今天，先忙哪一件？';
     $('butlerEmployeeName').textContent = attention.length
-      ? `先处理 ${attention.length} 件紧急事项`
-      : tomorrowItems.length ? '明日安排已准备' : '今日节奏清晰';
+      ? `有 ${attention.length} 件事等你确认`
+      : tomorrowItems.length ? '明日安排已准备' : '有想法，就来聊聊';
     $('butlerEmployeeSub').textContent = cleanButlerText(suggestion);
     document.querySelectorAll('[data-plan-mode]').forEach((button) => {
       button.classList.toggle('active', button.dataset.planMode === state.butlerPlanMode);
@@ -1379,8 +1450,17 @@
       ? '以下内容直接来自当前已同步任务记录，未经 AI 总结。空闲、执行中或待输入都不等同于人工验收完成。'
       : lastReport && lastReport.summary
       ? planSummary
-      : '还没有任务规划。点击“重新生成规划”，管家会把已同步任务整理成能直接看懂的行动项。';
-    $('butlerMessageLabel').textContent = model.ready ? (modelText || '模型已连接') : '模型未连接';
+      : '把当前任务整理成今天的重点和明天的安排。';
+    $('butlerMessageLabel').textContent = model.ready ? (modelText || '模型已配置') : '未配置模型';
+    $('butlerAttentionCount').textContent = `${attention.length} 件`;
+    $('butlerPlanPreview').textContent = lastReport ? '已有安排' : '尚未整理';
+    const connectionText = state.modelChecking ? '正在发起实际请求，验证模型连接…'
+      : state.modelCheckError || (model.verifiedAt ? '模型验证成功，可以聊天或拨给管家。'
+        : model.ready ? '配置已保存，先验证一次连接。' : '先配置模型，就可以开始聊天。');
+    $('butlerConnectionText').textContent = connectionText;
+    $('connectionHint').classList.toggle('error', Boolean(state.modelCheckError));
+    $('checkButlerModel').textContent = !model.ready ? '配置模型' : state.modelChecking ? '验证中…' : '验证连接';
+    $('checkButlerModel').disabled = state.modelChecking || state.sending;
 
     renderPlainRows($('piToday'), todayItems, 'today', state.butlerPlanMode === 'records'
       ? '当前没有可展示的今日记录。'
@@ -1394,8 +1474,14 @@
 
     $('piMessages').replaceChildren();
     const messages = Array.isArray(studio.messages) ? studio.messages.slice(-20) : [];
-    if (!messages.length) {
-      $('piMessages').appendChild(element('p', 'formNote', model.ready ? '还没有管家对话。' : '连接模型后可以问管家安排。'));
+    if (!messages.length && !state.pendingChat && !state.failedChat) {
+      const welcome = element('div', 'chatWelcome');
+      welcome.appendChild(element('span', 'welcomeMark', '···'));
+      welcome.appendChild(element('h4', '', model.ready ? '从一句话开始' : '先接上你的模型'));
+      welcome.appendChild(element('p', '', model.ready
+        ? '问进展、排优先级，或直接拨给我。'
+        : '点上方「配置模型」，保存后验证连接。'));
+      $('piMessages').appendChild(welcome);
     } else {
       messages.forEach(message => {
         const row = element('div', `piMessage${message.role === 'user' ? ' user' : ''}`);
@@ -1408,7 +1494,16 @@
         $('piMessages').appendChild(row);
       });
     }
-    $('sendPi').disabled = !model.ready || state.sending || !$('piInput').value.trim();
+    if (state.pendingChat) {
+      appendChatMessage('user', state.pendingChat);
+      setChatTyping(true);
+    }
+    if (state.failedChat) {
+      appendChatMessage('user', state.failedChat.value);
+      appendChatNotice(state.failedChat.error, true);
+    }
+    state.chatNotices.forEach(notice => appendChatNotice(notice));
+    $('sendPi').disabled = state.sending || !$('piInput').value.trim();
     const reportRunning = state.backgroundReports.size > 0;
     $('generateReport').disabled = !model.ready || reportRunning;
     $('generateReport').textContent = reportRunning ? '规划生成中…' : '重新生成规划';
@@ -1439,8 +1534,8 @@
     const studio = state.studio || {};
     const model = studio.model || {};
     const ready = Boolean(model.ready);
-    $('cloudState').textContent = ready ? '模型已连接' : '模型未连接';
-    $('cloudState').classList.toggle('connected', ready);
+    $('cloudState').textContent = state.modelCheckError ? '连接异常' : model.verifiedAt ? '模型已验证' : ready ? '模型待验证' : '配置模型';
+    $('cloudState').classList.toggle('connected', Boolean(model.verifiedAt) && !state.modelCheckError);
   }
 
   function openCloudSheet() {
@@ -1465,14 +1560,62 @@
     }));
     if (!modelResult.ok) return;
     state.studio = modelResult.data;
+    state.modelCheckError = '';
+    state.failedChat = null;
+    state.chatNotices = [];
     $('modelApiKey').value = '';
-    closeSheet('cloudBackdrop');
+    $('modelCheckResult').textContent = '配置已保存。点击下方验证，确认地址、密钥和模型都能使用。';
+    $('modelCheckResult').classList.remove('error');
     render();
-    toast('管家模型配置已保存');
+    toast('配置已保存，请验证连接');
+  }
+
+  async function checkModelConnection() {
+    if (state.modelChecking || state.sending) return;
+    if (!state.studio?.model?.ready) { openCloudSheet(); return; }
+    state.modelChecking = true;
+    state.modelCheckError = '';
+    const button = $('testModelConnection');
+    button.disabled = true;
+    document.querySelector('#cloudForm button[type="submit"]').disabled = true;
+    $('modelCheckResult').textContent = '正在发起实际请求…';
+    $('modelCheckResult').classList.remove('error');
+    renderPiDetail();
+    let operation;
+    try {
+      const result = JSON.parse(AgentBridge.beginStudioModelCheck());
+      if (!result.ok) throw new Error(result.error || '无法开始验证');
+      operation = result.data.operation;
+      const startedAt = Date.now();
+      while (operation.state === 'running' || !operation.state) {
+        if (Date.now() - startedAt > 180000) throw new Error('验证超时，请检查手机网络和模型地址后重试');
+        await sleep(350);
+        const current = JSON.parse(AgentBridge.operationState(operation.id));
+        if (!current.ok) throw new Error(current.error || '无法读取验证结果');
+        operation = current.data.operation;
+      }
+      if (operation.state !== 'succeeded') throw new Error(operation.message || '验证失败');
+      state.studio = operation.studio || state.studio;
+      $('modelCheckResult').textContent = '连接成功。可以关闭设置，输入一句话或开始通话。';
+      toast('模型验证成功，可以开始聊天');
+    } catch (error) {
+      state.modelCheckError = error.message || '验证失败，请检查配置';
+      $('modelCheckResult').textContent = state.modelCheckError;
+      $('modelCheckResult').classList.add('error');
+      toast(state.modelCheckError);
+    } finally {
+      if (operation) { try { AgentBridge.clearOperation(operation.id); } catch (error) { /* Best effort. */ } }
+      state.modelChecking = false;
+      button.disabled = false;
+      document.querySelector('#cloudForm button[type="submit"]').disabled = false;
+      render();
+    }
   }
 
   let callTimerInterval = null;
   let callListenToken = 0;
+  let callErrorCount = 0;
+  let callSessionToken = 0;
 
   function startCallMode() {
     if (state.callMode) return;
@@ -1481,6 +1624,16 @@
       openCloudSheet();
       return;
     }
+    try {
+      const voice = JSON.parse(AgentBridge.getTtsStatus());
+      if (voice.ok && (voice.data.recognitionAvailable === false && !voice.data.cloudAvailable
+          || !voice.data.ready || state.voicePreferCloud && !voice.data.cloudAvailable)) {
+        toast('先在语音设置中准备好识别和播报，再开始通话');
+        openVoiceSettings();
+        $('voiceServiceDetails').open = true;
+        return;
+      }
+    } catch (error) { /* Older native builds report capabilities during capture. */ }
     let parsed;
     try {
       parsed = JSON.parse(AgentBridge.startConversationAudio(state.callSpeaker));
@@ -1492,14 +1645,21 @@
       return;
     }
     state.callMode = true;
+    state.acceptVoiceEvents = true;
+    callSessionToken += 1;
     state.callMuted = false;
     state.callStartedAt = Date.now();
     state.callTranscript = '通话已接通。你说话，管家回复后会继续聆听。';
+    callErrorCount = 0;
     setCallStatus('listening');
-    if (!state.voiceAutoSend) toggleVoicePreference('voiceAutoSend');
-    if (!state.voiceSpeakReply) toggleVoicePreference('voiceSpeakReply');
+    // A call always sends what it hears and speaks the reply, without
+    // overwriting the press-to-talk preferences the user saved.
     $('callBackdrop').classList.remove('hidden');
+    document.querySelector('.app').setAttribute('inert', '');
+    $('butlerChatDock').setAttribute('inert', '');
+    $('callEnd').focus({ preventScroll: true });
     $('callAvatar').replaceChildren(employeeSprite('pi', 2));
+    $('callMuteLabel').textContent = state.callMuted ? '取消静音' : '静音';
     $('callMute').classList.toggle('active', state.callMuted);
     $('callMute').setAttribute('aria-pressed', String(state.callMuted));
     $('callSpeaker').classList.toggle('active', state.callSpeaker);
@@ -1513,6 +1673,8 @@
   function endCallMode() {
     if (!state.callMode) return;
     state.callMode = false;
+    state.acceptVoiceEvents = false;
+    callSessionToken += 1;
     state.voiceRecording = false;
     callListenToken += 1;
     if (callTimerInterval) {
@@ -1525,6 +1687,9 @@
     try { AgentBridge.stopSpeaking(); } catch (error) { /* Native cleanup is best effort. */ }
     try { AgentBridge.stopConversationAudio(); } catch (error) { /* Audio cleanup is best effort. */ }
     $('callBackdrop').classList.add('hidden');
+    document.querySelector('.app').removeAttribute('inert');
+    $('butlerChatDock').removeAttribute('inert');
+    $('startCall').focus({ preventScroll: true });
     document.body.classList.remove('voice-listening');
     updateVoiceUi('stopped');
     toast('通话已结束');
@@ -1543,10 +1708,23 @@
       state.voiceRecording = false;
       setCallStatus('muted');
     } else {
+      callErrorCount = 0;
       setCallStatus('listening');
       scheduleCallListening(120);
     }
     renderCallMode();
+  }
+
+  function retryCallListening() {
+    if (!state.callMode || state.sending) return;
+    state.callMuted = false;
+    callErrorCount = 0;
+    $('callMute').classList.remove('active');
+    $('callMute').setAttribute('aria-pressed', 'false');
+    $('callMuteLabel').textContent = '静音';
+    state.callTranscript = '再说一次，我在听。';
+    setCallStatus('listening');
+    scheduleCallListening(120);
   }
 
   function toggleCallSpeaker() {
@@ -1577,9 +1755,12 @@
       muted: '麦克风已静音',
       error: '通话异常'
     };
+    document.querySelector('.callStage').dataset.status = state.callStatus;
     $('callTimer').textContent = `${minutes}:${seconds}`;
     $('callStatus').textContent = statuses[state.callStatus] || statuses.connecting;
     $('callTranscript').textContent = state.callTranscript || '说话后会自动发给管家。';
+    $('callRetry').classList.toggle('hidden', state.callStatus !== 'error');
+    $('callRetry').disabled = state.sending;
     document.querySelectorAll('.callWave span').forEach((bar, index) => {
       const active = state.callStatus === 'listening'
         ? 30 + state.voiceLevel * 0.7
@@ -1593,6 +1774,7 @@
     setTimeout(() => {
       if (!state.callMode || state.callMuted || state.sending || state.voiceRecording) return;
       if (token !== callListenToken) return;
+      state.acceptVoiceEvents = true;
       let parsed;
       try {
         parsed = JSON.parse(AgentBridge.startVoiceInput(true));
@@ -1616,11 +1798,22 @@
       toast('先输入要问管家的内容');
       return;
     }
+    if (!state.studio?.model?.ready) {
+      toast('先配置管家模型，再发送消息');
+      openCloudSheet();
+      return;
+    }
+    const callSession = state.callMode ? callSessionToken : null;
+    const stillInCall = () => callSession !== null
+      && state.callMode && callSession === callSessionToken;
     state.sending = true;
+    state.pendingChat = value;
+    state.failedChat = null;
+    state.chatNotices = [];
     $('sendPi').disabled = true;
     $('piInput').value = '';
     autoResizeChatInput();
-    appendChatMessage('user', value);
+    renderPiDetail();
     if (state.callMode) {
       state.callTranscript = `我：${value}`;
       setCallStatus('thinking');
@@ -1654,44 +1847,64 @@
         }
       }
       state.studio = operation.studio || state.studio;
+      state.pendingChat = null;
       setChatTyping(false);
       renderPiDetail();
       render();
       const messages = Array.isArray(state.studio.messages) ? state.studio.messages : [];
       const reply = messages[messages.length - 1];
-      if (state.callMode) {
+      if (stillInCall()) {
         state.callTranscript = reply?.role === 'assistant'
           ? `我：${value}\n管家：${reply.content}` : `我：${value}`;
       }
-      if (reply && reply.role === 'assistant' && state.voiceSpeakReply) {
+      const shouldSpeak = stillInCall()
+        || (callSession === null && !state.callMode && state.voiceSpeakReply);
+      if (reply && reply.role === 'assistant' && shouldSpeak) {
         let spoken = false;
         try {
-          spoken = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || '管家已回复。')).ok;
+          const speech = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || '管家已回复。'));
+          spoken = speech.ok;
+          if (!speech.ok) {
+            state.chatNotices.push(speech.error || '播报失败，回复已保留在对话中');
+            if (stillInCall()) state.callTranscript += `\n${speech.error || '播报失败，请检查语音设置'}`;
+            toast(speech.error || '语音播报失败');
+          }
         } catch (error) {
           spoken = false;
         }
-        if (state.callMode) {
+        if (stillInCall()) {
           if (spoken) setCallStatus('speaking');
-          else scheduleCallListening(600);
+          else { setCallStatus('error'); callListenToken += 1; }
         }
-      } else if (state.callMode) {
+      } else if (stillInCall()) {
         scheduleCallListening(500);
       }
     } catch (error) {
       setChatTyping(false);
-      appendChatNotice(error.message || String(error));
+      state.failedChat = { value, error: error.message || String(error) };
+      if (!$('piInput').value.trim() && (callSession === null || stillInCall())) {
+        $('piInput').value = value;
+        autoResizeChatInput();
+      }
       toast(error.message || String(error));
-      if (state.callMode) {
+      if (stillInCall()) {
         state.callTranscript = error.message || String(error);
         setCallStatus('error');
-        scheduleCallListening(1200);
+        callListenToken += 1;
       }
     } finally {
       state.sending = false;
+      state.pendingChat = null;
       if (operation) {
         try { AgentBridge.clearOperation(operation.id); } catch (error) { /* Already cleared. */ }
       }
       renderPiDetail();
+      // A new call may have started while the previous call's model request
+      // was still pending. Its initial listen attempt was held by sending.
+      if (state.callMode && callSession !== callSessionToken
+        && state.callStatus === 'listening' && !state.voiceRecording) {
+        scheduleCallListening(350);
+      }
     }
   }
 
@@ -1771,9 +1984,23 @@
       .slice(0, 460);
   }
 
-  function appendChatNotice(content) {
+  function appendChatNotice(content, retry = false) {
     const row = element('div', 'chatNotice');
     row.textContent = content;
+    if (retry) {
+      const button = element('button', '', '重试这条消息');
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        if (state.sending || !state.failedChat) return;
+        if ($('piInput').value.trim() && $('piInput').value.trim() !== state.failedChat.value) {
+          toast('输入框中有新的草稿，请先发送或清空');
+          return;
+        }
+        $('piInput').value = state.failedChat.value;
+        void sendPiMessage();
+      });
+      row.appendChild(button);
+    }
     $('piMessages').appendChild(row);
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
   }
@@ -1811,6 +2038,7 @@
       try { AgentBridge.stopVoiceInput(); } catch (error) { /* Native state callback handles errors. */ }
       return;
     }
+    state.acceptVoiceEvents = true;
     let parsed;
     try {
       parsed = JSON.parse(AgentBridge.startVoiceInput(state.voiceAutoSend));
@@ -1890,6 +2118,7 @@
   }
 
   function cancelVoiceInput() {
+    state.acceptVoiceEvents = false;
     state.voiceRecording = false;
     updateVoiceUi('stopped');
     try { AgentBridge.cancelVoiceInput(); } catch (error) {
@@ -1908,7 +2137,9 @@
       final: '识别完成',
       speaking: '管家播报中',
       'speak-ended': '播报完成',
+      'speak-error': text || '播报失败，请检查语音设置',
       stopped: '按住麦克风说话',
+      'permission-denied': text || '需要麦克风权限',
       error: text || '语音识别失败'
     };
     $('voiceStateText').textContent = labels[type] || labels.stopped;
@@ -1933,6 +2164,9 @@
   window.phoneVoice = {
     update(value) {
       const event = typeof value === 'string' ? JSON.parse(value) : value;
+      const captureEvent = ['ready', 'recording', 'cloud-recording', 'partial', 'final',
+        'processing', 'cloud-processing', 'level', 'error', 'permission-denied'].includes(event.type);
+      if (captureEvent && !state.acceptVoiceEvents && !state.callMode) return;
       state.voiceLevel = event.type === 'level' ? Number(event.text) || 0 : state.voiceLevel;
       if (event.type === 'partial' || event.type === 'final') {
         $('piInput').value = event.text || '';
@@ -1943,9 +2177,18 @@
         renderCallMode();
       }
       if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') state.voiceRecording = true;
-      if (event.type === 'cloud-processing') state.voiceRecording = false;
-      if (event.type === 'final' || event.type === 'error' || event.type === 'stopped') state.voiceRecording = false;
+      if (event.type === 'cloud-processing' || event.type === 'processing'
+        || event.type === 'speaking' || event.type === 'speak-error') state.voiceRecording = false;
+      if (event.type === 'final' || event.type === 'error' || event.type === 'stopped'
+        || event.type === 'permission-denied') state.voiceRecording = false;
       updateVoiceUi(event.type, event.text);
+      if (event.type === 'error' || event.type === 'speak-error') {
+        if (event.text) {
+          state.chatNotices = [...state.chatNotices.slice(-2), event.text];
+          renderPiDetail();
+        }
+        toast(event.text || '语音服务失败，请检查语音设置');
+      }
       if (state.callMode) {
         if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
           setCallStatus('listening');
@@ -1959,12 +2202,31 @@
           scheduleCallListening(260);
         }
         if (event.type === 'speak-error') {
-          setCallStatus('listening');
-          scheduleCallListening(500);
+          state.callTranscript = event.text || '播报失败，请检查语音设置';
+          setCallStatus('error');
+          callListenToken += 1;
+        }
+        if (event.type === 'final') callErrorCount = 0;
+        if (event.type === 'permission-denied') {
+          endCallMode();
+          toast(event.text || '需要麦克风权限才能通话');
+          return;
         }
         if (event.type === 'error') {
+          state.callTranscript = event.text || '语音识别失败';
+          callErrorCount += 1;
+          if (callErrorCount >= 3) {
+            // Retrying a broken microphone or network forever only drains the battery.
+            state.callTranscript = `${event.text || '语音识别失败'}。已连续失败 ${callErrorCount} 次，请检查语音设置后点“重新聆听”。`;
+            state.callMuted = true;
+            $('callMute').classList.add('active');
+            $('callMute').setAttribute('aria-pressed', 'true');
+            $('callMuteLabel').textContent = '取消静音';
+            setCallStatus('error');
+            return;
+          }
           setCallStatus('error');
-          scheduleCallListening(1000);
+          scheduleCallListening(1000 * callErrorCount);
         }
         if (event.type === 'stopped' && !state.sending) {
           setCallStatus('listening');
@@ -1972,7 +2234,12 @@
         }
       }
       if (event.type === 'final' && event.autoSend && event.text?.trim()) {
-        setTimeout(() => void sendPiMessage(), 180);
+        const callSession = state.callMode ? callSessionToken : null;
+        setTimeout(() => {
+          if (callSession !== null && (!state.callMode || callSession !== callSessionToken)) return;
+          if (callSession === null && state.callMode) return;
+          void sendPiMessage();
+        }, 180);
       }
     }
   };
@@ -2001,7 +2268,6 @@
       message: '正在生成任务规划…',
       startedAt: operation.startedAt || Date.now()
     });
-    try { AgentBridge.startTaskForeground(); } catch (error) { /* Report still runs in its native thread. */ }
     renderPiDetail();
     renderBackgroundState();
     toast('任务规划生成已提交后台，完成后会通知你');
@@ -2049,8 +2315,6 @@
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
     addBackgroundNotice(succeeded ? 'success' : 'error', message);
-    try { AgentBridge.showTaskNotification('Agent Bridge', message); } catch (error) { /* Native completion also notifies. */ }
-    try { AgentBridge.stopTaskForeground(); } catch (error) { /* Native completion also stops it. */ }
     toast(message);
     state.butlerPlanMode = succeeded ? 'ai' : state.butlerPlanMode;
     render();
@@ -2109,9 +2373,15 @@
           ? '本机语音引擎不可用，已自动切换云端语音（qwen3-tts）'
           : `本机语音引擎已就绪 · ${parsed.data.language || 'zh-CN'}`;
       } else {
-        status = parsed.ok && parsed.data.cloudAvailable
-          ? '云端语音可用（qwen3-tts）'
-          : '本机语音引擎未就绪；通话仍可收音，回复会以文字显示';
+        status = '声音尚未就绪：启用本机中文语音引擎，或配置下方云端语音。';
+      }
+      if (parsed.ok) {
+        const data = parsed.data;
+        $('voiceInputStatus').textContent = `${data.cloudAvailable ? '云端识别已配置'
+          : data.recognitionAvailable ? '本机识别可用' : '识别尚未就绪，请配置云端语音'} · ${data.microphoneGranted ? '麦克风已授权' : '首次录音时需授权麦克风'}`;
+        $('voiceServiceState').textContent = data.hasVoiceKey ? '独立密钥已保存'
+          : data.cloudAvailable ? '沿用模型密钥' : '可单独配置';
+        $('voiceApiKey').placeholder = data.hasVoiceKey ? '已保存，留空保持原值' : '输入百炼北京地域 API Key';
       }
     } catch (error) {
       status = '当前版本不支持语音状态读取';
@@ -2119,7 +2389,22 @@
     $('ttsEngineStatus').textContent = status;
   }
 
+  function saveVoiceService(clear) {
+    try {
+      const parsed = JSON.parse(AgentBridge.saveVoiceService(JSON.stringify({
+        apiKey: $('voiceApiKey').value.trim(), clear
+      })));
+      if (!parsed.ok) throw new Error(parsed.error || '保存语音配置失败');
+      $('voiceApiKey').value = '';
+      refreshTtsEngineStatus();
+      toast(clear ? '独立语音密钥已清除' : '语音配置已保存，请试听并测试识别');
+    } catch (error) {
+      toast(error.message || '当前版本不支持独立语音配置');
+    }
+  }
+
   function openVoiceSettings() {
+    $('voiceApiKey').value = '';
     $('voiceSpeakReplySetting').checked = state.voiceSpeakReply;
     $('voicePreferCloudSetting').checked = state.voicePreferCloud;
     $('voiceRateSetting').value = String(state.voiceRate);

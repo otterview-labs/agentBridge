@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Everything that carries a key goes over HTTPS. Plain HTTP is allowed only
+     for a model running on the phone itself, and for DashScope's signed audio
+     links, which are also rewritten to HTTPS before playback. -->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false" />
+  <domain-config cleartextTrafficPermitted="true">
+    <domain includeSubdomains="false">localhost</domain>
+    <domain includeSubdomains="false">127.0.0.1</domain>
+    <domain includeSubdomains="true">aliyuncs.com</domain>
+  </domain-config>
+</network-security-config>

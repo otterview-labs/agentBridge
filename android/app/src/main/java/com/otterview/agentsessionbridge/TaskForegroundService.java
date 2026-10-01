@@ -4,23 +4,54 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
-import android.os.Handler;
-import android.os.Looper;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import android.util.Log;
 
+/**
+ * Keeps the process in the foreground while an SSH or model operation that the
+ * user started is still running, so locking the phone does not kill it. Every
+ * operation holds one reference; the service stops when the last one ends.
+ */
 public class TaskForegroundService extends Service {
   private static final String CHANNEL_ID = "asb_task_service";
   private static final int NOTIFICATION_ID = 41026;
-  public static TaskForegroundService instance;
-  private static final long POLL_INTERVAL_MS = 120_000L;
-  private Handler pollHandler;
-  private Runnable pollRunnable;
-  private PhoneBridge bridge;
-  private java.util.Map<String, String> lastTaskStatuses = new java.util.HashMap<>();
+  private static final Object LOCK = new Object();
+  private static int holders;
+  /** The instance that has reached the foreground, if any. */
+  private static TaskForegroundService current;
+
+  static void acquire(Context context) {
+    Context app = context.getApplicationContext();
+    synchronized (LOCK) {
+      holders += 1;
+      if (holders > 1) return;
+    }
+    try {
+      Intent intent = new Intent(app, TaskForegroundService.class);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) app.startForegroundService(intent);
+      else app.startService(intent);
+    } catch (RuntimeException error) {
+      // Android 12+ refuses to start a foreground service from the background.
+      // The operation still runs; it just has no protection from being killed.
+      Log.w("AgentBridgeService", "foreground service not started", error);
+    }
+  }
+
+  static void release(Context context) {
+    synchronized (LOCK) {
+      if (holders == 0) return;
+      holders -= 1;
+      if (holders > 0) return;
+      // Never stopService() here: stopping a service that was started with
+      // startForegroundService() before it reached startForeground() crashes
+      // the app. If it has not got there yet, onStartCommand stops it itself.
+      if (current != null) current.stopSelf();
+    }
+  }
 
   private void ensureChannel() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -36,22 +67,6 @@ public class TaskForegroundService extends Service {
   }
 
   @Override
-  public void onCreate() {
-    super.onCreate();
-    instance = this;
-    pollHandler = new Handler(Looper.getMainLooper());
-    pollRunnable = this::pollTasks;
-  }
-
-  @Override
-  public void onDestroy() {
-    instance = null;
-    if (pollHandler != null) pollHandler.removeCallbacks(pollRunnable);
-    stopForeground(true);
-    super.onDestroy();
-  }
-
-  @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
     ensureChannel();
     Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
@@ -63,66 +78,36 @@ public class TaskForegroundService extends Service {
         .setContentText("正在执行远程任务")
         .setOngoing(true)
         .build();
-    startForeground(NOTIFICATION_ID, notification);
-    if (pollHandler != null) {
-      pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+    } else {
+      startForeground(NOTIFICATION_ID, notification);
     }
-    return START_STICKY;
+    synchronized (LOCK) {
+      current = this;
+      // Started for an operation that has already finished.
+      if (holders == 0) stopSelf();
+    }
+    // Operations do not survive the process, so neither should the service.
+    return START_NOT_STICKY;
   }
 
-  public void setBridge(PhoneBridge bridge) {
-    this.bridge = bridge;
+  /** Android 15 caps dataSync services at 6 hours a day; stop cleanly instead of crashing. */
+  @Override
+  public void onTimeout(int startId, int fgsType) {
+    Log.w("AgentBridgeService", "dataSync time limit reached; leaving the foreground");
+    synchronized (LOCK) {
+      holders = 0;
+    }
+    stopSelf();
   }
 
-  private void pollTasks() {
-    if (bridge == null || instance == null) return;
-    new Thread(() -> {
-      try {
-        String raw = bridge.studioState();
-        JSONObject parsed = new JSONObject(raw);
-        if (!parsed.optBoolean("ok")) return;
-        JSONArray tasks = parsed.getJSONObject("data").getJSONArray("tasks");
-        for (int i = 0; i < tasks.length(); i++) {
-          JSONObject task = tasks.getJSONObject(i);
-          String id = task.optString("id", "");
-          String status = task.optString("status", "");
-          boolean needsInput = task.optBoolean("requiredInput", false);
-          String title = task.optString("title", "任务");
-          String machineName = "";
-          int machineId = task.optInt("machineId", 0);
-          JSONArray machines = parsed.getJSONObject("data").getJSONArray("machines");
-          for (int m = 0; m < machines.length(); m++) {
-            if (machines.getJSONObject(m).optInt("id") == machineId) {
-              machineName = machines.getJSONObject(m).optString("name", "");
-              break;
-            }
-          }
-          String key = id + ":" + status + ":" + needsInput;
-          String prev = lastTaskStatuses.get(id);
-          if (prev != null && !prev.equals(key)) {
-            if (needsInput) {
-              MainActivity activity = bridge != null ? bridge.getActivityForService() : null;
-              if (activity != null) {
-                activity.showTaskNotification(
-                    "✋ " + title + " 需要输入",
-                    machineName + " · " + (task.optString("requiredInput", "").isEmpty()
-                        ? "AI 在等你的回复" : task.optString("requiredInput")));
-              }
-            } else if ("idle".equals(status) && prev != null && prev.contains("running")) {
-              MainActivity activity = bridge != null ? bridge.getActivityForService() : null;
-              if (activity != null) {
-                activity.showTaskNotification(
-                    "✅ " + title + " 已完成",
-                    machineName + " · 会话空闲，请查看输出确认");
-              }
-            }
-          }
-          lastTaskStatuses.put(id, key);
-        }
-      } catch (Exception error) {
-        android.util.Log.w("AgentBridgeService", "task poll failed", error);
-      }
-    }, "asb-task-poller").start();
-    pollHandler.postDelayed(pollRunnable, POLL_INTERVAL_MS);
+  @Override
+  public void onDestroy() {
+    synchronized (LOCK) {
+      if (current == this) current = null;
+    }
+    stopForeground(true);
+    super.onDestroy();
   }
 }

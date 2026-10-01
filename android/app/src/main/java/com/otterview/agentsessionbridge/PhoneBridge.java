@@ -34,6 +34,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -52,18 +55,18 @@ final class PhoneBridge {
   private static final int CONNECT_TIMEOUT = 12_000;
   private static final int COMMAND_TIMEOUT = 90_000;
   private static final int MAX_OUTPUT = 2_000_000;
+  private static final int MAX_STDERR = 64_000;
+  private static final String CODEX_THREAD_ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
   private final MainActivity activity;
 
-  MainActivity getActivityForService() {
-    return activity;
-  }
-
   String getDashScopeApiKey() {
     try {
+      String voiceKey = store.studioVoice().optString("apiKey", "").trim();
+      if (!voiceKey.isEmpty()) return voiceKey;
       JSONObject model = store.studioModel();
       String baseUrl = model.optString("baseUrl", "");
-      if (baseUrl.contains("dashscope.aliyuncs.com")) {
+      if (new URL(baseUrl).getHost().equals("dashscope.aliyuncs.com")) {
         return model.optString("apiKey", "");
       }
     } catch (Exception error) {
@@ -72,13 +75,15 @@ final class PhoneBridge {
     return null;
   }
   private final BridgeStore store;
-  private final Map<Integer, JSONObject> operations = new HashMap<>();
-  private final Map<Integer, Session> relayBastionSessions = new HashMap<>();
+  /** Insertion-ordered so pruning drops the oldest operations first. */
+  private final Map<Integer, JSONObject> operations = new LinkedHashMap<>();
+  /** Keyed by identity: two live sessions must never share a slot. */
+  private final Map<Session, Session> relayBastionSessions = new IdentityHashMap<>();
   private final SecureRandom secureRandom = new SecureRandom();
 
   PhoneBridge(MainActivity activity) {
     this.activity = activity;
-    this.store = new BridgeStore(activity);
+    this.store = BridgeStore.get(activity);
   }
 
   void close() { /* Direct model calls run on their own operation threads. */ }
@@ -87,7 +92,7 @@ final class PhoneBridge {
   public String state() {
     try {
       JSONObject data = new JSONObject();
-      data.put("machines", store.machines());
+      data.put("machines", publicMachines(store.machines()));
       data.put("tasks", store.tasks());
       data.put("deletedTasks", store.deletedTasks());
       data.put("frpServer", publicFrpServer());
@@ -166,24 +171,15 @@ final class PhoneBridge {
   @JavascriptInterface
   public String beginStudioMessage(String content) {
     try {
+      readyStudioModel();
       String value = content == null ? "" : content.trim();
       if (value.isEmpty() || value.length() > 4000) {
         throw new IllegalArgumentException("消息须为 1–4000 字。");
       }
       int operationId = store.nextId();
-      JSONObject operation = new JSONObject()
-          .put("id", operationId)
-          .put("state", "running")
-          .put("phase", "model")
-          .put("message", "管家正在思考…")
-          .put("startedAt", System.currentTimeMillis())
-          .put("updatedAt", System.currentTimeMillis());
-      synchronized (operations) {
-        pruneOperations();
-        operations.put(operationId, operation);
-      }
+      JSONObject operation = registerOperation(operationId, "model", "管家正在思考…");
 
-      Thread worker = new Thread(() -> {
+      startWorker("agent-bridge-chat-" + operationId, () -> {
         try {
           updateOperation(operationId, "model", "管家正在思考…", "");
           String raw = sendStudioMessage(value);
@@ -204,20 +200,74 @@ final class PhoneBridge {
           }
         } catch (Exception error) {
           try {
-            JSONObject current = operations.get(operationId);
-            if (current != null) {
-              current.put("state", "failed")
-                  .put("phase", "failed")
-                  .put("message", error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage())
-                  .put("updatedAt", System.currentTimeMillis());
-            }
+            updateOperation(operationId, "failed",
+                error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage(), "");
           } catch (Exception ignored) {
             // The operation was cleared by the user.
           }
         }
-      }, "agent-bridge-chat-" + operationId);
-      worker.start();
+      });
       return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  /** Checks a real completion in the background without adding it to chat history. */
+  @JavascriptInterface
+  public String beginStudioModelCheck() {
+    try {
+      JSONObject model = readyStudioModel();
+      int id = store.nextId();
+      JSONObject operation = registerOperation(id, "model", "正在验证模型连接…");
+      startWorker("agent-bridge-model-check-" + id, () -> {
+        try {
+          JSONArray messages = new JSONArray().put(new JSONObject()
+              .put("role", "user").put("content", "请仅回复：连接成功"));
+          JSONObject response = new JSONObject(chatCompletion(model, messages, null));
+          JSONArray choices = response.optJSONArray("choices");
+          JSONObject message = choices == null || choices.length() == 0
+              ? null : choices.getJSONObject(0).optJSONObject("message");
+          if (message == null || modelMessageText(message).isEmpty()) {
+            throw new IllegalStateException("接口可达，但模型没有返回文字，请检查模型名称");
+          }
+          synchronized (store) {
+            JSONObject current = store.studioModel();
+            if (!current.toString().equals(model.toString())) {
+              throw new IllegalStateException("配置已经变更，请重新验证当前模型");
+            }
+            model.put("verifiedAt", now());
+            store.saveStudioModel(model);
+          }
+          synchronized (operations) {
+            JSONObject current = operations.get(id);
+            if (current != null) current.put("state", "succeeded").put("phase", "succeeded")
+                .put("message", "模型连接成功").put("studio", localStudioSnapshot());
+          }
+        } catch (Exception error) {
+          try { updateOperation(id, "failed", error.getMessage(), ""); }
+          catch (Exception ignored) { }
+        }
+      });
+      return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  @JavascriptInterface
+  public String saveVoiceService(String payload) {
+    try {
+      JSONObject input = new JSONObject(payload);
+      JSONObject voice = store.studioVoice();
+      String key = input.optString("apiKey", "").trim();
+      if (input.optBoolean("clear")) key = "";
+      else if (key.isEmpty()) key = voice.optString("apiKey", "");
+      if (key.length() > 4096 || key.contains("\n") || key.contains("\r")) {
+        throw new IllegalArgumentException("语音 API Key 格式不正确");
+      }
+      store.saveStudioVoice(new JSONObject().put("apiKey", key));
+      return getTtsStatus();
     } catch (Exception error) {
       return failure(error);
     }
@@ -333,15 +383,13 @@ final class PhoneBridge {
       java.util.Map<String, Object> status = new java.util.LinkedHashMap<>();
       activity.getTtsStatus(status);
       JSONObject result = new JSONObject(status);
-      boolean cloudAvailable = false;
-      try {
-        JSONObject model = store.studioModel();
-        cloudAvailable = model.optBoolean("enabled", false)
-            && model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")
-            && !model.optString("apiKey", "").isEmpty();
-      } catch (Exception error) {
-        cloudAvailable = false;
-      }
+      String voiceKey = getDashScopeApiKey();
+      boolean cloudAvailable = voiceKey != null && !voiceKey.isEmpty();
+      result.put("localReady", result.optBoolean("ready"));
+      result.put("hasVoiceKey", !store.studioVoice().optString("apiKey", "").isEmpty());
+      result.put("recognitionAvailable", android.speech.SpeechRecognizer.isRecognitionAvailable(activity));
+      result.put("microphoneGranted", activity.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+          == android.content.pm.PackageManager.PERMISSION_GRANTED);
       result.put("cloudAvailable", cloudAvailable);
       if (!result.optBoolean("ready", false) && cloudAvailable) {
         result.put("ready", true);
@@ -356,20 +404,17 @@ final class PhoneBridge {
   }
 
   JSONObject transcribeVoiceAudio(String base64Audio, String contentType) throws Exception {
-    JSONObject model = readyStudioModel();
-    String baseUrl = model.optString("baseUrl", "");
-    if (!baseUrl.contains("dashscope.aliyuncs.com")) {
-      throw new IllegalStateException("系统语音不可用，且当前管家模型地址不支持云端识别；可换用阿里云百炼地址");
-    }
+    String key = getDashScopeApiKey();
+    if (key == null || key.isEmpty()) throw new IllegalStateException("请在语音设置中填写百炼北京地域 API Key");
     HttpURLConnection connection = null;
     try {
-      URL url = new URL(baseUrl + "/chat/completions");
+      URL url = new URL("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions");
       connection = activity.openModelConnection(url);
       connection.setRequestMethod("POST");
       connection.setConnectTimeout(15_000);
       connection.setReadTimeout(60_000);
       connection.setDoOutput(true);
-      connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
+      connection.setRequestProperty("Authorization", "Bearer " + key);
       connection.setRequestProperty("Content-Type", "application/json");
       // qwen3-asr-flash on the OpenAI-compatible endpoint expects input_audio
       // as a plain data-URI string; an object form returns InvalidParameter.
@@ -415,13 +460,10 @@ final class PhoneBridge {
       if (activity.speakText(text)) {
         return success(new JSONObject().put("speaking", true).put("mode", "local"));
       }
-      JSONObject model = readyStudioModel();
-      if (!model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
-        throw new IllegalStateException("本机语音不可用，且当前管家模型地址不支持云端语音");
-      }
-      String audioUrl = activity.synthesizeCloudSpeechUrl(model.getString("apiKey"), text);
-      activity.playSpeechUrl(audioUrl);
-      return success(new JSONObject().put("speaking", true).put("mode", "cloud"));
+      String key = getDashScopeApiKey();
+      if (key == null || key.isEmpty()) throw new IllegalStateException("请在语音设置中填写百炼北京地域 API Key，或启用本机语音引擎");
+      activity.speakCloudText(key, text);
+      return success(new JSONObject().put("speaking", true).put("mode", "cloud").put("queued", true));
     } catch (Exception error) {
       String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
       android.util.Log.w("AgentBridgeNative", "speakText failed", error);
@@ -527,6 +569,7 @@ final class PhoneBridge {
         .put("scope", "当前手机的 SSH 记录、本机记忆和本机模型配置；不经过 Hub。")
         .put("model", new JSONObject()
             .put("ready", modelReady)
+            .put("verifiedAt", model.optString("verifiedAt", ""))
             .put("label", modelReady ? model.optString("modelId") : "模型未配置"))
         .put("modelSettings", publicStudioModel(model))
         .put("machines", local.getJSONArray("machines"))
@@ -572,7 +615,9 @@ final class PhoneBridge {
   }
 
   private String validateDirectModelUrl(String value) throws Exception {
-    String clean = value == null ? "" : value.trim().replaceAll("/+$", "");
+    String clean = value == null ? "" : value.trim();
+    while (clean.endsWith("/")) clean = clean.substring(0, clean.length() - 1);
+    if (clean.endsWith("/chat/completions")) clean = clean.substring(0, clean.length() - "/chat/completions".length());
     if (clean.isEmpty()) throw new IllegalArgumentException("模型 Base URL 不能为空");
     URL url = new URL(clean);
     boolean local = url.getHost().equals("localhost") || url.getHost().equals("127.0.0.1")
@@ -587,15 +632,11 @@ final class PhoneBridge {
   }
 
   private void appendStudioMessage(String role, String content) throws Exception {
-    JSONArray messages = store.studioMessages();
-    JSONObject message = new JSONObject()
+    store.appendStudioMessage(new JSONObject()
         .put("id", java.util.UUID.randomUUID().toString())
         .put("role", role)
         .put("content", content)
-        .put("createdAt", now());
-    messages.put(message);
-    while (messages.length() > 100) messages.remove(0);
-    store.saveStudioMessages(messages);
+        .put("createdAt", now()), 100);
   }
 
   private JSONArray studioChatMessages(JSONArray history, String value, JSONObject snapshot) throws Exception {
@@ -635,7 +676,7 @@ final class PhoneBridge {
       for (int i = 0; i < machines.length(); i++) {
         JSONObject m = machines.getJSONObject(i);
         sb.append("- ").append(m.optString("name", "未知"))
-            .append("（").append(m.optString("lastStatus", "unknown")).append("）\n");
+            .append("（").append(m.optString("status", "unknown")).append("）\n");
       }
       sb.append("\n");
     }
@@ -735,7 +776,7 @@ final class PhoneBridge {
     } catch (java.io.IOException error) {
       if (error instanceof java.net.UnknownHostException) {
         activity.noteNetworkDeath();
-        throw new IllegalStateException("系统网络通道拦截了应用联网，连续失败后应用会自动重启恢复；也可手动重启 App 立即恢复");
+        throw new IllegalStateException("无法解析模型服务地址，请检查手机网络；网络正常仍失败时，完全退出 App 再打开");
       }
       throw new IllegalStateException("模型连接失败或超时，请检查网络和服务状态");
     } finally {
@@ -746,7 +787,19 @@ final class PhoneBridge {
   private String directModelReplyWithTools(JSONObject model, JSONArray messages, int maxRounds) throws Exception {
     JSONArray tools = buildButlerTools();
     for (int round = 0; round < maxRounds; round++) {
-      String raw = chatCompletion(model, messages, tools);
+      // The last round must answer in text, or every tool call so far is wasted.
+      String raw;
+      try {
+        raw = chatCompletion(model, messages, tools, round == maxRounds - 1 ? "none" : null);
+      } catch (IllegalStateException error) {
+        String detail = String.valueOf(error.getMessage()).toLowerCase(java.util.Locale.ROOT);
+        // Some compatible endpoints support text chat but reject function calling.
+        // Retry only that explicit first-round incompatibility, before any tool ran.
+        if (round != 0 || !(detail.contains("http 400") || detail.contains("http 422"))
+            || !(detail.contains("tools") || detail.contains("tool_choice")
+              || detail.contains("function calling"))) throw error;
+        raw = chatCompletion(model, messages, null);
+      }
       JSONObject response = new JSONObject(raw);
       JSONArray choices = response.optJSONArray("choices");
       if (choices == null || choices.length() == 0) break;
@@ -754,7 +807,7 @@ final class PhoneBridge {
       if (message == null) break;
       JSONArray toolCalls = message.optJSONArray("tool_calls");
       if (toolCalls == null || toolCalls.length() == 0) {
-        String content = message.optString("content", "").trim();
+        String content = modelMessageText(message);
         if (!content.isEmpty()) return content;
         break;
       }
@@ -777,6 +830,23 @@ final class PhoneBridge {
   }
 
   private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools) throws Exception {
+    return chatCompletion(model, messages, tools, null);
+  }
+
+  private String modelMessageText(JSONObject message) {
+    Object content = message.opt("content");
+    if (content instanceof String) return ((String) content).trim();
+    if (!(content instanceof JSONArray)) return "";
+    StringBuilder text = new StringBuilder();
+    JSONArray parts = (JSONArray) content;
+    for (int i = 0; i < parts.length(); i++) {
+      JSONObject part = parts.optJSONObject(i);
+      if (part != null && part.optString("type").equals("text")) text.append(part.optString("text"));
+    }
+    return text.toString().trim();
+  }
+
+  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools, String toolChoice) throws Exception {
     HttpURLConnection connection = null;
     try {
       URL url = new URL(model.getString("baseUrl") + "/chat/completions");
@@ -792,7 +862,10 @@ final class PhoneBridge {
           .put("messages", messages)
           .put("max_tokens", 1800)
           .put("temperature", 0.2);
-      if (tools != null && tools.length() > 0) request.put("tools", tools);
+      if (tools != null && tools.length() > 0) {
+        request.put("tools", tools);
+        if (toolChoice != null) request.put("tool_choice", toolChoice);
+      }
       if (model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
         request.put("enable_thinking", false);
       }
@@ -802,7 +875,15 @@ final class PhoneBridge {
       int status = connection.getResponseCode();
       InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
       String body = readStream(stream, 2_000_000);
-      if (status >= 400) throw new IllegalStateException("模型返回 HTTP " + status);
+      if (status >= 400) {
+        String detail = body.replace(model.getString("apiKey"), "[密钥已隐藏]").replaceAll("\\s+", " ").trim();
+        String hint = status == 401 || status == 403 ? "，请检查 API Key、地域和调用权限"
+            : status == 404 ? "，请检查 Base URL 和模型名称"
+            : status == 429 ? "，额度不足或请求过于频繁，请检查服务商控制台" : "";
+        throw new IllegalStateException("模型返回 HTTP " + status
+            + hint
+            + (detail.isEmpty() ? "" : "：" + detail.substring(0, Math.min(detail.length(), 200))));
+      }
       return body;
     } catch (java.io.IOException error) {
       if (error instanceof java.net.UnknownHostException) activity.noteNetworkDeath();
@@ -911,89 +992,82 @@ final class PhoneBridge {
 
   private String executeButlerTool(String name, String argsJson) {
     try {
-      JSONObject args = new JSONObject(argsJson);
+      JSONObject args = new JSONObject(argsJson == null || argsJson.trim().isEmpty() ? "{}" : argsJson);
       switch (name) {
         case "list_tasks": {
-          // Real-time: actually SSH to machines and discover current tasks
-          StringBuilder sb = new StringBuilder();
-          JSONArray machines = new JSONObject(studioState()).getJSONObject("data").getJSONArray("machines");
+          // Real-time: SSH to every machine that was online at the last check.
+          JSONArray result = new JSONArray();
+          JSONArray machines = store.machines();
           for (int i = 0; i < machines.length(); i++) {
             JSONObject m = machines.getJSONObject(i);
             if (!"online".equals(m.optString("lastStatus"))) continue;
             try {
-              String result = discoverTasks(m.getInt("id"));
-              JSONObject parsed = new JSONObject(result);
-              if (parsed.optBoolean("ok")) {
-                JSONArray tasks = parsed.getJSONObject("data").getJSONArray("tasks");
-                for (int t = 0; t < tasks.length(); t++) {
-                  JSONObject task = tasks.getJSONObject(t);
-                  if (sb.length() > 0) sb.append(",");
-                  sb.append(new JSONObject()
-                      .put("id", task.optString("id"))
-                      .put("title", task.optString("title"))
-                      .put("status", task.optString("status"))
-                      .put("machine", m.optString("name"))
-                      .put("agentType", task.optString("agentType"))
-                      .put("needsInput", task.optBoolean("requiredInput"))
-                      .toString());
-                }
+              JSONObject parsed = new JSONObject(discoverTasks(m.getInt("id")));
+              if (!parsed.optBoolean("ok")) continue;
+              JSONArray tasks = parsed.getJSONObject("data").getJSONArray("tasks");
+              for (int t = 0; t < tasks.length(); t++) {
+                JSONObject task = tasks.getJSONObject(t);
+                result.put(new JSONObject()
+                    .put("id", task.opt("id"))
+                    .put("title", task.optString("title"))
+                    .put("status", task.optString("status"))
+                    .put("machine", m.optString("name"))
+                    .put("agentType", task.optString("agentType"))
+                    .put("needsInput", !task.optString("requiredInput").isEmpty()));
               }
             } catch (Exception sshError) {
-              // Machine unreachable; skip it
-            }
-          }
-          return "[" + sb.toString() + "]";
-        }
-        case "check_machines": {
-          JSONObject state = new JSONObject(studioState());
-          JSONArray tasks = state.getJSONObject("data").getJSONArray("tasks");
-          JSONArray machines = state.getJSONObject("data").getJSONArray("machines");
-          // Real-time: probe each machine
-          JSONArray result = new JSONArray();
-          for (int i = 0; i < machines.length(); i++) {
-            JSONObject m = machines.getJSONObject(i);
-            try {
-              String probeResult = probeMachine(m.getInt("id"));
-              JSONObject parsed = new JSONObject(probeResult);
-              if (parsed.optBoolean("ok")) {
-                JSONObject pm = parsed.getJSONObject("data").getJSONObject("machine");
-                result.put(new JSONObject()
-                    .put("id", pm.opt("id"))
-                    .put("name", pm.optString("name"))
-                    .put("status", pm.optString("lastStatus"))
-                    .put("tools", pm.optJSONArray("tools")));
-              }
-            } catch (Exception probeError) {
-              result.put(new JSONObject()
-                  .put("id", m.opt("id"))
-                  .put("name", m.optString("name"))
-                  .put("status", "unreachable"));
+              result.put(new JSONObject().put("machine", m.optString("name")).put("error", "机器暂时无法连接"));
             }
           }
           return result.toString();
         }
+        case "check_machines": {
+          JSONArray machines = store.machines();
+          JSONArray result = new JSONArray();
+          for (int i = 0; i < machines.length(); i++) {
+            JSONObject m = machines.getJSONObject(i);
+            JSONObject parsed = new JSONObject(probeMachine(m.getInt("id")));
+            JSONObject probed = parsed.optBoolean("ok") ? parsed.getJSONObject("data").getJSONObject("machine") : null;
+            result.put(new JSONObject()
+                .put("id", m.opt("id"))
+                .put("name", m.optString("name"))
+                .put("status", probed == null ? "unreachable" : probed.optString("lastStatus"))
+                .put("tools", probed == null ? new JSONArray() : probed.optJSONArray("tools")));
+          }
+          return result.toString();
+        }
         case "get_task_output": {
-          String taskId = args.optString("task_id", "");
-          JSONObject state = new JSONObject(studioState());
-          JSONArray tasks = state.getJSONObject("data").getJSONArray("tasks");
+          String taskId = args.optString("task_id", "").replaceFirst("^S-", "");
+          JSONArray tasks = store.tasks();
           for (int i = 0; i < tasks.length(); i++) {
             JSONObject t = tasks.getJSONObject(i);
-            if (taskId.equals(t.optString("id")) || taskId.equals("S-" + t.opt("id"))) {
-              return new JSONObject()
-                  .put("id", t.optString("id"))
-                  .put("title", t.optString("title"))
-                  .put("workSummary", t.optString("workSummary", ""))
-                  .put("lastOutput", t.optString("lastOutput", ""))
-                  .toString();
-            }
+            if (!taskId.equals(String.valueOf(t.opt("id")))) continue;
+            String output = Work.clean(sanitize(t.optString("lastOutput", "")));
+            // The tail is where the agent's latest state is.
+            if (output.length() > 4000) output = "…" + output.substring(output.length() - 4000);
+            return new JSONObject()
+                .put("id", t.opt("id"))
+                .put("title", t.optString("title"))
+                .put("status", t.optString("status"))
+                .put("workSummary", Work.clean(t.optString("workSummary", "")))
+                .put("lastOutput", output)
+                .toString();
           }
-          return "{\"error\":\"task not found: " + taskId + "\"}";
+          return toolError("task not found: " + taskId);
         }
         default:
-          return "{\"error\":\"unknown tool: " + name + "\"}";
+          return toolError("unknown tool: " + name);
       }
     } catch (Exception error) {
-      return "{\"error\":\"" + error.getMessage() + "\"}";
+      return toolError(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+    }
+  }
+
+  private static String toolError(String message) {
+    try {
+      return new JSONObject().put("error", message).toString();
+    } catch (Exception ignored) {
+      return "{\"error\":\"tool failed\"}";
     }
   }
 
@@ -1121,8 +1195,13 @@ final class PhoneBridge {
    * Binds JSch to the phone's Wi-Fi/Ethernet network when an always-on VPN is
    * active. A VPN may accept the default route but block long-lived raw SSH
    * sockets, which surfaces as JSch's "socket is not established" timeout.
+   *
+   * <p>JSch skips its own connect timeout when a SocketFactory is set, so every
+   * path here connects with CONNECT_TIMEOUT itself.
    */
   private static final class DirectNetworkSocketFactory implements SocketFactory {
+    /** Process binding is global state: one connect at a time may hold it. */
+    private static final Object PROCESS_BINDING = new Object();
     private final Network network;
     private final ConnectivityManager manager;
 
@@ -1140,17 +1219,9 @@ final class PhoneBridge {
               break;
             }
           }
-          if (!vpnActive) {
-            // The physical-network bypass exists only to route raw SSH around
-            // an always-on VPN. Binding without a VPN pins the process to a
-            // Wi-Fi handle that can go stale after roaming and then every
-            // socket fails with ENONET; stay on default routing instead.
-            try {
-              manager.bindProcessToNetwork(null);
-            } catch (Exception clearError) {
-              // Default routing is already the platform fallback.
-            }
-          } else {
+          // The physical-network bypass exists only to route raw SSH around an
+          // always-on VPN; without one, default routing is used.
+          if (vpnActive) {
             // Prefer Wi-Fi/Ethernet, then cellular: any validated physical
             // network is a better SSH route than an always-on VPN tunnel that
             // silently drops long-lived raw sockets.
@@ -1168,9 +1239,6 @@ final class PhoneBridge {
                   || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                   || !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)) continue;
               selected = network;
-              // Some OEM/VPN stacks honor bindSocket for the source address but
-              // still apply per-UID routing. Bind the process as well before JSch
-              // performs DNS and channel setup.
               selectedManager = manager;
               break;
             }
@@ -1181,47 +1249,58 @@ final class PhoneBridge {
       }
       this.network = selected;
       this.manager = selectedManager;
-      if (selected == null && manager != null) {
-        // Even when no bypass candidate was picked, clear any stale process
-        // binding left over from an earlier VPN session so default routing
-        // applies to this and future sockets.
-        try {
-          manager.bindProcessToNetwork(null);
-        } catch (Exception clearError) {
-          // Default routing remains the platform fallback.
-        }
-      }
     }
 
     @Override
     public Socket createSocket(String host, int port) throws IOException {
-      if (network == null) return new Socket(host, port);
-      InetAddress target = null;
-      Network previousNetwork = manager == null ? null : manager.getActiveNetwork();
-      try {
-        manager.bindProcessToNetwork(network);
-        for (InetAddress address : network.getAllByName(host)) {
-          if (address instanceof java.net.Inet4Address) {
-            target = address;
-            break;
-          }
-        }
-        if (target == null) target = network.getAllByName(host)[0];
+      if (network == null) return connectDefault(host, port);
+      synchronized (PROCESS_BINDING) {
+        // Some OEM/VPN stacks honor bindSocket for the source address but still
+        // apply per-UID routing, so the process is bound too, only for the DNS
+        // lookup and connect, and then put back exactly as it was. Restoring
+        // getActiveNetwork() instead would pin the whole app to the VPN.
+        Network previous = manager.getBoundNetworkForProcess();
         Socket socket = new Socket();
-        network.bindSocket(socket);
-        socket.connect(new InetSocketAddress(target, port), CONNECT_TIMEOUT);
-        return socket;
-      } catch (java.io.IOException bindFailure) {
-        // The saved Network handle can go stale after Wi-Fi roaming; fall back
-        // to default routing rather than failing the SSH session outright.
         try {
-          manager.bindProcessToNetwork(null);
-        } catch (Exception clearError) {
-          // Default routing still applies after the socket is recreated.
+          manager.bindProcessToNetwork(network);
+          InetAddress target = null;
+          for (InetAddress address : network.getAllByName(host)) {
+            if (address instanceof java.net.Inet4Address) {
+              target = address;
+              break;
+            }
+          }
+          if (target == null) target = network.getAllByName(host)[0];
+          network.bindSocket(socket);
+          socket.connect(new InetSocketAddress(target, port), CONNECT_TIMEOUT);
+          return socket;
+        } catch (IOException bindFailure) {
+          // The saved Network handle can go stale after Wi-Fi roaming; fall
+          // back to default routing below rather than failing the session.
+          try {
+            socket.close();
+          } catch (IOException ignored) {
+            // Nothing was connected.
+          }
+        } finally {
+          manager.bindProcessToNetwork(previous);
         }
-        return new Socket(host, port);
-      } finally {
-        if (manager != null && previousNetwork != null) manager.bindProcessToNetwork(previousNetwork);
+      }
+      return connectDefault(host, port);
+    }
+
+    private static Socket connectDefault(String host, int port) throws IOException {
+      Socket socket = new Socket();
+      try {
+        socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT);
+        return socket;
+      } catch (IOException error) {
+        try {
+          socket.close();
+        } catch (IOException ignored) {
+          // Nothing was connected.
+        }
+        throw error;
       }
     }
 
@@ -1278,21 +1357,8 @@ final class PhoneBridge {
   public String beginDiscoverTasks(int machineId) {
     try {
       int operationId = store.nextId();
-      JSONObject operation = new JSONObject()
-          .put("id", operationId)
-          .put("state", "running")
-          .put("phase", "discovery")
-          .put("message", "正在发现员工…")
-          .put("startedAt", System.currentTimeMillis())
-          .put("updatedAt", System.currentTimeMillis());
-      synchronized (operations) {
-        pruneOperations();
-        operations.put(operationId, operation);
-      }
-      Thread worker = new Thread(
-          new DiscoverOperationRunnable(this, machineId, operationId),
-          "agent-bridge-discover-" + operationId);
-      worker.start();
+      JSONObject operation = registerOperation(operationId, "discovery", "正在发现员工…");
+      startWorker("agent-bridge-discover-" + operationId, () -> discoverTasksOperation(machineId, operationId));
       return success(new JSONObject().put("operation", operation));
     } catch (Exception error) {
       return failure(error);
@@ -1308,16 +1374,15 @@ final class PhoneBridge {
       }
       updateOperation(operationId, "succeeded", "发现员工完成", "");
       activity.showTaskNotification("Agent Bridge", "发现员工完成");
-      activity.stopTaskForeground();
     } catch (Exception error) {
+      String message = error.getMessage() == null ? "发现员工失败" : "发现员工失败：" + error.getMessage();
       try {
-        updateOperation(operationId, "failed", "发现员工失败", "");
+        updateOperation(operationId, "failed", message, "");
       } catch (Exception ignored) {
         // The web layer may already have cleared this operation.
       }
       try {
-        activity.showTaskNotification("Agent Bridge", "发现员工失败");
-        activity.stopTaskForeground();
+        activity.showTaskNotification("Agent Bridge", message);
       } catch (Exception ignored) {
         // The activity can disappear during a background operation.
       }
@@ -1328,21 +1393,8 @@ final class PhoneBridge {
   public String beginStudioReport(String date) {
     try {
       int operationId = store.nextId();
-      JSONObject operation = new JSONObject()
-          .put("id", operationId)
-          .put("state", "running")
-          .put("phase", "report")
-          .put("message", "正在生成任务规划…")
-          .put("startedAt", System.currentTimeMillis())
-          .put("updatedAt", System.currentTimeMillis());
-      synchronized (operations) {
-        pruneOperations();
-        operations.put(operationId, operation);
-      }
-      Thread worker = new Thread(
-          new ReportOperationRunnable(this, date, operationId),
-          "agent-bridge-report-" + operationId);
-      worker.start();
+      JSONObject operation = registerOperation(operationId, "report", "正在生成任务规划…");
+      startWorker("agent-bridge-report-" + operationId, () -> studioReportOperation(date, operationId));
       return success(new JSONObject().put("operation", operation));
     } catch (Exception error) {
       return failure(error);
@@ -1359,7 +1411,6 @@ final class PhoneBridge {
       JSONObject studio = result.optJSONObject("data");
       updateOperation(operationId, "succeeded", "任务规划已生成", "", studio);
       activity.showTaskNotification("Agent Bridge", "任务规划已生成");
-      activity.stopTaskForeground();
     } catch (Exception error) {
       String message = error.getMessage() == null
           ? error.getClass().getSimpleName() : error.getMessage();
@@ -1370,7 +1421,6 @@ final class PhoneBridge {
       }
       try {
         activity.showTaskNotification("Agent Bridge", "任务规划生成失败");
-        activity.stopTaskForeground();
       } catch (Exception ignored) {
         // The activity can disappear during a background operation.
       }
@@ -1397,14 +1447,23 @@ final class PhoneBridge {
       int bindPort = Math.max(1024, Math.min(65_535, input.optInt("bindPort", 7001)));
       String version = input.optString("version", "0.61.1").trim();
       String downloadBase = input.optString("downloadBase", "https://github.com/fatedier/frp/releases/download").trim();
-      if (version.isEmpty() || downloadBase.isEmpty()) throw new IllegalArgumentException("FRP 版本和下载源不能为空");
+      while (downloadBase.endsWith("/")) downloadBase = downloadBase.substring(0, downloadBase.length() - 1);
+      JSONObject savedServer = store.frpServer();
+      boolean keptVersion = savedServer != null && version.equals(savedServer.optString("version"));
+      // A version saved by an older release stays usable where FRP is already
+      // installed; the installer refuses only if it actually has to download.
+      if (!FrpInstallSupport.isSupportedVersion(version) && !keptVersion) {
+        throw new IllegalArgumentException("FRP 版本只能选内置校验值的版本："
+            + String.join("、", FrpInstallSupport.supportedVersions()));
+      }
+      // The base is spliced into an installer script; allow only a plain HTTPS URL.
+      // Prefix mirrors such as https://mirror.example/https://github.com/... are allowed.
+      // One flat character class after the host: no nested quantifiers to backtrack on.
+      if (downloadBase.length() > 300
+          || !downloadBase.matches("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~%+:@=/-]*)?")) {
+        throw new IllegalArgumentException("下载源必须是 https:// 开头的普通地址，不能带空格、引号或查询参数");
+      }
       boolean keyAuth = "key".equals(input.optString("authType"));
-      if (keyAuth && input.optString("privateKey").trim().isEmpty()) {
-        throw new IllegalArgumentException("公网机器 SSH 私钥不能为空");
-      }
-      if (!keyAuth && input.optString("password").trim().isEmpty()) {
-        throw new IllegalArgumentException("公网机器 SSH 密码不能为空");
-      }
 
       JSONObject oldServer = store.frpServer();
       int machineId = input.optInt("machineId", oldServer == null ? 0 : oldServer.optInt("machineId"));
@@ -1416,13 +1475,21 @@ final class PhoneBridge {
         machine.put("id", store.nextId());
         machine.put("lastStatus", "unknown");
       }
+      String password = keepCredential(input.optString("password", ""), machineId > 0 ? machine : null, "password");
+      String privateKey = keepCredential(input.optString("privateKey", ""), machineId > 0 ? machine : null, "privateKey");
+      if (keyAuth && privateKey.trim().isEmpty()) {
+        throw new IllegalArgumentException("公网机器 SSH 私钥不能为空");
+      }
+      if (!keyAuth && password.trim().isEmpty()) {
+        throw new IllegalArgumentException("公网机器 SSH 密码不能为空");
+      }
       machine.put("name", input.optString("name", "Public Entry"))
           .put("host", host)
           .put("port", sshPort)
           .put("username", username)
           .put("authType", keyAuth ? "key" : "password")
-          .put("password", input.optString("password", ""))
-          .put("privateKey", input.optString("privateKey", ""))
+          .put("password", keyAuth ? "" : password)
+          .put("privateKey", keyAuth ? privateKey : "")
           .put("publicMode", "off")
           .put("updatedAt", now());
       if (!machine.has("os")) machine.put("os", "unknown");
@@ -1437,7 +1504,7 @@ final class PhoneBridge {
           .put("publicAddress", publicAddress)
           .put("bindPort", bindPort)
           .put("version", version)
-          .put("downloadBase", downloadBase.replaceAll("/$", ""))
+          .put("downloadBase", downloadBase)
           .put("status", "not_deployed")
           .put("lastError", "")
           .put("updatedAt", now());
@@ -1451,7 +1518,7 @@ final class PhoneBridge {
       store.saveFrpServer(server);
       return success(new JSONObject()
           .put("frpServer", publicFrpServer(server))
-          .put("machine", machine));
+          .put("machine", publicMachine(machine)));
     } catch (Exception error) {
       return failure(error);
     }
@@ -1522,10 +1589,14 @@ final class PhoneBridge {
             .put("deployment", inspection.optBoolean("binaryExists") ? "reused-binary" : "installed")
             .put("updatedAt", now());
         store.saveFrpServer(server);
+        // agentBridge only uses STCP, which needs no public port. Allowing
+        // just the bind port (already taken by frps itself) means a leaked
+        // token cannot be used to open other ports on this server.
         String config = "bindAddr = \"0.0.0.0\"\n"
             + "bindPort = " + bindPort + "\n"
             + "auth.token = " + tomlString(server.getString("token")) + "\n"
-            + "transport.tls.force = true\n";
+            + "transport.tls.force = true\n"
+            + "allowPorts = [{ single = " + bindPort + " }]\n";
         stage = "部署公网入口";
         if (inspection.optBoolean("binaryExists")) {
           run(session, buildFrpsServiceEnabler(config, bindPort), 120_000);
@@ -1567,10 +1638,9 @@ final class PhoneBridge {
           throw new IllegalArgumentException("请先部署这台机器的公网中转");
         }
       }
-      JSONObject machine = store.machine(machineId);
-      machine.put("publicMode", mode).put("updatedAt", now());
-      store.updateMachine(machine);
-      return success(new JSONObject().put("machine", machine));
+      JSONObject machine = store.patchMachine(machineId, new JSONObject().put("publicMode", mode).put("updatedAt", now()));
+      if (machine == null) throw new IllegalArgumentException("机器不存在");
+      return success(new JSONObject().put("machine", publicMachine(machine)));
     } catch (Exception error) {
       return failure(error);
     }
@@ -1588,8 +1658,7 @@ final class PhoneBridge {
       if (server.getInt("machineId") == machineId) {
         throw new IllegalArgumentException("公网入口机器不需要配置中转");
       }
-      machine.put("publicAccessError", "");
-      store.updateMachine(machine);
+      store.patchMachine(machineId, new JSONObject().put("publicAccessError", ""));
       JSONObject relay = store.frpRelay(machineId);
 
       JSONObject serverMachine = store.machine(server.getInt("machineId"));
@@ -1662,13 +1731,13 @@ final class PhoneBridge {
         relay.put("status", "online").put("enabled", true).put("lastError", "")
             .put("verifiedAt", now()).put("updatedAt", now());
         store.updateFrpRelay(relay);
-        if ("off".equals(machine.optString("publicMode", "off"))) {
-          machine.put("publicMode", "auto").put("updatedAt", now());
-          store.updateMachine(machine);
+        JSONObject latest = store.machine(machineId);
+        if ("off".equals(latest.optString("publicMode", "off"))) {
+          latest = store.patchMachine(machineId, new JSONObject().put("publicMode", "auto").put("updatedAt", now()));
         }
         return success(new JSONObject()
             .put("relay", publicFrpRelay(relay))
-            .put("machine", machine));
+            .put("machine", publicMachine(latest)));
       } finally {
         disconnect(targetSession);
         disconnect(serverSession);
@@ -1676,9 +1745,7 @@ final class PhoneBridge {
     } catch (Exception error) {
       error = new IllegalArgumentException(stage + "失败：" + error.getMessage(), error);
       try {
-        JSONObject machine = store.machine(machineId);
-        machine.put("publicAccessError", error.getMessage());
-        store.updateMachine(machine);
+        store.patchMachine(machineId, new JSONObject().put("publicAccessError", error.getMessage()));
         JSONObject relay = store.frpRelay(machineId);
         if (relay != null) {
           relay.put("status", "error")
@@ -1730,9 +1797,9 @@ final class PhoneBridge {
       }
       relay.put("enabled", false).put("status", "disabled").put("lastError", "").put("updatedAt", now());
       store.updateFrpRelay(relay);
-      machine.put("publicMode", "off").put("updatedAt", now());
-      store.updateMachine(machine);
-      return success(new JSONObject().put("relay", publicFrpRelay(relay)).put("machine", machine));
+      JSONObject latest = store.patchMachine(machineId, new JSONObject().put("publicMode", "off").put("updatedAt", now()));
+      return success(new JSONObject().put("relay", publicFrpRelay(relay))
+          .put("machine", publicMachine(latest == null ? machine : latest)));
     } catch (Exception error) {
       return failure(error);
     }
@@ -1742,25 +1809,13 @@ final class PhoneBridge {
   public String beginSendPrompt(int id, String prompt, String actorId) {
     try {
       int operationId = store.nextId();
-      JSONObject operation = new JSONObject()
-          .put("id", operationId)
-          .put("state", "running")
-          .put("phase", "network")
-          .put("message", "正在检查网络连接…")
-          .put("network", "")
-          .put("startedAt", System.currentTimeMillis())
-          .put("updatedAt", System.currentTimeMillis());
-      synchronized (operations) {
-        pruneOperations();
-        operations.put(operationId, operation);
-      }
+      JSONObject operation = registerOperation(operationId, "network", "正在检查网络连接…");
 
-      Thread worker = new Thread(() -> {
+      startWorker("agent-bridge-send-" + operationId, () -> {
         try {
           int machineId = store.task(id).getInt("machineId");
           updateOperation(operationId, "network", "正在检查手机到机器的网络…", "");
           JSONObject network = networkStatusForMachine(machineId);
-          operation.put("network", network);
           updateOperation(operationId, "network", network.optBoolean("reachable")
               ? "网络正常 · " + network.optString("summary")
               : "网络不可达 · " + network.optString("summary"), network);
@@ -1774,11 +1829,13 @@ final class PhoneBridge {
           if (!result.optBoolean("ok")) {
             throw new IllegalArgumentException(result.optString("error", "回复失败"));
           }
-          JSONObject task = result.optJSONObject("data") == null
-              ? null : result.optJSONObject("data").optJSONObject("task");
-          updateOperation(operationId, "succeeded", "回复已发送", network, task);
-          activity.showTaskNotification("Agent Bridge", "后台任务已执行");
-          activity.stopTaskForeground();
+          JSONObject data = result.optJSONObject("data");
+          JSONObject task = data == null ? null : data.optJSONObject("task");
+          boolean stillRunning = data != null && data.optBoolean("stillRunning");
+          String done = stillRunning ? "回复已送达，远程仍在处理，稍后点刷新查看结果" : "回复已发送";
+          markOperation(operationId, "stillRunning", stillRunning);
+          updateOperation(operationId, "succeeded", done, network, task);
+          activity.showTaskNotification("Agent Bridge", stillRunning ? done : "后台任务已执行");
         } catch (Exception error) {
           try {
             JSONObject current = operationById(operationId);
@@ -1788,14 +1845,74 @@ final class PhoneBridge {
             String message = error.getMessage() == null
                 ? error.getClass().getSimpleName() : error.getMessage();
             activity.showTaskNotification("Agent Bridge", message);
-            activity.stopTaskForeground();
           } catch (Exception ignored) {
             // The operation may already have been cleared.
           }
         }
-      }, "agent-bridge-send-" + operationId);
-      worker.start();
+      });
       return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  /** Bridge methods that open SSH connections and must not run on the page's thread. */
+  private static final Set<String> BACKGROUND_CALLS = new HashSet<>(Arrays.asList(
+      "discoverTasks", "probeMachine", "scanNetwork", "deployFrpServer", "deployFrpRelay", "disableFrpRelay"));
+
+  /**
+   * Runs a slow bridge method on a worker thread. A direct call from
+   * JavaScript blocks the WebView until it returns, which for an FRP deploy
+   * can be minutes of a frozen page. The page polls operationState and reads
+   * the method's normal result from "result".
+   */
+  @JavascriptInterface
+  public String beginBridgeCall(String method, String argsJson) {
+    try {
+      if (!BACKGROUND_CALLS.contains(method)) throw new IllegalArgumentException("不支持后台调用：" + method);
+      JSONArray args = new JSONArray(argsJson == null || argsJson.isEmpty() ? "[]" : argsJson);
+      int operationId = store.nextId();
+      JSONObject operation = registerOperation(operationId, "call", "");
+      startWorker("agent-bridge-call-" + operationId, () -> {
+        String raw;
+        try {
+          raw = invokeBackgroundCall(method, args);
+        } catch (Exception error) {
+          raw = failure(error);
+        }
+        try {
+          // The result must be in place before the state leaves "running";
+          // the page reads both on its next poll.
+          markOperation(operationId, "result", new JSONObject(raw));
+          updateOperation(operationId, "succeeded", "", "");
+        } catch (Exception error) {
+          Log.w("AgentBridgeNative", "background call result lost: " + method, error);
+        }
+      });
+      return success(new JSONObject().put("operation", operation));
+    } catch (Exception error) {
+      return failure(error);
+    }
+  }
+
+  private String invokeBackgroundCall(String method, JSONArray args) throws Exception {
+    switch (method) {
+      case "discoverTasks": return discoverTasks(args.getInt(0));
+      case "probeMachine": return probeMachine(args.getInt(0));
+      case "scanNetwork": return scanNetwork(args.optString(0, ""));
+      case "deployFrpServer": return deployFrpServer();
+      case "deployFrpRelay": return deployFrpRelay(args.getInt(0));
+      case "disableFrpRelay": return disableFrpRelay(args.getInt(0));
+      default: throw new IllegalArgumentException("不支持后台调用：" + method);
+    }
+  }
+
+  /** Forgets a machine's pinned SSH host key after the user confirms the server was reinstalled. */
+  @JavascriptInterface
+  public String resetHostKey(int machineId) {
+    try {
+      store.forgetHostKey(store.machine(machineId));
+      return success(new JSONObject());
     } catch (Exception error) {
       return failure(error);
     }
@@ -1829,14 +1946,6 @@ final class PhoneBridge {
       String username = requiredText(input, "username", "SSH 用户不能为空");
       int port = Math.max(1, Math.min(65_535, input.optInt("port", 22)));
       String authType = "key".equals(input.optString("authType")) ? "key" : "password";
-      String password = input.optString("password", "");
-      String privateKey = input.optString("privateKey", "");
-      if ("password".equals(authType) && password.trim().isEmpty()) {
-        throw new IllegalArgumentException("SSH 密码不能为空");
-      }
-      if ("key".equals(authType) && privateKey.trim().isEmpty()) {
-        throw new IllegalArgumentException("SSH 私钥内容不能为空");
-      }
 
       JSONArray machines = store.machines();
       int id = input.optInt("id", 0);
@@ -1850,6 +1959,18 @@ final class PhoneBridge {
           }
         }
       }
+      // The page never receives stored credentials, so an empty field on an
+      // existing machine means "keep what is saved".
+      String password = keepCredential(input.optString("password", ""), machine, "password");
+      String privateKey = keepCredential(input.optString("privateKey", ""), machine, "privateKey");
+      if ("password".equals(authType) && password.trim().isEmpty()) {
+        throw new IllegalArgumentException("SSH 密码不能为空");
+      }
+      if ("key".equals(authType) && privateKey.trim().isEmpty()) {
+        throw new IllegalArgumentException("SSH 私钥内容不能为空");
+      }
+      if ("password".equals(authType)) privateKey = "";
+      else password = "";
       if (machine == null) {
         machine = new JSONObject();
         machine.put("id", store.nextId());
@@ -1868,7 +1989,7 @@ final class PhoneBridge {
       if (!machine.has("tmuxVersion")) machine.put("tmuxVersion", "");
       if (!machine.has("lastError")) machine.put("lastError", "");
       store.updateMachine(machine);
-      return success(new JSONObject().put("machine", machine));
+      return success(new JSONObject().put("machine", publicMachine(machine)));
     } catch (Exception error) {
       return failure(error);
     }
@@ -1932,16 +2053,8 @@ final class PhoneBridge {
       Session session = null;
       try {
         session = connect(machine);
-        JSONObject probe = probe(session);
-        machine.put("os", probe.optString("os"))
-            .put("tools", probe.getJSONArray("tools"))
-            .put("tmuxVersion", probe.optString("tmuxVersion"))
-            .put("lastStatus", "online")
-            .put("lastError", "")
-            .put("lastCheckedAt", now())
-            .put("updatedAt", now());
-        store.updateMachine(machine);
-        return success(new JSONObject().put("machine", machine));
+        JSONObject updated = store.patchMachine(id, onlineFields(probe(session)));
+        return success(new JSONObject().put("machine", publicMachine(updated == null ? machine : updated)));
       } finally {
         disconnect(session);
       }
@@ -1959,14 +2072,8 @@ final class PhoneBridge {
       try {
         session = connect(machine);
         JSONObject probe = probe(session);
-        machine.put("os", probe.optString("os"))
-            .put("tools", probe.getJSONArray("tools"))
-            .put("tmuxVersion", probe.optString("tmuxVersion"))
-            .put("lastStatus", "online")
-            .put("lastError", "")
-            .put("lastCheckedAt", now())
-            .put("updatedAt", now());
-        store.updateMachine(machine);
+        JSONObject updated = store.patchMachine(machineId, onlineFields(probe));
+        if (updated != null) machine = updated;
 
         JSONArray discovered = new JSONArray();
         Set<Integer> tmuxShellPids = new HashSet<>();
@@ -1994,7 +2101,7 @@ final class PhoneBridge {
         preserveCustomTitles(machineId, discovered);
         discovered = dedupeSemanticTasks(discovered);
         store.replaceTasksForMachine(machineId, discovered);
-        return success(new JSONObject().put("machine", machine).put("tasks", discovered));
+        return success(new JSONObject().put("machine", publicMachine(machine)).put("tasks", discovered));
       } finally {
         disconnect(session);
       }
@@ -2109,24 +2216,11 @@ final class PhoneBridge {
     try {
       JSONObject task = store.task(taskId);
       int operationId = store.nextId();
-      JSONObject operation = new JSONObject()
-          .put("id", operationId)
-          .put("state", "running")
-          .put("phase", "tail")
-          .put("message", "正在刷新任务输出…")
+      JSONObject operation = registerOperation(operationId, "tail", "正在刷新任务输出…", new JSONObject()
           .put("taskId", taskId)
           .put("stableKey", task.optString("stableKey", ""))
-          .put("machineId", task.getInt("machineId"))
-          .put("startedAt", System.currentTimeMillis())
-          .put("updatedAt", System.currentTimeMillis());
-      synchronized (operations) {
-        pruneOperations();
-        operations.put(operationId, operation);
-      }
-      Thread worker = new Thread(
-          new TailOperationRunnable(this, taskId, operationId),
-          "agent-bridge-tail-" + operationId);
-      worker.start();
+          .put("machineId", task.getInt("machineId")));
+      startWorker("agent-bridge-tail-" + operationId, () -> tailTaskOperation(taskId, operationId));
       return success(new JSONObject().put("operation", operation));
     } catch (Exception error) {
       return failure(error);
@@ -2142,7 +2236,6 @@ final class PhoneBridge {
       }
       updateOperation(operationId, "succeeded", "任务输出已刷新", "");
       activity.showTaskNotification("Agent Bridge", "任务输出已刷新");
-      activity.stopTaskForeground();
     } catch (Exception error) {
       String message = error.getMessage() == null
           ? error.getClass().getSimpleName() : error.getMessage();
@@ -2153,7 +2246,6 @@ final class PhoneBridge {
       }
       try {
         activity.showTaskNotification("Agent Bridge", message);
-        activity.stopTaskForeground();
       } catch (Exception ignored) {
         // The activity can disappear during a background operation.
       }
@@ -2172,11 +2264,10 @@ final class PhoneBridge {
       try {
         session = connect(machine);
         String output = sanitize(run(session, "tmux capture-pane -p -S -180 -t " + shellQuote(task.getString("paneId"))));
-        task.put("lastOutput", output)
-            .put("status", "missing".equals(task.optString("status")) ? "running" : task.optString("status"))
-            .put("updatedAt", now());
-        store.updateTask(task);
-        return success(new JSONObject().put("task", task));
+        JSONObject fields = new JSONObject().put("lastOutput", output).put("updatedAt", now());
+        if ("missing".equals(task.optString("status"))) fields.put("status", "running");
+        JSONObject updated = store.patchTask(id, fields);
+        return success(new JSONObject().put("task", updated == null ? task : updated));
       } finally {
         disconnect(session);
       }
@@ -2200,6 +2291,9 @@ final class PhoneBridge {
           String sessionId = task.optString("externalSessionId", "");
           if (sessionId.isEmpty()) throw new IllegalArgumentException("没有找到该进程的会话 ID，暂不能回复。");
           String command;
+          // "--" ends option parsing: a reply such as "-v 看下" must reach the
+          // agent as text, not be read as a CLI flag (claude would print its
+          // version, codex would reject the arguments).
           if ("codex".equals(task.optString("agentType"))) {
             command = "cd " + shellQuote(task.getString("workspacePath"))
                 + " && { codex_bin='/Applications/ChatGPT.app/Contents/Resources/codex'; "
@@ -2207,26 +2301,35 @@ final class PhoneBridge {
                 + "if [ ! -x \"$codex_bin\" ]; then codex_bin=$(command -v codex); fi; "
                 + "thread=" + shellQuote(sessionId) + " message=" + shellQuote(value) + "; "
                 + "err=$(mktemp); trap 'rm -f \"$err\"' EXIT; "
-                + "if \"$codex_bin\" exec resume --skip-git-repo-check \"$thread\" \"$message\" 2>\"$err\"; then exit 0; fi; "
+                + "if \"$codex_bin\" exec resume --skip-git-repo-check -- \"$thread\" \"$message\" 2>\"$err\"; then exit 0; fi; "
                 + "if grep -Eq 'thread-store conflict|already has an active writer' \"$err\"; then "
                 + "printf '__ASB_CODEX_QUEUED__\\n'; cat \"$err\" >&2; "
-                + "\"$codex_bin\" queue --thread \"$thread\" --message \"$message\"; exit $?; fi; "
+                + "\"$codex_bin\" queue --thread=\"$thread\" --message=\"$message\"; exit $?; fi; "
                 + "cat \"$err\" >&2; exit 1; }";
           } else if ("claude-code".equals(task.optString("agentType"))) {
             command = "cd " + shellQuote(task.getString("workspacePath"))
                 + " && claude --resume "
-                + shellQuote(sessionId) + " --print " + shellQuote(value);
+                + shellQuote(sessionId) + " --print -- " + shellQuote(value);
           } else {
             throw new IllegalArgumentException("暂不支持回复 " + task.optString("agentType"));
           }
-          String output = run(session, command, 180_000);
-          task.put("lastOutput", "回复执行完成：\n" + output)
-              .put("status", output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle")
+          ReplyOutcome outcome = runReply(session, command);
+          JSONObject fields = new JSONObject()
               .put("requiredInput", "")
               .put("suggestedReply", "")
               .put("updatedAt", now());
-          store.updateTask(task);
-          return success(new JSONObject().put("task", task));
+          if (outcome.finished) {
+            fields.put("lastOutput", "回复执行完成：\n" + outcome.output)
+                .put("status", outcome.output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle");
+          } else {
+            fields.put("lastOutput", "回复已送达，远程仍在处理（手机等了 " + (REPLY_WAIT_MS / 1000) + " 秒）。"
+                + "请稍后点刷新查看结果，不要重复发送。" + (outcome.output.isEmpty() ? "" : "\n\n目前的输出：\n" + outcome.output))
+                .put("status", "running");
+          }
+          JSONObject updated = store.patchTask(id, fields);
+          return success(new JSONObject()
+              .put("task", updated == null ? task : updated)
+              .put("stillRunning", !outcome.finished));
         }
 
         String paneId = shellQuote(task.getString("paneId"));
@@ -2241,6 +2344,62 @@ final class PhoneBridge {
     }
   }
 
+  private static final int REPLY_WAIT_MS = 180_000;
+
+  /** The reply command ran to the end and exited non-zero. */
+  private static final class ReplyFailed extends IllegalArgumentException {
+    ReplyFailed(String message) {
+      super(message);
+    }
+  }
+
+  private static final class ReplyOutcome {
+    final boolean finished;
+    final String output;
+
+    ReplyOutcome(boolean finished, String output) {
+      this.finished = finished;
+      this.output = output;
+    }
+  }
+
+  /**
+   * Starts the reply detached from this SSH channel and waits for it. Once it
+   * has started, running out of patience or losing the connection is not a
+   * failure: the agent is still working, and reporting failure would only make
+   * the user send the same reply twice.
+   */
+  private ReplyOutcome runReply(Session session, String command) throws Exception {
+    String log = RemoteReply.requireLogPath(run(session, RemoteReply.start(command), 30_000));
+    long deadline = System.currentTimeMillis() + REPLY_WAIT_MS;
+    String content = "";
+    try {
+      while (true) {
+        content = run(session, RemoteReply.poll(log), 30_000);
+        Integer exit = RemoteReply.exitCode(content);
+        if (exit != null) {
+          try {
+            run(session, RemoteReply.cleanup(log), 15_000);
+          } catch (Exception ignored) {
+            // A leftover log in the remote temp directory is harmless.
+          }
+          String output = RemoteReply.output(content);
+          if (output.length() > MAX_OUTPUT) output = output.substring(output.length() - MAX_OUTPUT);
+          if (exit != 0) throw new ReplyFailed(friendlyRemoteError(output, exit, ""));
+          return new ReplyOutcome(true, output);
+        }
+        if (System.currentTimeMillis() >= deadline) break;
+        Thread.sleep(2_000);
+      }
+    } catch (ReplyFailed finishedWithError) {
+      throw finishedWithError;
+    } catch (Exception waitError) {
+      // Includes run()'s own errors for a dropped SSH session while polling.
+      Log.w("AgentBridgeNative", "stopped waiting for a started reply", waitError);
+    }
+    return new ReplyOutcome(false, RemoteReply.output(content));
+  }
+
   private Session connect(JSONObject machine) throws Exception {
     try {
       String mode = machine.optString("publicMode", "off");
@@ -2252,9 +2411,12 @@ final class PhoneBridge {
       return session;
     } catch (Exception error) {
       String message = String.valueOf(error);
-      if (message.contains("ETIMEDOUT") || message.contains("ENONET")
-          || message.contains("ECONNABORTED") || message.contains("UnknownHostException")) {
-        activity.noteNetworkDeath();
+      // Only ENONET says this process has no usable network. A timeout or an
+      // unknown host is about the remote machine or its name, not the phone.
+      if (message.contains("ENONET")) activity.noteNetworkDeath();
+      if (message.contains("HostKey has been changed")) {
+        throw new IllegalArgumentException("「" + machine.optString("name") + "」的 SSH 主机指纹和上次不一致，已拒绝连接。"
+            + "如果你重装或更换了这台机器，在办公室菜单里点「重置主机指纹」后重试；否则可能有人在冒充它。", error);
       }
       throw error;
     }
@@ -2312,7 +2474,7 @@ final class PhoneBridge {
               : "[" + machine.getString("host") + "]:" + machine.getInt("port"));
       Session target = connectDirect(tunnelTarget);
       synchronized (relayBastionSessions) {
-        relayBastionSessions.put(System.identityHashCode(target), bastion);
+        relayBastionSessions.put(target, bastion);
       }
       return target;
     } catch (Exception error) {
@@ -2334,13 +2496,45 @@ final class PhoneBridge {
     if (session == null) return;
     Session bastion;
     synchronized (relayBastionSessions) {
-      bastion = relayBastionSessions.remove(System.identityHashCode(session));
+      bastion = relayBastionSessions.remove(session);
     }
     try {
       session.disconnect();
     } finally {
       if (bastion != null) bastion.disconnect();
     }
+  }
+
+  /** A machine as the page sees it: never the password or key, only whether one is saved. */
+  private static JSONObject publicMachine(JSONObject machine) throws Exception {
+    JSONObject result = new JSONObject(machine.toString());
+    result.put("hasPassword", !machine.optString("password").isEmpty())
+        .put("hasPrivateKey", !machine.optString("privateKey").isEmpty());
+    result.remove("password");
+    result.remove("privateKey");
+    return result;
+  }
+
+  private static JSONArray publicMachines(JSONArray machines) throws Exception {
+    JSONArray result = new JSONArray();
+    for (int index = 0; index < machines.length(); index += 1) result.put(publicMachine(machines.getJSONObject(index)));
+    return result;
+  }
+
+  private static String keepCredential(String entered, JSONObject existing, String key) {
+    if (!entered.trim().isEmpty() || existing == null) return entered;
+    return existing.optString(key, "");
+  }
+
+  private JSONObject onlineFields(JSONObject probe) throws Exception {
+    return new JSONObject()
+        .put("os", probe.optString("os"))
+        .put("tools", probe.getJSONArray("tools"))
+        .put("tmuxVersion", probe.optString("tmuxVersion"))
+        .put("lastStatus", "online")
+        .put("lastError", "")
+        .put("lastCheckedAt", now())
+        .put("updatedAt", now());
   }
 
   private JSONObject publicFrpServer() throws Exception {
@@ -2375,18 +2569,6 @@ final class PhoneBridge {
     return Base64.encodeToString(value, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
   }
 
-  private int allocateVisitorPort() throws Exception {
-    JSONArray relays = store.frpRelays();
-    Set<Integer> used = new HashSet<>();
-    for (int index = 0; index < relays.length(); index += 1) {
-      used.add(relays.getJSONObject(index).getInt("visitorPort"));
-    }
-    while (true) {
-      int port = 22_000 + secureRandom.nextInt(10_000);
-      if (used.add(port)) return port;
-    }
-  }
-
   private int allocateVisitorPort(Set<Integer> usedPorts) {
     while (true) {
       int port = 22_000 + secureRandom.nextInt(10_000);
@@ -2401,11 +2583,6 @@ final class PhoneBridge {
   private String frpArchiveUrl(JSONObject server, String target) {
     return server.optString("downloadBase") + "/v" + server.optString("version")
         + "/frp_" + server.optString("version") + "_" + target + ".tar.gz";
-  }
-
-  private String frpChecksumUrl(JSONObject server) {
-    return server.optString("downloadBase") + "/v" + server.optString("version")
-        + "/frp_sha256_checksums.txt";
   }
 
   private JSONObject inspectFrps(Session session) throws Exception {
@@ -2539,12 +2716,15 @@ final class PhoneBridge {
     return "set -eu\numask 077\nprintf 'ASB_STAGE=service\\n'\n"
         + "[ \"$(uname -s)\" = Linux ] || { echo 'FRP server supports Linux only' >&2; exit 2; }\n"
         + "if [ \"$(id -u)\" = 0 ]; then SUDO=''; elif sudo -n true 2>/dev/null; then SUDO=sudo; else echo 'Need root or passwordless sudo' >&2; exit 2; fi\n"
-        + "$SUDO mkdir -p /opt/asb-frp/bin /etc/asb-frp\n"
+        + FrpInstallSupport.serviceAccount()
+        + FrpInstallSupport.serviceDirectories()
         + "printf '%s' " + shellQuote(encoded) + " | base64 -d | $SUDO tee /etc/asb-frp/frps.toml >/dev/null\n"
         + "$SUDO chmod 600 /etc/asb-frp/frps.toml\n"
+        + "$SUDO chown asb-frp:asb-frp /etc/asb-frp/frps.toml\n"
         + "$SUDO tee /etc/systemd/system/asb-frps.service >/dev/null <<'UNIT'\n"
         + "[Unit]\nDescription=agentBridge FRP server\nAfter=network-online.target\nWants=network-online.target\n"
-        + "[Service]\nExecStart=/opt/asb-frp/bin/frps -c /etc/asb-frp/frps.toml\nRestart=always\nRestartSec=3\nUser=root\n"
+        + "[Service]\nExecStart=/opt/asb-frp/bin/frps -c /etc/asb-frp/frps.toml\nRestart=always\nRestartSec=3\n"
+        + FrpInstallSupport.serviceHardening()
         + "[Install]\nWantedBy=multi-user.target\nUNIT\n"
         + "$SUDO systemctl daemon-reload\n$SUDO systemctl enable --now asb-frps\n"
         + "$SUDO systemctl restart asb-frps\nsleep 1\nsystemctl is-active --quiet asb-frps\n"
@@ -2561,15 +2741,18 @@ final class PhoneBridge {
         + "work=$(mktemp -d); trap 'rm -rf \"$work\"' EXIT\n"
         + "archive=" + shellQuote(archive) + "\n"
         + "archive=$(printf '%s' \"$archive\" | sed \"s/__ASB_OS_ARCH__/linux_$arch/\")\n"
-        + FrpInstallSupport.download(frpChecksumUrl(server))
+        + FrpInstallSupport.downloadOrRefuse(server.optString("version"))
         + "tar -xzf \"$work/frp.tar.gz\" -C \"$work\"\n"
-        + "$SUDO mkdir -p /opt/asb-frp/bin /etc/asb-frp\n"
+        + FrpInstallSupport.serviceAccount()
+        + FrpInstallSupport.serviceDirectories()
         + "$SUDO install -m 0755 \"$work\"/frp_*/frps /opt/asb-frp/bin/frps\n"
         + "printf '%s' " + shellQuote(encoded) + " | base64 -d | $SUDO tee /etc/asb-frp/frps.toml >/dev/null\n"
         + "$SUDO chmod 600 /etc/asb-frp/frps.toml\n"
+        + "$SUDO chown asb-frp:asb-frp /etc/asb-frp/frps.toml\n"
         + "$SUDO tee /etc/systemd/system/asb-frps.service >/dev/null <<'UNIT'\n"
         + "[Unit]\nDescription=agentBridge FRP server\nAfter=network-online.target\nWants=network-online.target\n"
-        + "[Service]\nExecStart=/opt/asb-frp/bin/frps -c /etc/asb-frp/frps.toml\nRestart=always\nRestartSec=3\nUser=root\n"
+        + "[Service]\nExecStart=/opt/asb-frp/bin/frps -c /etc/asb-frp/frps.toml\nRestart=always\nRestartSec=3\n"
+        + FrpInstallSupport.serviceHardening()
         + "[Install]\nWantedBy=multi-user.target\nUNIT\n"
         + "printf 'ASB_STAGE=service\\n'\n"
         + "$SUDO systemctl daemon-reload\n$SUDO systemctl enable --now asb-frps\n$SUDO systemctl restart asb-frps\n"
@@ -2588,7 +2771,7 @@ final class PhoneBridge {
         + "if [ ! -x \"$HOME/.asb-frp/bin/frpc\" ]; then\n"
         + "archive=" + shellQuote(frpArchiveUrl(server, "__ASB_OS_ARCH__")) + "\n"
         + "archive=$(printf '%s' \"$archive\" | sed \"s/__ASB_OS_ARCH__/$(echo \"$os\" | tr '[:upper:]' '[:lower:]')_$arch/\")\n"
-        + FrpInstallSupport.download(frpChecksumUrl(server))
+        + FrpInstallSupport.downloadOrRefuse(server.optString("version"))
         + "tar -xzf \"$work/frp.tar.gz\" -C \"$work\"\n"
         + "install -m 0755 \"$work\"/frp_*/frpc \"$HOME/.asb-frp/bin/frpc\"\n"
         + "fi\n"
@@ -2614,20 +2797,23 @@ final class PhoneBridge {
         + "[ \"$(uname -s)\" = Linux ] || { echo 'FRP visitor supports Linux only' >&2; exit 2; }\n"
         + "if [ \"$(id -u)\" = 0 ]; then SUDO=''; elif sudo -n true 2>/dev/null; then SUDO=sudo; else echo 'Need root or passwordless sudo' >&2; exit 2; fi\n"
         + "work=$(mktemp -d); trap 'rm -rf \"$work\"' EXIT\n"
-        + "$SUDO mkdir -p /opt/asb-frp/bin /etc/asb-frp\n"
+        + FrpInstallSupport.serviceAccount()
+        + FrpInstallSupport.serviceDirectories()
         + "if [ ! -x /opt/asb-frp/bin/frpc-visitor ]; then\n"
         + "archive=" + shellQuote(frpArchiveUrl(server, "__ASB_OS_ARCH__")) + "\n"
         + "case \"$(uname -m)\" in x86_64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) echo 'Unsupported architecture' >&2; exit 2 ;; esac\n"
         + "archive=$(printf '%s' \"$archive\" | sed \"s/__ASB_OS_ARCH__/linux_$arch/\")\n"
-        + FrpInstallSupport.download(frpChecksumUrl(server))
+        + FrpInstallSupport.downloadOrRefuse(server.optString("version"))
         + "tar -xzf \"$work/frp.tar.gz\" -C \"$work\"\n"
         + "$SUDO install -m 0755 \"$work\"/frp_*/frpc /opt/asb-frp/bin/frpc-visitor\n"
         + "fi\n"
         + "printf '%s' " + shellQuote(encoded) + " | base64 -d | $SUDO tee /etc/asb-frp/" + label + ".toml >/dev/null\n"
         + "$SUDO chmod 600 /etc/asb-frp/" + label + ".toml\n"
+        + "$SUDO chown asb-frp:asb-frp /etc/asb-frp/" + label + ".toml\n"
         + "$SUDO tee /etc/systemd/system/asb-frpc-" + label + ".service >/dev/null <<'UNIT'\n"
         + "[Unit]\nDescription=agentBridge FRP visitor " + name + "\nAfter=network-online.target\nWants=network-online.target\n"
-        + "[Service]\nExecStart=/opt/asb-frp/bin/frpc-visitor -c /etc/asb-frp/" + label + ".toml\nRestart=always\nRestartSec=3\nUser=root\n"
+        + "[Service]\nExecStart=/opt/asb-frp/bin/frpc-visitor -c /etc/asb-frp/" + label + ".toml\nRestart=always\nRestartSec=3\n"
+        + FrpInstallSupport.serviceHardening()
         + "[Install]\nWantedBy=multi-user.target\nUNIT\n"
         + "printf 'ASB_STAGE=service\\n'\n"
         + "$SUDO systemctl daemon-reload\n$SUDO systemctl enable --now asb-frpc-" + label + "\n"
@@ -2897,7 +3083,8 @@ final class PhoneBridge {
       if (entry == null) continue;
       String id = entry.optString("id").toLowerCase();
       String title = entry.optString("thread_name");
-      if (!id.isEmpty() && !title.isEmpty()) titleByThread.put(id, title);
+      // These ids end up in a find expression, so only well-formed UUIDs pass.
+      if (id.matches(CODEX_THREAD_ID) && !title.isEmpty()) titleByThread.put(id, title);
     }
 
     // Detect active threads via lock files
@@ -2906,7 +3093,7 @@ final class PhoneBridge {
     Set<String> activeThreadIds = new HashSet<>();
     for (String value : lockValue.split("\\n")) {
       String threadId = value.trim().toLowerCase();
-      if (threadId.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) activeThreadIds.add(threadId);
+      if (threadId.matches(CODEX_THREAD_ID)) activeThreadIds.add(threadId);
     }
 
     // Include all indexed sessions (not just locked ones), capped to recent 30
@@ -2962,7 +3149,7 @@ final class PhoneBridge {
       if (fields.length < 2) continue;
       String threadId = fields[0].trim();
       String transcriptPath = fields[1].trim();
-      if (!threadId.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) continue;
+      if (!threadId.matches(CODEX_THREAD_ID)) continue;
 
       String metaLine = "";
       String tailText = "";
@@ -3079,10 +3266,21 @@ final class PhoneBridge {
     ChannelExec channel = (ChannelExec) session.openChannel("exec");
     ByteArrayOutputStream stdout = new ByteArrayOutputStream();
     ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+    // A chatty remote command must not grow the error buffer without limit.
+    OutputStream boundedStderr = new OutputStream() {
+      @Override public void write(int value) {
+        if (stderr.size() < MAX_STDERR) stderr.write(value);
+      }
+
+      @Override public void write(byte[] buffer, int offset, int length) {
+        int room = MAX_STDERR - stderr.size();
+        if (room > 0) stderr.write(buffer, offset, Math.min(room, length));
+      }
+    };
     try {
       channel.setCommand("export PATH=\"$HOME/.local/bin:$HOME/.npm-global/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\"\n" + command);
       channel.setInputStream(null);
-      channel.setErrStream(stderr);
+      channel.setErrStream(boundedStderr);
       InputStream output = channel.getInputStream();
       channel.connect(timeoutMillis);
       byte[] buffer = new byte[16_384];
@@ -3149,12 +3347,11 @@ final class PhoneBridge {
 
   private void markOffline(int machineId, Exception error) {
     try {
-      JSONObject machine = store.machine(machineId);
-      machine.put("lastStatus", "offline")
+      store.patchMachine(machineId, new JSONObject()
+          .put("lastStatus", "offline")
           .put("lastError", error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage())
           .put("lastCheckedAt", now())
-          .put("updatedAt", now());
-      store.updateMachine(machine);
+          .put("updatedAt", now()));
     } catch (Exception ignored) {
       // The machine may have been deleted while an operation was in flight.
     }
@@ -3210,6 +3407,61 @@ final class PhoneBridge {
     return result;
   }
 
+  /**
+   * Registers a running operation and returns a snapshot for the page; the
+   * stored object is only ever touched under the operations lock.
+   */
+  private JSONObject registerOperation(int operationId, String phase, String message) throws Exception {
+    return registerOperation(operationId, phase, message, null);
+  }
+
+  private JSONObject registerOperation(int operationId, String phase, String message, JSONObject extra) throws Exception {
+    long now = System.currentTimeMillis();
+    JSONObject operation = new JSONObject()
+        .put("id", operationId)
+        .put("state", "running")
+        .put("phase", phase)
+        .put("message", message)
+        .put("startedAt", now)
+        .put("updatedAt", now);
+    if (extra != null) {
+      Iterator<String> keys = extra.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        operation.put(key, extra.get(key));
+      }
+    }
+    synchronized (operations) {
+      pruneOperations();
+      operations.put(operationId, operation);
+      return new JSONObject(operation.toString());
+    }
+  }
+
+  /** Runs a user-started operation on its own thread, in the foreground while it lasts. */
+  private void startWorker(String name, Runnable body) {
+    TaskForegroundService.acquire(activity);
+    try {
+      new Thread(() -> {
+        try {
+          body.run();
+        } finally {
+          TaskForegroundService.release(activity);
+        }
+      }, name).start();
+    } catch (RuntimeException error) {
+      TaskForegroundService.release(activity);
+      throw error;
+    }
+  }
+
+  private void markOperation(int id, String key, Object value) throws Exception {
+    synchronized (operations) {
+      JSONObject operation = operations.get(id);
+      if (operation != null) operation.put(key, value);
+    }
+  }
+
   private JSONObject operationById(int id) throws Exception {
     synchronized (operations) {
       JSONObject operation = operations.get(id);
@@ -3238,8 +3490,15 @@ final class PhoneBridge {
   }
 
   private void pruneOperations() {
+    // Finished operations the page never cleared go first, oldest first. A
+    // running one is dropped only if far too many pile up, since the page is
+    // still polling it.
     Iterator<Map.Entry<Integer, JSONObject>> iterator = operations.entrySet().iterator();
-    while (iterator.hasNext() && operations.size() >= 20) {
+    while (operations.size() >= 20 && iterator.hasNext()) {
+      if (!"running".equals(iterator.next().getValue().optString("state"))) iterator.remove();
+    }
+    iterator = operations.entrySet().iterator();
+    while (operations.size() >= 100 && iterator.hasNext()) {
       iterator.next();
       iterator.remove();
     }

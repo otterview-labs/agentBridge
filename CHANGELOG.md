@@ -2,7 +2,97 @@
 
 Notable changes to agentBridge are documented here.
 
-## Unreleased
+## Android 0.5.39 — 2026-10-01
+
+### Office UI and butler chat/call fixes
+
+- Cream and forest-green office surfaces retain the pixel employee identity;
+  butler conversations are prominent and planning sections are collapsible.
+- Model configuration and a successful connection check have separate states.
+  Checks run in the background, and chat failures keep the message and retry.
+- A separate encrypted Beijing DashScope speech key can be used alongside any
+  text model. Voice settings show recognition, playback and permission status.
+- Silent ASR completions no longer leave the UI stuck listening. Recording
+  flushes before another turn, and cancellation suppresses late transcripts.
+- Explicit tool incompatibilities fall back to text chat; pasted completion
+  URLs normalize correctly, and HTTP failures explain the next action.
+
+### Security and reliability fixes from the code review
+
+Security
+
+- Credential saves now fail explicitly when encryption is unavailable; there
+  is no plaintext fallback, and failed writes do not update the read cache.
+- SSH passwords, private keys, the model API key and FRP secrets are encrypted
+  with an Android Keystore key; plain values from older versions are encrypted
+  on first read. A transient Keystore failure shows an error instead of an
+  empty list, so nothing is overwritten. Cloud backup and device transfer are
+  disabled.
+- The WebView no longer receives stored credentials. Edit forms show
+  "已保存" and an empty field keeps the saved value. `phone.html` has a
+  Content-Security-Policy.
+- Plain HTTP is limited to a model on `localhost` and DashScope audio links,
+  which are fetched over HTTPS.
+- FRP archives are verified against SHA-256 values pinned in the app (0.61.1,
+  0.71.0) instead of a checksum file from the same mirror. An unpinned version
+  saved earlier keeps working where FRP is installed but is not downloaded. The
+  download base must be an HTTPS URL (prefix mirrors are accepted).
+- `frps` and the visitors on the public entry run as an unprivileged
+  `asb-frp` account with systemd hardening; the managed `frps` only allows its
+  own bind port.
+- Codex thread ids from the session index are validated before they reach a
+  shell command.
+- A changed SSH host key now explains itself and offers an explicit reset;
+  deleting a machine forgets its host key.
+
+Reliability
+
+- Android 7 compatibility is restored with Java API desugaring, a compatible
+  recorder file overload, and audio usage fallbacks. CI now also runs Android lint.
+- Speech recognition and TTS services have package-visibility declarations,
+  and call audio routing declares the required audio-settings permission.
+- Cloud speech synthesis runs off the WebView thread. Hanging up cancels
+  pending synthesis and suppresses late replies, including across a new call.
+- Detached replies read a bounded log tail and a separate atomic exit status,
+  so large logs retain completion and failure information.
+- The "network self-heal" no longer kills the app. SSH sockets restore the
+  process network binding to exactly what it was (previously the app could stay
+  pinned to a VPN), hold it only during connect, and always use the 12-second
+  connect timeout. Only ENONET counts as a lost network.
+- Slow bridge calls (connection tests, discovery, LAN scan, FRP deployment)
+  run on native worker threads; the page no longer freezes.
+- Process-session replies run detached on the remote machine and are polled.
+  A reply still running after three minutes is reported as delivered, not
+  failed, so it is not sent twice. Replies starting with `-` are passed after
+  `--` and no longer read as CLI flags.
+- Long operations update machines and tasks field by field, so edits made in
+  the meantime are kept. Concurrent butler messages are no longer dropped.
+  Finished operations are pruned before running ones.
+- The foreground service is actually started now, held for as long as any
+  operation runs, and stops cleanly at the Android 15 time limit. Its fake
+  two-minute polling was removed.
+- Streaming ASR follows the DashScope protocol (it previously read the sentence
+  object as a string and never produced a final result), checks the microphone
+  permission first, releases the microphone on every exit path, and uses the
+  echo-cancelling voice-communication source. TTS stops live capture first.
+- Call mode ends when the microphone permission is denied, backs off and then
+  mutes after repeated recognizer errors, and no longer overwrites the saved
+  press-to-talk preferences.
+- The butler's tools read the right fields (`list_tasks` returned nothing and
+  `get_task_output` was always empty), the last tool round must answer in text,
+  and tool errors are valid JSON.
+
+Project
+
+- CI builds the APK and runs the UI, FRP installer and new reply-script tests;
+  CodeQL also scans Java; Dependabot covers Gradle and the test packages.
+- Test dependencies are declared in `android/tests/package.json`.
+- Removed dead code (`ButlerManager`, the one-line operation runnables, the
+  unused version catalog), the Studio test for a page no longer in the
+  repository, and the Pages workflow for the private `site/` directory.
+  Backend design notes moved to `docs/archive/`.
+- The Gradle wrapper download is checked against its SHA-256.
+
 
 ### Added
 
