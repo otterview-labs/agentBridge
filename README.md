@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/screenshots/icon.png" width="72" alt="办公小镇像素员工">
+<img src="docs/screenshots/icon.png" width="72" alt="agentBridge 双拱桥标记">
 
 # agentBridge · 办公小镇
 
@@ -18,7 +18,7 @@
 
 | 像素办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/office-0.5.42.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.42.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.42.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
+| <img src="docs/screenshots/office-0.5.43.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.43.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.43.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
 
 <sub>截图使用样例记录。</sub>
 

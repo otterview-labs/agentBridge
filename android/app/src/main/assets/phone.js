@@ -126,7 +126,6 @@
   try { AgentBridge.setTtsEnginePreference(state.voicePreferCloud); } catch (error) {
     // Older native builds always prefer the local engine.
   }
-  $('brandMascot').append(employeeSprite('pi', 1));
   document.querySelectorAll('[data-plan-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       state.butlerPlanMode = button.dataset.planMode === 'records' ? 'records' : 'ai';

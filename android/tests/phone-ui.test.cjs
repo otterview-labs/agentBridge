@@ -26,7 +26,8 @@ async function openPhone(t, options = {}) {
   await page.route('http://phone.test/**', route => {
     const name = new URL(route.request().url()).pathname.slice(1) || 'phone.html';
     const contentType = name.endsWith('.css') ? 'text/css'
-      : name.endsWith('.js') ? 'application/javascript' : 'text/html';
+      : name.endsWith('.js') ? 'application/javascript'
+      : name.endsWith('.svg') ? 'image/svg+xml' : 'text/html';
     return route.fulfill({ body: fs.readFileSync(path.join(assets, name)), contentType });
   });
   await page.addInitScript(options => {
