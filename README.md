@@ -4,73 +4,90 @@
 
 # agentBridge · 办公小镇
 
-**看看你的 AI 同事在忙什么。**
+### Codex 和 Claude Code 的安卓遥控器
 
-Codex、Claude 的任务会出现在手机上的小办公室里。<br>
-打开 App，刷新一下，看看谁在工作、谁等你回复。<br>
-点开员工卡片，就能读输出，把消息发回电脑上的原会话。
+电脑上跑任务，手机上接着聊。<br>
+每台电脑一间办公室，每个任务一位像素员工。
 
-[下载安卓版](https://otterview-labs.github.io/agentBridge/) · [直接下载 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk) · [使用文档](docs/android-app.md)
+[![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
+[![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/)
+[![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
-Android 7.0+ · 安装包约 1.5 MB · 开源
+**[下载安卓版](https://otterview-labs.github.io/agentBridge/)** · [直接下载 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk) · [快速开始](#快速开始) · [使用文档](docs/android-app.md)
 
-</div>
-
-想问任务进展，可以找管家聊聊；配好语音后，也能直接给它打电话。任务仍在你的电脑上运行，电脑需要保持开机并能通过 SSH 连接。
-
-## 手机上是什么样
-
-<div align="center">
-
-| 办公室 | 管家聊天 | 语音通话 |
+| 像素办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
-| 看任务进展，打开员工回消息 | 查任务、读输出、讨论下一步 | 用声音和管家聊 |
-| <img src="docs/screenshots/office-0.5.42.png" width="240" alt="办公室：像素员工、任务卡片与待输入状态"> | <img src="docs/screenshots/butler-0.5.42.png" width="240" alt="管家聊天：模型连接状态、对话记录与输入框"> | <img src="docs/screenshots/call-0.5.42.png" width="240" alt="管家通话：聆听状态、麦克风、扬声器和挂断按钮"> |
+| <img src="docs/screenshots/office-0.5.42.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.42.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.42.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
+
+<sub>截图使用样例记录。</sub>
 
 </div>
 
-截图使用样例记录。任务状态在刷新后更新；连接和通话效果需在自己的手机上测试。
+## 离开电脑，继续手上的任务
 
-## 能做什么
+Codex 在改代码，Claude 在查问题，你要出门了。用 agentBridge 打开电脑上的会话，读它刚才的输出、补充要求，或者回答它的问题。消息回到原会话，任务继续在你的电脑上执行。
 
-- **打开小办公室，看看进展。** 每台电脑是一间办公室，每个任务是一位像素员工。刷新后看看状态，点开卡片读输出，有需要回复的地方就发回原来的会话。多台电脑的任务可以一起看。
-- **找管家聊聊任务。** 配上自己的模型，可以问「这个任务做到哪了？」或「哪些任务等我回复？」。不知道怎么回，就点「帮我写回复」，选一条改好再发送。管家能查记录，不会替你给员工发指令。
-- **给管家打个电话。** 配好语音后，可以直接开口问任务进展。先测试麦克风识别和声音播报，再点「拨给管家」。
-- **连自己的电脑。** 支持 Mac 和 Linux，电脑上不用装 agentBridge，有 SSH 和现成的会话就行。局域网可以直接连接；在外面用，需要能访问电脑的 SSH 地址，或配置自己的 FRP 入口。
+- **接着原会话聊。** 读取 Codex、Claude Code 的输出和对话记录，在手机上发送消息。
+- **把任务放进像素办公室。** 正在工作、空闲、等你输入，都有对应的员工状态。需要回复的任务排在前面，点开卡片就能处理。
+- **几台电脑，一起看。** Mac、Linux 各有自己的办公室，任务集中在同一个 App 里。
+- **手机直连电脑。** 通过 SSH 连接现有会话，电脑端无需安装 agentBridge 或部署配套服务。
 
-状态要点刷新才会更新。发消息、找任务这些操作开始后，锁屏也会继续，结束时会通知你。
+任务状态在点击刷新后更新；离线电脑显示的是历史记录。
 
-## 怎么开始
+## 找管家聊任务
 
-1. **[下载 APK](https://otterview-labs.github.io/agentBridge/)，安装到安卓手机。** 需要 Android 7.0 或更高版本。旧正式版可以覆盖更新。
-2. **连上电脑。** 电脑保持开机、能通过 SSH 连接，并已有 Codex 或 Claude 会话。在 App 中用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。
-3. **点「找任务」，打开员工卡片。** 先看看输出，再发一条消息。之后点击刷新，查看最新状态。
+想先了解进展，可以直接问管家：
 
-管家支持 OpenAI 兼容的模型接口。在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后验证连接，再试一条文字消息。语音需要另外测试麦克风和播报；系统语音不可用时，可配置百炼北京地域的云端语音服务。
+> 哪些任务需要我回复？<br>
+> 这个任务最近做了什么？
 
-公网访问需要可用的公网服务器或已有 FRP 入口。安装、语音和远程连接的具体配置见 [Android 使用文档](docs/android-app.md)。
+管家可以刷新任务、检查电脑连接、读取输出，再根据查到的内容回答。模型由你选择，支持 OpenAI 兼容接口。
 
-## 支持哪些工具
+不知道怎么回员工时，点卡片里的「帮我写回复」，让模型根据该任务的记录写几条草稿。选一条，改好后发送。管家负责查记录和讨论，给员工的指令由你在卡片里发出。
+
+也可以用语音聊：按住说话，或打开「拨给管家」，通过 App 内的语音通话询问进展。使用前需要配置模型，并测试语音识别和播报。
+
+## 快速开始
+
+**需要：** Android 7.0+ 手机，以及一台能通过 SSH 连接、已有 Codex 或 Claude Code 会话的 Mac / Linux 电脑。
+
+1. **[下载并安装 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)。** 安装包约 1.5 MB，旧正式版可覆盖更新。
+2. **添加电脑。** 在 App 中点「发现机器」扫描局域网，或填写 SSH 地址、账号和密码／私钥。
+3. **点「找任务」。** 打开员工卡片查看输出，发送消息后刷新进展。
+
+电脑需要保持开机。局域网内可以直接连接；在外使用需要可访问的 SSH 地址，也可以配置自己的 FRP 入口。连接配置见 [使用文档](docs/android-app.md#add-a-machine)。
+
+<details>
+<summary><strong>配置管家聊天和语音</strong></summary>
+
+在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点「验证连接」，再发一条文字消息。
+
+文字聊天成功后，单独测试麦克风识别和声音播报，再打开「拨给管家」。系统语音服务不可用时，可配置百炼北京地域的云端语音服务。具体配置见 [使用文档](docs/android-app.md)。
+
+</details>
+
+## 支持范围
 
 | 工具 | 当前支持 |
 | --- | --- |
-| Codex CLI | 发现会话、读取输出、发送消息、查看对话记录 |
+| Codex CLI / Codex Desktop 会话 | 发现会话、读取输出、发送消息、查看对话记录 |
 | Claude Code | 发现会话、读取输出、发送消息、查看对话记录 |
 | Gemini CLI | 基础进程发现 |
 
-目前只有安卓版，界面和语音以中文为主。
+目前提供安卓版，界面和语音以中文为主。发送消息、查找任务等操作在开始后可继续在锁屏下执行，完成或失败时通知你。
 
 ## 数据与隐私
 
-配置、对话和记录保存在手机应用私有存储。SSH 密码、私钥、模型密钥等凭据使用 Android Keystore 加密，并从备份中排除；连接会核对已保存的 SSH 主机密钥。
+任务在你连接的电脑上执行。App 的配置、对话和记录保存在手机应用私有存储；SSH 密码、私钥、模型密钥等凭据使用 Android Keystore 加密，并从备份中排除。SSH 连接会核对已保存的主机密钥。
 
-启用管家后，必要的任务信息和对话会发送到你配置的模型服务。使用百炼云端语音时，录音或播报文字会发送到百炼。详情见 [安全说明](SECURITY.md)。
+使用管家时，必要的任务信息和对话会发送到你选择的模型服务；启用百炼云端语音时，录音或播报文字会发送到百炼。详情见 [安全说明](SECURITY.md)。
 
-## 从源码运行
+## 开发与贡献
 
-技术栈：Java · Android WebView · JSch / SSH · WebSocket · Android Service。
+Java · Android WebView · JSch / SSH · WebSocket · Android Service。
 
-需要 JDK 17、Android SDK 35 和 Build Tools 35.0.0。
+需要 JDK 17、Android SDK 35、Build Tools 35.0.0；运行测试还需要 Node.js 20+。
 
 ```bash
 git clone https://github.com/otterview-labs/agentBridge.git
@@ -78,19 +95,21 @@ cd agentBridge/android
 ./gradlew assembleDebug lintDebug
 ```
 
-调试安装包位于 `android/app/build/outputs/apk/debug/app-debug.apk`，与正式版使用不同的应用 ID，可同时安装。
+调试安装包：`android/app/build/outputs/apk/debug/app-debug.apk`。调试版与正式版使用不同的应用 ID，可同时安装。
 
-运行测试需要 Node.js 20+ 和 JDK：
+在 `android` 目录下运行测试：
 
 ```bash
-cd android/tests
+cd tests
 npm ci
 npx playwright install chromium
 npm test
 ```
 
-遇到问题可以提 Issue，想改代码请先看 [CONTRIBUTING.md](CONTRIBUTING.md)。项目使用 [Apache-2.0](LICENSE) 许可证。
+反馈问题或提出功能建议：[提交 Issue](https://github.com/otterview-labs/agentBridge/issues)。参与开发请阅读 [贡献指南](CONTRIBUTING.md)。
+
+[Apache-2.0](LICENSE) 许可证。
 
 ---
 
-**Manage Codex and Claude Code sessions from your Android phone.** Connect to your own Mac or Linux machine over SSH, read task output, and send messages to existing sessions. Each machine becomes a pixel-art office, and each task an employee. An optional AI butler uses your model provider to discuss tasks and draft replies; you review and send them. The app currently focuses on Chinese UI and speech.
+**An Android remote for Codex and Claude Code, with a pixel-art office.** Connect to your own Mac or Linux machine over SSH, read output, and reply to existing sessions. Machines become offices; tasks become employees. An optional AI butler can look up task information, discuss progress, and draft replies using your model provider. Voice chat requires separate speech setup. The app currently focuses on Chinese UI and speech.
