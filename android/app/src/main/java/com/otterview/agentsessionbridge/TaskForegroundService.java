@@ -56,7 +56,7 @@ public class TaskForegroundService extends Service {
   private void ensureChannel() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       NotificationChannel channel = new NotificationChannel(
-          CHANNEL_ID, "Agent Bridge 后台任务", NotificationManager.IMPORTANCE_LOW);
+          CHANNEL_ID, UiText.text("Agent Bridge 后台任务"), NotificationManager.IMPORTANCE_LOW);
       getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
   }
@@ -74,8 +74,8 @@ public class TaskForegroundService extends Service {
         : new Notification.Builder(this);
     Notification notification = builder
         .setSmallIcon(android.R.drawable.ic_dialog_info)
-        .setContentTitle("Agent Bridge 后台任务")
-        .setContentText("正在执行远程任务")
+        .setContentTitle(UiText.text("Agent Bridge 后台任务"))
+        .setContentText(UiText.text("正在执行远程任务"))
         .setOngoing(true)
         .build();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

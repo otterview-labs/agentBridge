@@ -25,8 +25,23 @@ android {
     applicationId 'com.otterview.agentsessionbridge'
     minSdkVersion 24
     targetSdkVersion 35
-    versionCode 59
-    versionName '0.5.43'
+    versionCode 60
+    versionName '0.5.44'
+  }
+  buildFeatures { buildConfig true }
+  flavorDimensions 'language'
+  productFlavors {
+    zh {
+      dimension 'language'
+      buildConfigField 'String', 'APP_LANGUAGE', '"zh-CN"'
+      resValue 'string', 'app_name', '办公小镇'
+    }
+    en {
+      dimension 'language'
+      applicationIdSuffix '.en'
+      buildConfigField 'String', 'APP_LANGUAGE', '"en"'
+      resValue 'string', 'app_name', 'Office Town'
+    }
   }
   if (hasReleaseSigning) {
     signingConfigs {

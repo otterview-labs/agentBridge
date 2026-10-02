@@ -6,7 +6,7 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.43
+versionName: 0.5.44
 versionCode: 59
 minSdk: 24
 targetSdk: 35
@@ -16,7 +16,8 @@ package: com.otterview.agentsessionbridge.debug
 Artifact:
 
 ```text
-android/app/build/outputs/apk/debug/app-debug.apk
+android/app/build/outputs/apk/zh/debug/app-zh-debug.apk (Chinese)
+android/app/build/outputs/apk/en/debug/app-en-debug.apk (English)
 ```
 
 ## What runs on the phone
@@ -119,7 +120,7 @@ android/app/build/outputs/apk/debug/app-debug.apk
 - The office uses cream surfaces, forest-green accents and pixel employees.
   Butler chat appears before collapsible confirmation and planning sections.
 - Butler chat uses a fixed bottom composer, quick prompts, immediate local
-  message echo, a typing indicator, and optional Chinese speech playback.
+  message echo, a typing indicator, and optional speech playback in the edition’s language.
 - The butler model is called directly from Android using an OpenAI-compatible
   `/chat/completions` endpoint. There is no Hub address, Hub token, device
   upload, or desktop Hub round trip.
@@ -247,7 +248,7 @@ DashScope (阿里云百炼) Beijing-region API key to enable streaming recogniti
 (`paraformer-realtime-v2`), fallback cloud recognition (`qwen3-asr-flash`) and
 cloud speech (`qwen3-tts-flash`). The text model can use another provider. With
 no separate voice key, a Beijing DashScope text-model key is reused; with no
-cloud key, the phone needs working native recognition and Chinese TTS engines.
+cloud key, the phone needs working native recognition and TTS engines supporting the edition’s language.
 Cloud recognition sends microphone audio to DashScope, and cloud TTS sends
 reply text. Other regions' keys are not interchangeable with Beijing keys.
 
@@ -269,7 +270,7 @@ repository.
 
 Pushing a tag matching `android-v*` makes
 `.github/workflows/android-release.yml` build, sign, verify, and publish the
-APK as `agentbridge.apk`. `workflow_dispatch` builds an existing tag again.
+APKs as `agentbridge-zh.apk` and `agentbridge-en.apk`; `agentbridge.apk` remains a Chinese compatibility alias. `workflow_dispatch` builds an existing tag again.
 The same tag is what makes `/releases/latest` resolve to this release, so do
 not publish a newer non-Android release without checking the download page.
 
@@ -335,3 +336,14 @@ npm test
 - All machines behind one FRP entry share its auth token (an frp limitation).
 - Public relay functionality is implemented, but UI-only tests do not verify
   live SSH or FRP connectivity.
+
+
+## Chinese and English editions
+
+The Chinese edition keeps the existing `com.otterview.agentsessionbridge` application ID, signing key and upgrade path. The English edition uses `com.otterview.agentsessionbridge.en` and is named Office Town. Both can be installed together; settings, keys and records are separate for each app.
+
+UI controls, native progress/error messages and model-generated butler replies and draft suggestions use the edition’s language. System speech recognition and playback use zh-CN or en-US; cloud ASR and TTS also receive the selected language. Original task names, session output, human messages and saved history are not translated.
+
+Download [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) or [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk).
+
+The product has two aims: collect scattered AI work and records in one place, and eventually let agents manage routine tasks within user-defined boundaries. The current butler queries tasks and discusses progress. Autonomous task dispatch is not implemented in this release.

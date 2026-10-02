@@ -92,26 +92,32 @@ jobs:
         # holding SSH credentials. Both are quiet failures, so check for them.
         run: |
           set -euo pipefail
-          apk=android/app/build/outputs/apk/release/app-release.apk
-          test -f "$apk" || { echo "::error::expected $apk to exist"; exit 1; }
-          # The version the build pinned, not simply the newest on the image:
-          # inspecting an APK with different tooling than produced it is how you
-          # get a verification result nobody can reproduce.
           build_tools="$ANDROID_HOME/build-tools/35.0.0"
-          "$build_tools/apksigner" verify --print-certs -v "$apk"
-          badging=$("$build_tools/aapt2" dump badging "$apk")
-          echo "$badging" | head -5
-          if grep -q 'application-debuggable' <<<"$badging"; then
-            echo "::error::the release APK is debuggable"
-            exit 1
-          fi
+          for language in zh en; do
+            apk="android/app/build/outputs/apk/$language/release/app-$language-release.apk"
+            test -f "$apk" || { echo "::error::expected $apk to exist"; exit 1; }
+            "$build_tools/apksigner" verify --print-certs -v "$apk"
+            badging=$("$build_tools/aapt2" dump badging "$apk")
+            echo "$badging" | head -5
+            expected_id=com.otterview.agentsessionbridge
+            expected_language=zh-CN
+            if [ "$language" = en ]; then expected_id="$expected_id.en"; expected_language=en; fi
+            grep -Fq "package: name='$expected_id'" <<<"$badging"
+            if grep -q 'application-debuggable' <<<"$badging"; then
+              echo "::error::the release APK is debuggable"
+              exit 1
+            fi
+            unzip -p "$apk" assets/language.js | grep -Fq "'$expected_language'"
+          done
 
-      - name: Stage the release asset
+      - name: Stage both language editions and the Chinese compatibility alias
         run: |
           set -euo pipefail
-          cp android/app/build/outputs/apk/release/app-release.apk agentbridge.apk
-          ls -l agentbridge.apk
-          sha256sum agentbridge.apk
+          cp android/app/build/outputs/apk/zh/release/app-zh-release.apk agentbridge-zh.apk
+          cp android/app/build/outputs/apk/en/release/app-en-release.apk agentbridge-en.apk
+          cp agentbridge-zh.apk agentbridge.apk
+          ls -l agentbridge*.apk
+          sha256sum agentbridge*.apk
 
       - name: Publish the release
         env:
@@ -119,9 +125,9 @@ jobs:
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" agentbridge.apk --clobber
+            gh release upload "$TAG" agentbridge.apk agentbridge-zh.apk agentbridge-en.apk --clobber
           else
-            gh release create "$TAG" agentbridge.apk \
+            gh release create "$TAG" agentbridge.apk agentbridge-zh.apk agentbridge-en.apk \
               --title "agentBridge ${TAG#android-v}" \
               --generate-notes
           fi

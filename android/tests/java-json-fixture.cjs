@@ -26,7 +26,7 @@ static class JSONArray{
 }
 static void check(boolean v){if(!v)throw new AssertionError();}
 `;
-function harness(t,name,body){const root=fs.mkdtempSync(path.join(os.tmpdir(),'asb-butler-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const file=path.join(root,name+'.java');fs.writeFileSync(file,`import java.util.*;public class ${name}{${json}${body}}`);const bin=n=>javaHome?path.join(javaHome,'bin',n):n;execFileSync(bin('javac'),['-d',root,file]);assert.equal(execFileSync(bin('java'),['-cp',root,name],{encoding:'utf8',timeout:10000}).trim(),'ok');}
+function harness(t,name,body){const root=fs.mkdtempSync(path.join(os.tmpdir(),'asb-butler-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const file=path.join(root,name+'.java');fs.writeFileSync(file,`import java.util.*;public class ${name}{${json}${body}}\n${fs.readFileSync(path.join(source,'UiText.java'),'utf8').replace(/^package .*;\n/m,'')}`);const bin=n=>javaHome?path.join(javaHome,'bin',n):n;execFileSync(bin('javac'),['-d',root,file]);assert.equal(execFileSync(bin('java'),['-cp',root,name],{encoding:'utf8',timeout:10000}).trim(),'ok');}
 
 
 module.exports={source,methods,harness};

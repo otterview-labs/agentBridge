@@ -4,9 +4,9 @@
 
 # agentBridge · 办公小镇
 
-### Codex 和 Claude Code 的安卓遥控器
+### 把分散的 AI 工作，放在一起。
 
-电脑上跑任务，手机上接着聊。<br>
+Codex、Claude 开了好几个会话，做过什么、还差什么，在手机上一处看。<br>
 每台电脑一间办公室，每个任务一位像素员工。
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
@@ -14,15 +14,25 @@
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
-**[下载安卓版](https://otterview-labs.github.io/agentBridge/)** · [直接下载 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk) · [快速开始](#快速开始) · [使用文档](docs/android-app.md)
+**[中文下载页](https://otterview-labs.github.io/agentBridge/)** · [English](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [快速开始](#快速开始) · [使用文档](docs/android-app.md)
 
 | 像素办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
-| <img src="docs/screenshots/office-0.5.43.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.43.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.43.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
+| <img src="docs/screenshots/office-0.5.44.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.44.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.44.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
 
 <sub>截图使用样例记录。</sub>
 
 </div>
+
+## 为什么做办公小镇
+
+用的 AI 工具多了，任务和记录也散开了。Codex 在这台电脑改代码，Claude 在另一台电脑查问题。过几天回头看，常常想不起做过什么，也不知道哪件事还在等自己。
+
+办公小镇先把这些工作放到一起：看每个会话的进展，翻以前的记录，接着原来的任务聊。现在支持 Codex 和 Claude Code；其他工具会逐步接进来。
+
+还有一个想法：有些事 AI 本来就能自己解决，不应该每一步都等人盯着。我们希望它能自己安排、推进这些日常任务，遇到需要你决定的事再来找你。
+
+**现在能用：** 集中查看会话和记录、回复员工、让管家查进展和写回复草稿。**接下来要做：** 在你设定的范围内，让 AI 自己管理和处理任务。当前管家只能查询和讨论，实际指令仍由你从员工卡片发出。
 
 ## 离开电脑，继续手上的任务
 
@@ -75,7 +85,7 @@ Codex 在改代码，Claude 在查问题，你要出门了。用 agentBridge 打
 | Claude Code | 发现会话、读取输出、发送消息、查看对话记录 |
 | Gemini CLI | 基础进程发现 |
 
-目前提供安卓版，界面和语音以中文为主。发送消息、查找任务等操作在开始后可继续在锁屏下执行，完成或失败时通知你。
+目前提供中文「办公小镇」和英文「Office Town」两款安卓版，可以同时安装。中文版沿用原应用 ID，可覆盖旧正式版；两款 App 的配置和记录各自保存。发送消息、查找任务等操作在开始后可继续在锁屏下执行，完成或失败时通知你。
 
 ## 数据与隐私
 
@@ -95,7 +105,7 @@ cd agentBridge/android
 ./gradlew assembleDebug lintDebug
 ```
 
-调试安装包：`android/app/build/outputs/apk/debug/app-debug.apk`。调试版与正式版使用不同的应用 ID，可同时安装。
+调试安装包：`android/app/build/outputs/apk/zh/debug/app-zh-debug.apk` 和 `android/app/build/outputs/apk/en/debug/app-en-debug.apk`。调试版与正式版使用不同的应用 ID，可同时安装。
 
 在 `android` 目录下运行测试：
 
@@ -112,4 +122,4 @@ npm test
 
 ---
 
-**An Android remote for Codex and Claude Code, with a pixel-art office.** Connect to your own Mac or Linux machine over SSH, read output, and reply to existing sessions. Machines become offices; tasks become employees. An optional AI butler can look up task information, discuss progress, and draft replies using your model provider. Voice chat requires separate speech setup. The app currently focuses on Chinese UI and speech.
+**An Android remote for Codex and Claude Code, with a pixel-art office.** Connect to your own Mac or Linux machine over SSH, read output, and reply to existing sessions. Machines become offices; tasks become employees. An optional AI butler can look up task information, discuss progress, and draft replies using your model provider. Voice chat requires separate speech setup. Chinese and English APKs are available and can be installed side by side. The purpose is to bring scattered AI sessions and work records into one place, then gradually let agents handle routine tasks within boundaries you set. Autonomous task management is a planned next step; the current butler only queries and discusses tasks.

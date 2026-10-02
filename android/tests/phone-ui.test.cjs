@@ -28,7 +28,9 @@ async function openPhone(t, options = {}) {
     const contentType = name.endsWith('.css') ? 'text/css'
       : name.endsWith('.js') ? 'application/javascript'
       : name.endsWith('.svg') ? 'image/svg+xml' : 'text/html';
-    return route.fulfill({ body: fs.readFileSync(path.join(assets, name)), contentType });
+    const file = name === 'language.js' && options.language === 'en'
+      ? path.resolve(assets, '../../en/assets/language.js') : path.join(assets, name);
+    return route.fulfill({ body: fs.readFileSync(file), contentType });
   });
   await page.addInitScript(options => {
     const checkedAt = '2026-09-20T03:00:00Z';
@@ -53,6 +55,15 @@ async function openPhone(t, options = {}) {
       ],
       deletedTasks: []
     };
+    if (options.englishSamples) {
+      data.machines[0].name = 'Mac Pro · Development';
+      data.machines[1].name = 'Linux · Testing';
+      Object.assign(data.tasks[0], { title: 'Fix mobile task status',
+        workSummary: 'Checking status mapping and mobile regression tests', lastOutput: 'Running unit tests' });
+      Object.assign(data.tasks[1], { title: 'Review deployment settings',
+        requiredInput: 'May I run the deployment script?', workSummary: 'Checks finished. Waiting for your decision.' });
+      data.tasks[2].workSummary = 'Last record: session idle';
+    }
     if (options.empty) { data.machines = []; data.tasks = []; }
     if (options.frpStatus) {
       data.frpServer = { machineId: 2, publicAddress: 'public.example.test',
@@ -322,6 +333,32 @@ async function expectToast(page, text) {
   await page.waitForFunction(expected =>
     document.getElementById('toast').textContent === expected, text);
 }
+
+test('English app localizes controls while preserving session text and human drafts', async t => {
+  const page = await openPhone(t, { language: 'en', modelReady: true, modelVerified: true });
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+  assert.equal(await page.locator('h1').textContent(), 'Office Town');
+  for (const width of [320, 363, 390, 430]) {
+    await page.setViewportSize({ width, height: 800 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
+  }
+  assert.equal(await page.locator('[data-view="butler"]').textContent(), 'Butler');
+  assert.match(await page.locator('[data-task-id="1"]').textContent(), /修复手机版任务状态显示/);
+  await page.locator('[data-task-id="1"]').click();
+  assert.doesNotMatch(await page.locator('#sendTask').textContent(), /[\u4e00-\u9fff]/);
+  const draft = '保留这条中文回复 / Keep this exact text.';
+  await page.locator('#replyText').fill(draft);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('#replyText').inputValue(), draft);
+  await page.keyboard.press('Escape');
+  await page.locator('[data-view="butler"]').click();
+  assert.doesNotMatch(await page.locator('#piInput').getAttribute('placeholder'), /[\u4e00-\u9fff]/);
+  await page.locator('#startCall').click();
+  await page.locator('#callBackdrop').waitFor();
+  assert.doesNotMatch(await page.locator('#callBackdrop').textContent(), /[\u4e00-\u9fff]/);
+  await page.locator('#callEnd').click();
+});
 
 test('compact office controls, responsive layout and navigation', async t => {
   const page = await openPhone(t);
