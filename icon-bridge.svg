@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="agentBridge 双拱桥标记">
+  <rect id="background" width="108" height="108" rx="25" fill="#173F35"/>
+  <g id="mark" transform="translate(54 54) scale(1.25) translate(-54 -54)">
+    <path fill="#F6F2E8" d="M28 72V49C28 39 34 34 43 34C52 34 58 39 58 49V72H49V49C49 45 47 43 43 43C39 43 37 45 37 49V72Z"/>
+    <path fill="#F6F2E8" d="M50 72V59C50 49 56 44 65 44C74 44 80 49 80 59V72H71V59C71 55 69 53 65 53C61 53 59 55 59 59V72Z"/>
+    <path fill="#E89F67" d="M78.5 35A3.5 3.5 0 1 1 71.5 35A3.5 3.5 0 1 1 78.5 35Z"/>
+  </g>
+</svg>
