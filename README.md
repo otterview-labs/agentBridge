@@ -1,239 +1,100 @@
 <div align="center">
 
-<img src="docs/screenshots/icon.png" width="100" alt="agentBridge" style="border-radius: 20px;">
+<img src="docs/screenshots/icon.png" width="72" alt="办公小镇像素员工">
 
-# agentBridge
+# agentBridge · 办公小镇
 
-**Manage your AI coding agents from your phone.**
+**电脑上的任务，手机上继续。**
 
-Each machine becomes a pixel-art office. Each AI task becomes a cute employee.<br>
-See who's working, who's waiting for you, and what to do next — at a glance.
+离开电脑后，看看 Codex、Claude 做到哪了，给它们回一句消息。<br>
+每台机器是一间办公室，每个任务是一位像素员工。
 
-[![Download](https://img.shields.io/badge/Download-APK-blue?logo=android&logoColor=white&style=for-the-badge)](https://otterview-labs.github.io/agentBridge/)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=for-the-badge)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/otterview-labs/agentBridge/ci.yml?branch=main&label=CI&style=for-the-badge)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
-[![Platform](https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white&style=for-the-badge)](https://github.com/otterview-labs/agentBridge)
+[下载安卓版](https://otterview-labs.github.io/agentBridge/) · [直接下载 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk) · [使用文档](docs/android-app.md)
 
-[Features](#-features) · [Screenshots](#-screenshots) · [Install](#-install) · [Architecture](#-architecture) · [中文介绍](#-中文介绍)
+Android 7.0+ · 安装包约 1.5 MB · 开源
 
 </div>
 
----
+## 出门了，任务还在电脑上
 
-## 🎬 Demo
+电脑上的 Codex 正在写代码，Claude 等你确认一个改动。你不用一直坐在屏幕前：打开 agentBridge，刷新进展、读一段输出，想好后发回原来的会话。
+
+连上自己的模型，还能问问管家「哪件事等我回复？」或「这个任务做到哪了？」。不知道怎么回，就让它根据已有记录写几句，改好再发送。语音配置好后，也可以直接开口聊。
+
+## 手机上是什么样
 
 <div align="center">
 
-| 🏢 Office Town | 🤖 AI Butler | 📞 Voice Call |
+| 办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
-| **Every machine is an office**<br>Every task is an employee<br>Animated sprites show real-time status | **Ask anything, get real answers**<br>SSH into machines for live data<br>Prioritize what needs attention | **Talk like a phone call**<br>Streaming speech-to-text<br>AI responds with voice |
-| <img src="docs/screenshots/android-local.png" width="220"> | <img src="docs/screenshots/android-report.png" width="220"> | <img src="docs/screenshots/studio-mobile.png" width="220"> |
+| 看任务进展，打开员工回消息 | 查任务、读输出、讨论下一步 | 用声音和管家聊 |
+| <img src="docs/screenshots/office-0.5.42.png" width="240" alt="办公室：像素员工、任务卡片与待输入状态"> | <img src="docs/screenshots/butler-0.5.42.png" width="240" alt="管家聊天：模型连接状态、对话记录与输入框"> | <img src="docs/screenshots/call-0.5.42.png" width="240" alt="管家通话：聆听状态、麦克风、扬声器和挂断按钮"> |
 
 </div>
 
----
+截图使用样例记录。任务状态在刷新后更新；连接和通话效果需在自己的手机上测试。
 
-## ✨ Features
+## 为什么用它
 
-### 🏢 Visual Task Management
+- **接着原来的任务聊。** 在手机上读 Codex、Claude 的会话输出，发送消息继续原来的会话。多台机器、多个任务放在一个工作台里。
+- **把任务摆进小办公室。** 每台机器是一间办公室，任务是像素员工。刷一下，看看哪些在运行、哪些等你回复，再打开卡片读详情。
+- **管家帮你看记录，你来决定怎么回。** 连上自己的模型，查询机器、读任务输出、讨论下一步。「帮我写回复」按需生成草稿，选中后可以改，再点发送。管家的查询工具只读，不替你下执行指令。
+- **电脑不用再装一套配套服务。** 手机通过 SSH 连接已有的 Mac 或 Linux。局域网里就能用；需要公网访问时，可以配置自己的 FRP 入口。
+- **模型和连接方式自己选。** 支持 OpenAI 兼容的模型接口。SSH 凭据和 API Key 用 Android Keystore 加密保存，项目没有自建中转后端。
 
-- **Pixel-art office town** — machines are buildings, tasks are animated employees
-- **Real-time status** — running (animated), needs-input (hand raised), idle (grayed out)
-- **One-tap reply** — see what the AI is asking, respond directly from your phone
-- **Color-coded status cards** — green (running), yellow (idle), red (needs input)
-- **Conversation timeline** — user/assistant bubbles with code block rendering
+发消息、找任务、刷新等已启动的操作会在前台服务中继续运行，成功或失败时通知你。应用按需刷新机器，不在后台持续监控任务。
 
-### 🤖 AI Butler
+## 几分钟开始试用
 
-- **Smart assistant** powered by qwen-max, GLM, Claude, or any OpenAI-compatible API
-- **Real-time tool calling** — the butler SSHes into machines to fetch live task data
-- **Actionable advice** — prioritizes tasks, suggests next steps, flags risks
-- **Task planning** — auto-generates daily summaries with clear action items
+1. **[下载 APK](https://otterview-labs.github.io/agentBridge/)，安装到安卓手机。** 需要 Android 7.0 或更高版本。旧正式版可以覆盖更新。
+2. **连上电脑。** 电脑保持开机、能通过 SSH 连接，并已有 Codex 或 Claude 会话。在 App 中用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。
+3. **点「找任务」，打开一位员工。** 先看看输出，再发一条消息。之后点击刷新，查看最新状态。
 
-### 📞 Voice & Call Mode
+想用管家，在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后验证连接，再试一条文字消息。语音需要另外测试麦克风和播报；系统语音不可用时，可配置百炼北京地域的云端语音服务。
 
-- **Press-to-talk** — hold the mic button, speak, release to send
-- **Full call mode** — phone-call UI with timer, live transcript, mute/speaker controls
-- **Streaming ASR** — see words appear as you speak (DashScope WebSocket)
-- **Cloud TTS** — natural voice replies via qwen3-tts, or use local engine
-- **Auto-recovery** — smart network self-healing for OEM-specific issues
+公网访问需要可用的公网服务器或已有 FRP 入口。安装、语音和远程连接的具体配置见 [Android 使用文档](docs/android-app.md)。
 
-### 🔔 Notifications
+## 支持哪些工具
 
-- **Keeps working when locked** — replies, discovery, refreshes and plans you start run in a foreground service until they finish
-- **Result alerts** — a system notification when each of them succeeds or fails
-- **No polling** — the app checks machines only when you refresh; it does not watch them in the background
+| 工具 | 当前支持 |
+| --- | --- |
+| Codex CLI | 发现会话、读取输出、发送消息、查看对话记录 |
+| Claude Code | 发现会话、读取输出、发送消息、查看对话记录 |
+| Gemini CLI | 基础进程发现 |
 
-### 🌐 Remote Access (FRP)
+App 界面、管家提示词和语音识别目前以中文为主。手机端为 Android，尚无 iOS 版本。
 
-- **One-tap FRP setup** — automatically deploy frps/frpc on your machines
-- **Encrypted STCP tunnels** — no SSH ports exposed to the internet
-- **Auto-discovery** — scans LAN, detects installed AI tools, imports sessions
-- **Works anywhere** — access all machines from any network
+## 数据与隐私
 
-### 🔒 Privacy & Security
+配置、对话和记录保存在手机应用私有存储。SSH 密码、私钥、模型密钥等凭据使用 Android Keystore 加密，并从备份中排除；连接会核对已保存的 SSH 主机密钥。
 
-- **No backend of ours** — the phone connects directly to your machines over SSH
-- **Encrypted credentials** — SSH passwords, keys and API keys are encrypted with an Android Keystore key, excluded from backups, and never handed to the WebView
-- **Pinned host keys** — a changed SSH host key blocks the connection until you reset it
-- **Your choice of cloud** — the office town works fully offline within your LAN. If you enable the butler, task titles, machine names, your recent chat and saved memories go to the model provider you configure; with DashScope voice, your audio goes to Alibaba Cloud
+启用管家后，必要的任务信息和对话会发送到你配置的模型服务。使用百炼云端语音时，录音或播报文字会发送到百炼。详情见 [安全说明](SECURITY.md)。
 
----
+## 从源码运行
 
-## 📥 Install
+技术栈：Java · Android WebView · JSch / SSH · WebSocket · Android Service。
 
-### Download APK
-
-[![Download APK](https://img.shields.io/badge/⬇️-Download_APK-blue?style=for-the-badge&logo=android&logoColor=white)](https://otterview-labs.github.io/agentBridge/)
-
-### Build from Source
+需要 JDK 17、Android SDK 35 和 Build Tools 35.0.0。
 
 ```bash
 git clone https://github.com/otterview-labs/agentBridge.git
 cd agentBridge/android
-
-# Debug build
-./gradlew assembleDebug
-
-# APK location
-ls app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug lintDebug
 ```
 
-### Setup (3 steps)
+调试安装包位于 `android/app/build/outputs/apk/debug/app-debug.apk`，与正式版使用不同的应用 ID，可同时安装。
 
-1. **Add a machine** — enter SSH address, username, and password
-2. **Auto-discover** — agentBridge scans and imports all AI sessions
-3. **(Optional) Connect AI butler** — add an OpenAI-compatible API key for the smart assistant
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────┐
-│    Android Phone     │
-│                      │
-│  ┌────────────────┐ │         SSH (direct / FRP tunnel)
-│  │  Office Town UI │ │◄──────────────────────────────►  Mac / Linux
-│  │  (pixel art)    │ │                                    │
-│  ├────────────────┤ │                              ┌─────┴─────┐
-│  │  AI Butler      │ │   OpenAI-compatible API     │Claude Code│
-│  │  (qwen-max etc) │ │◄──────────────────────►    │Codex CLI  │
-│  ├────────────────┤ │                              │Gemini CLI │
-│  │  Voice Engine   │ │   DashScope WebSocket       │tmux panes │
-│  │  (ASR + TTS)    │ │◄──────────────────────►    └───────────┘
-│  ├────────────────┤ │
-│  │  SSH + FRP      │ │
-│  │  (JSch)         │ │
-│  └────────────────┘ │
-└─────────────────────┘
-```
-
-**Tech stack:** Java · JSch (SSH) · WebSocket (ASR) · WebView · Android Service
-
----
-
-## 📱 Supported AI Tools
-
-| Tool | Discovery | Status | Features |
-|------|-----------|--------|----------|
-| **Claude Code** | Process scan + tmux | ✅ Full | Read output, send input, timeline |
-| **Codex CLI** | Process scan + desktop | ✅ Full | Read output, send input, timeline |
-| **Gemini CLI** | Process scan | ✅ Basic | Session discovery |
-
----
-
-## 🗺️ Roadmap
-
-- [x] Pixel-art office town UI
-- [x] AI butler with tool calling
-- [x] Press-to-talk voice input
-- [x] Full call mode with TTS
-- [x] Cloud ASR with streaming
-- [x] Push notifications
-- [x] FRP remote access
-- [x] Multi-machine management
-- [ ] Multi-device data sync
-- [ ] iOS version
-- [ ] More AI tool integrations
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
+运行测试需要 Node.js 20+ 和 JDK：
 
 ```bash
-# UI, FRP installer and reply-script tests (Node.js 20+ and a JDK)
 cd android/tests
 npm ci
 npx playwright install chromium
 npm test
 ```
 
-The app's interface, prompts and voice recognition are Chinese-only for now.
+欢迎提交问题和改进，开发约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。项目使用 [Apache-2.0](LICENSE) 许可证。
 
 ---
 
-## 📄 License
-
-This project is licensed under the [Apache License 2.0](LICENSE).
-
----
-
-<div align="center">
-<br>
-<img src="docs/screenshots/icon.png" width="48" style="border-radius: 12px;" alt="agentBridge">
-<br>
-<br>
-
-**If you find this useful, please consider giving it a ⭐!**
-
-[![Star History Chart](https://api.star-history.com/svg?repos=otterview-labs/agentBridge&type=Date)](https://star-history.com/#otterview-labs/agentBridge&Date)
-
-</div>
-
----
-
-## 🇨🇳 中文介绍
-
-**agentBridge** 把你的安卓手机变成 AI 编程团队的控制中心。
-
-每台远程机器变成一个像素风办公室，每个 AI 任务变成一个可爱的小人。打开手机就能看到谁在干活、谁在等你回复、下一步该做什么。
-
-### 核心亮点
-
-| 功能 | 说明 |
-|------|------|
-| 🏢 **像素办公室** | 机器=办公室，任务=小人，动画实时反映状态 |
-| 🤖 **AI 管家** | 智能助手，可 SSH 到机器查询实时任务数据 |
-| 📞 **语音通话** | 全屏电话界面，流式语音识别，AI 语音回复 |
-| 🔔 **结果通知** | 回复、找任务、刷新、生成规划完成或失败时推送通知；锁屏后仍会跑完 |
-| 🌐 **远程访问** | FRP 加密隧道，随时随地管理局域网机器 |
-| 🔒 **隐私安全** | 没有自建后端；密码、私钥、API Key 用系统密钥库加密，不进备份。启用管家或语音后，相关内容会发送给你配置的模型服务商 |
-
-### 快速开始
-
-```bash
-git clone https://github.com/otterview-labs/agentBridge.git
-cd agentBridge/android
-./gradlew assembleDebug
-```
-
-1. 安装 APK 到手机
-2. 添加机器（SSH 地址 + 密码）
-3. 自动发现所有 AI 任务
-
-### 技术栈
-
-Java · JSch · WebSocket · WebView · Android Service · OpenAI API
-
----
-
-<div align="center">
-
-**用 ❤️ 和像素制作的**
-
-</div>
+**Manage Codex and Claude Code sessions from your Android phone.** Connect to your own Mac or Linux machine over SSH, read task output, and send messages to existing sessions. Each machine becomes a pixel-art office, and each task an employee. An optional AI butler uses your model provider to discuss tasks and draft replies; you review and send them. The app currently focuses on Chinese UI and speech.
