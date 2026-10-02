@@ -7,10 +7,11 @@ Current debug version:
 
 ```text
 versionName: 0.5.44
-versionCode: 59
+versionCode: 60
 minSdk: 24
 targetSdk: 35
-package: com.otterview.agentsessionbridge.debug
+package (Chinese): com.otterview.agentsessionbridge.debug
+package (English): com.otterview.agentsessionbridge.en.debug
 ```
 
 Artifact:
