@@ -102,7 +102,7 @@ Java · Android WebView · JSch / SSH · WebSocket · Android Service。
 ```bash
 git clone https://github.com/otterview-labs/agentBridge.git
 cd agentBridge/android
-./gradlew assembleDebug lintDebug
+./gradlew assembleDebug lintZhDebug lintEnDebug
 ```
 
 调试安装包：`android/app/build/outputs/apk/zh/debug/app-zh-debug.apk` 和 `android/app/build/outputs/apk/en/debug/app-en-debug.apk`。调试版与正式版使用不同的应用 ID，可同时安装。

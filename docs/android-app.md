@@ -298,7 +298,7 @@ read them.
 ## Tests
 
 CI runs these on every push and pull request (`.github/workflows/ci.yml`),
-together with `assembleDebug` and `lintDebug`. Java API desugaring keeps
+together with `assembleDebug` and `lintZhDebug lintEnDebug`. Java API desugaring keeps
 `java.time` and `java.nio.file` available on the minimum SDK, Android 7.
 Locally, with Node.js 20+ and a JDK:
 
