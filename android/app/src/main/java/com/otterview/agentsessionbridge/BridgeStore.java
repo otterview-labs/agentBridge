@@ -89,7 +89,7 @@ final class BridgeStore {
 
   synchronized void saveStudioMemories(JSONArray value) {
     if (!prefs.edit().putString("studio_memories", value.toString()).commit()) {
-      throw new IllegalStateException("记忆保存失败，请检查手机存储空间");
+      throw new IllegalStateException(UiText.text("记忆保存失败，请检查手机存储空间"));
     }
   }
 
@@ -100,7 +100,7 @@ final class BridgeStore {
 
   synchronized void saveStudioModel(JSONObject value) {
     if (!writeSealed(prefs.edit(), KEY_STUDIO_MODEL, value.toString()).commit()) {
-      throw new IllegalStateException("模型配置保存失败，请检查手机存储空间");
+      throw new IllegalStateException(UiText.text("模型配置保存失败，请检查手机存储空间"));
     }
   }
 
@@ -114,13 +114,13 @@ final class BridgeStore {
 
   synchronized void saveStudioVoice(JSONObject value) {
     if (!writeSealed(prefs.edit(), KEY_STUDIO_VOICE, value.toString()).commit()) {
-      throw new IllegalStateException("语音配置保存失败，请检查手机存储空间");
+      throw new IllegalStateException(UiText.text("语音配置保存失败，请检查手机存储空间"));
     }
   }
 
   synchronized void saveStudioMessages(JSONArray value) {
     if (!prefs.edit().putString("studio_messages", value.toString()).commit()) {
-      throw new IllegalStateException("管家对话保存失败，请检查手机存储空间");
+      throw new IllegalStateException(UiText.text("管家对话保存失败，请检查手机存储空间"));
     }
   }
 
@@ -164,7 +164,7 @@ final class BridgeStore {
 
   synchronized void saveStudioReports(JSONArray value) {
     if (!prefs.edit().putString("studio_reports", value.toString()).commit()) {
-      throw new IllegalStateException("任务规划保存失败，请检查手机存储空间");
+      throw new IllegalStateException(UiText.text("任务规划保存失败，请检查手机存储空间"));
     }
   }
 
@@ -223,7 +223,7 @@ final class BridgeStore {
       JSONObject item = items.getJSONObject(index);
       if (item.getInt("id") == id) return item;
     }
-    throw new IllegalArgumentException("机器不存在");
+    throw new IllegalArgumentException(UiText.text("机器不存在"));
   }
 
   synchronized JSONObject task(int id) throws Exception {
@@ -232,7 +232,7 @@ final class BridgeStore {
       JSONObject item = items.getJSONObject(index);
       if (item.getInt("id") == id) return item;
     }
-    throw new IllegalArgumentException("任务不存在");
+    throw new IllegalArgumentException(UiText.text("任务不存在"));
   }
 
   synchronized int nextId() {
@@ -382,7 +382,7 @@ final class BridgeStore {
         keptTasks.put(tasks.get(index));
       }
     }
-    if (deleted == null) throw new IllegalArgumentException("员工不存在");
+    if (deleted == null) throw new IllegalArgumentException(UiText.text("员工不存在"));
 
     JSONArray deletedTasks = deletedTasks();
     JSONArray keptDeleted = new JSONArray();
@@ -414,7 +414,7 @@ final class BridgeStore {
       if (item.getInt("id") == id) restored = item;
       else keptDeletedTasks.put(deletedTasks.get(index));
     }
-    if (restored == null) throw new IllegalArgumentException("已删除员工不存在");
+    if (restored == null) throw new IllegalArgumentException(UiText.text("已删除员工不存在"));
     restored.remove("deletedAt");
     JSONArray tasks = tasks();
     JSONArray keptTasks = new JSONArray();
@@ -494,7 +494,7 @@ final class BridgeStore {
 
   private static IllegalStateException unreadable(String key, Exception cause) {
     Log.w("AgentBridgeStore", "sealed value " + key + " is temporarily unreadable", cause);
-    return new IllegalStateException("加密存储暂时无法读取，数据没有丢失。请稍后重试，或重启手机后再打开 App。", cause);
+    return new IllegalStateException(UiText.text("加密存储暂时无法读取，数据没有丢失。请稍后重试，或重启手机后再打开 App。"), cause);
   }
 
   /**
@@ -527,7 +527,7 @@ final class BridgeStore {
       return editor.putString(key, sealed);
     } catch (Exception error) {
       Log.w("AgentBridgeStore", "cannot seal " + key, error);
-      throw new IllegalStateException("加密存储保存失败，本次配置未保存。请稍后重试，或重启手机后再打开 App。", error);
+      throw new IllegalStateException(UiText.text("加密存储保存失败，本次配置未保存。请稍后重试，或重启手机后再打开 App。"), error);
     }
   }
 

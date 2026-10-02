@@ -119,7 +119,7 @@ public final class MainActivity extends Activity {
   private void ensureResultChannel() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       NotificationChannel channel = new NotificationChannel(
-          "asb_task_results", "Agent Bridge 任务结果", NotificationManager.IMPORTANCE_DEFAULT);
+          "asb_task_results", UiText.text("Agent Bridge 任务结果"), NotificationManager.IMPORTANCE_DEFAULT);
       getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
   }
@@ -134,7 +134,7 @@ public final class MainActivity extends Activity {
     Notification notification = builder
         .setSmallIcon(android.R.drawable.ic_dialog_info)
         .setContentTitle(title)
-        .setContentText(message)
+        .setContentText(UiText.text(message))
         .setContentIntent(contentIntent)
         .setAutoCancel(true)
         .build();
@@ -176,14 +176,14 @@ public final class MainActivity extends Activity {
         callFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
             .setAudioAttributes(attributes)
             .setOnAudioFocusChangeListener(focus -> {
-              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", "通话音频失去焦点", false);
+              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", UiText.text("通话音频失去焦点"), false);
             })
             .build();
         result = audioManager.requestAudioFocus(callFocusRequest);
       } else {
         result = audioManager.requestAudioFocus(
             focus -> {
-              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", "通话音频失去焦点", false);
+              if (focus == AudioManager.AUDIOFOCUS_LOSS) postVoiceState("error", UiText.text("通话音频失去焦点"), false);
             },
             AudioManager.STREAM_VOICE_CALL,
             AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
@@ -219,9 +219,31 @@ public final class MainActivity extends Activity {
   }
 
 
+  private void configureUiLanguage() {
+    java.util.Map<String, String> entries = new java.util.HashMap<>();
+    try (java.io.InputStream input = getAssets().open("i18n-en.js")) {
+      java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+      byte[] buffer = new byte[8192];
+      int count;
+      while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+      String source = output.toString("UTF-8");
+      org.json.JSONObject json = new org.json.JSONObject(
+          source.substring(source.indexOf('{'), source.lastIndexOf('}') + 1));
+      java.util.Iterator<String> keys = json.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        entries.put(key, json.getString(key));
+      }
+    } catch (Exception error) {
+      android.util.Log.e("OfficeTown", "Bundled translation catalog could not be loaded", error);
+    }
+    UiText.configure(BuildConfig.APP_LANGUAGE, entries);
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    configureUiLanguage();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
           REQUEST_NOTIFICATIONS);
@@ -283,7 +305,7 @@ public final class MainActivity extends Activity {
     textToSpeech = new TextToSpeech(this, status -> {
       textToSpeechReady = status == TextToSpeech.SUCCESS;
       if (textToSpeechReady) {
-        int language = textToSpeech.setLanguage(new Locale("zh", "CN"));
+        int language = textToSpeech.setLanguage(UiText.speechLocale());
         textToSpeechReady = language != TextToSpeech.LANG_MISSING_DATA
             && language != TextToSpeech.LANG_NOT_SUPPORTED;
         AudioAttributes attributes = new AudioAttributes.Builder()
@@ -302,7 +324,7 @@ public final class MainActivity extends Activity {
           }
 
           @Override public void onError(String utteranceId) {
-            postVoiceState("speak-error", "语音播报失败", false);
+            postVoiceState("speak-error", UiText.text("语音播报失败"), false);
           }
         });
       }
@@ -333,7 +355,7 @@ public final class MainActivity extends Activity {
       if (startStreamingASR(pendingVoiceAutoSend)) return;
       startRecognizer();
     } catch (Exception error) {
-      postVoiceState("error", "识别启动失败，请检查本机语音服务或配置云端语音", false);
+      postVoiceState("error", UiText.text("识别启动失败，请检查本机语音服务或配置云端语音"), false);
     }
   }
 
@@ -446,7 +468,7 @@ public final class MainActivity extends Activity {
           // The recognizer may already be idle.
         }
       }
-      textToSpeech.setLanguage(new Locale("zh", "CN"));
+      textToSpeech.setLanguage(UiText.speechLocale());
       textToSpeech.setAudioAttributes(new AudioAttributes.Builder()
           .setUsage(conversationAudioActive ? AudioAttributes.USAGE_VOICE_COMMUNICATION
               : Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? AudioAttributes.USAGE_ASSISTANT : AudioAttributes.USAGE_MEDIA)
@@ -455,7 +477,7 @@ public final class MainActivity extends Activity {
       textToSpeech.setPitch(ttsPitch);
       int result = textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "butler-reply");
       postVoiceState(result == TextToSpeech.SUCCESS ? "speaking" : "speak-error",
-          result == TextToSpeech.SUCCESS ? "" : "本机语音播报失败，请检查语音引擎或改用云端语音", false);
+          result == TextToSpeech.SUCCESS ? "" : UiText.text("本机语音播报失败，请检查语音引擎或改用云端语音"), false);
     });
     return true;
   }
@@ -480,7 +502,7 @@ public final class MainActivity extends Activity {
           runOnUiThread(() -> {
             if (generation != speechGeneration.get() || isFinishing() || isDestroyed()) return;
             Log.w("AgentBridgeNative", "cloud speech synthesis failed", error);
-            postVoiceState("speak-error", "云端语音合成失败，请检查网络或模型配置", false);
+            postVoiceState("speak-error", UiText.text("云端语音合成失败，请检查网络或模型配置"), false);
           });
         }
       });
@@ -518,13 +540,14 @@ public final class MainActivity extends Activity {
       connection.setRequestProperty("Authorization", "Bearer " + apiKey);
       connection.setRequestProperty("Content-Type", "application/json");
       String safeText = text == null ? "" : text.trim();
-      if (safeText.isEmpty()) safeText = "管家已回复。";
+      if (safeText.isEmpty()) safeText = UiText.text("管家已回复。");
       if (safeText.length() > 500) safeText = safeText.substring(0, 500);
       org.json.JSONObject payload = new org.json.JSONObject()
           .put("model", "qwen3-tts-flash")
           .put("input", new org.json.JSONObject()
               .put("text", safeText)
-              .put("voice", "Cherry"));
+              .put("voice", "Cherry")
+              .put("language_type", UiText.english() ? "English" : "Chinese"));
       byte[] body = payload.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
       connection.setFixedLengthStreamingMode(body.length);
       try (java.io.OutputStream output = connection.getOutputStream()) {
@@ -543,18 +566,18 @@ public final class MainActivity extends Activity {
       }
       String response = new String(buffer.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
       if (status >= 400) {
-        throw new IllegalStateException("云端语音合成返回 HTTP " + status);
+        throw new IllegalStateException(UiText.text("云端语音合成返回 HTTP ") + status);
       }
       org.json.JSONObject parsed = new org.json.JSONObject(response);
       String audioUrl = parsed.optJSONObject("output") == null ? null
           : parsed.getJSONObject("output").optJSONObject("audio") == null ? null
           : parsed.getJSONObject("output").getJSONObject("audio").optString("url", "");
       if (audioUrl == null || audioUrl.isEmpty()) {
-        throw new IllegalStateException("云端语音合成没有返回音频");
+        throw new IllegalStateException(UiText.text("云端语音合成没有返回音频"));
       }
       return audioUrl;
     } catch (java.io.IOException error) {
-      throw new IllegalStateException("云端语音合成连接失败：" + error);
+      throw new IllegalStateException(UiText.text("云端语音合成连接失败：") + error);
     } finally {
       synchronized (speechLock) {
         if (pendingSpeechConnection == connection) pendingSpeechConnection = null;
@@ -638,13 +661,13 @@ public final class MainActivity extends Activity {
         });
         cloudSpeechPlayer.setOnErrorListener((player, what, extra) -> {
           if (player != cloudSpeechPlayer) return true;
-          postVoiceState("speak-error", "云端语音播放失败", false);
+          postVoiceState("speak-error", UiText.text("云端语音播放失败"), false);
           stopCloudSpeechPlayback();
           return true;
         });
         cloudSpeechPlayer.prepareAsync();
       } catch (Exception error) {
-        postVoiceState("speak-error", "云端语音播放失败", false);
+        postVoiceState("speak-error", UiText.text("云端语音播放失败"), false);
         stopCloudSpeechPlayback();
       }
     });
@@ -703,7 +726,7 @@ public final class MainActivity extends Activity {
     if (networkDeathCount < 5) return;
     if (now - lastNetworkHintAt < 600_000L) return;
     lastNetworkHintAt = now;
-    showNotice("手机网络通道异常：连续多次无法联网。请检查网络，若网络正常仍失败，请完全退出 App 后重新打开。");
+    showNotice(UiText.text("手机网络通道异常：连续多次无法联网。请检查网络，若网络正常仍失败，请完全退出 App 后重新打开。"));
   }
 
   void showNotice(String message) {
@@ -773,7 +796,7 @@ public final class MainActivity extends Activity {
     postVoiceState("ready", "", pendingVoiceAutoSend);
     Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, UiText.speechLocale().toLanguageTag())
         .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
     recognizer.startListening(intent);
@@ -783,12 +806,12 @@ public final class MainActivity extends Activity {
     try {
       String key = bridge == null ? null : bridge.getDashScopeApiKey();
       if (key == null || key.isEmpty()) {
-        postVoiceState("error", "本机识别不可用，请在语音设置中填写百炼北京地域 API Key", false);
+        postVoiceState("error", UiText.text("本机识别不可用，请在语音设置中填写百炼北京地域 API Key"), false);
         return;
       }
       cloudAudioFile = File.createTempFile("butler-voice-", ".amr", getCacheDir());
       if (cloudAudioFile.exists() && !cloudAudioFile.delete()) {
-        postVoiceState("error", "语音缓存文件无法清理", false);
+        postVoiceState("error", UiText.text("语音缓存文件无法清理"), false);
         return;
       }
       cloudRecorder = new MediaRecorder();
@@ -819,7 +842,7 @@ public final class MainActivity extends Activity {
       voiceHandler.post(cloudLevelRunnable);
     } catch (Exception error) {
       cleanupCloudRecorder();
-      postVoiceState("error", "录音启动失败，请检查麦克风权限", false);
+      postVoiceState("error", UiText.text("录音启动失败，请检查麦克风权限"), false);
     }
   }
 
@@ -837,7 +860,7 @@ public final class MainActivity extends Activity {
       }
       cleanupCloudRecorder();
       if (failed || cloudAudioFile == null || !cloudAudioFile.exists() || cloudAudioFile.length() == 0) {
-        postVoiceState("error", "没有录到有效语音", false);
+        postVoiceState("error", UiText.text("没有录到有效语音"), false);
         return;
       }
       postVoiceState("cloud-processing", "", pendingVoiceAutoSend);
@@ -850,10 +873,10 @@ public final class MainActivity extends Activity {
           String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
           org.json.JSONObject parsed = bridge.transcribeVoiceAudio(base64, "audio/amr");
           if (!parsed.optBoolean("ok")) {
-            throw new IllegalStateException(parsed.optString("error", "语音识别失败"));
+            throw new IllegalStateException(parsed.optString("error", UiText.text("语音识别失败")));
           }
           String text = parsed.getJSONObject("data").optString("text", "");
-          if (text.trim().isEmpty()) throw new IllegalStateException("没有识别到文字");
+          if (text.trim().isEmpty()) throw new IllegalStateException(UiText.text("没有识别到文字"));
           if (generation == voiceGeneration.get()) postVoiceState("final", text.trim(), autoSend);
         } catch (Exception error) {
           Log.w("AgentBridgeNative", "cloud voice transcription failed", error);
@@ -861,10 +884,10 @@ public final class MainActivity extends Activity {
           // Silence (no speech detected) is normal between turns in call mode;
           // only surface real service failures to the UI.
           if (generation != voiceGeneration.get()) return;
-          if (message.contains("没有识别到文字")) {
+          if ((message.contains("没有识别到文字") || message.contains(UiText.text("没有识别到文字")))) {
             postVoiceState("stopped", "", false);
           } else {
-            postVoiceState("error", "语音识别失败：" + message, false);
+            postVoiceState("error", UiText.text("语音识别失败：") + message, false);
           }
         } finally {
           if (audio.exists() && !audio.delete()) {
@@ -911,7 +934,7 @@ public final class MainActivity extends Activity {
       if (voiceCaptureRequested) startCapture();
     } else {
       // A distinct type so call mode ends instead of re-asking every second.
-      postVoiceState("permission-denied", "需要麦克风权限才能使用语音，请在系统设置中允许", false);
+      postVoiceState("permission-denied", UiText.text("需要麦克风权限才能使用语音，请在系统设置中允许"), false);
     }
   }
 
@@ -982,7 +1005,7 @@ public final class MainActivity extends Activity {
       boolean recoverable = error == SpeechRecognizer.ERROR_NO_MATCH
           || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT;
       if (recoverable) {
-        postVoiceState("stopped", "没有听到内容，可以再说一次", false);
+        postVoiceState("stopped", UiText.text("没有听到内容，可以再说一次"), false);
         return;
       }
       if (!recoverable) recognizerFailureCount += 1;
@@ -998,10 +1021,10 @@ public final class MainActivity extends Activity {
         return;
       }
       String message = error == SpeechRecognizer.ERROR_NO_MATCH
-          ? "没有听到内容，请再按一次语音按钮"
+          ? UiText.text("没有听到内容，请再按一次语音按钮")
           : error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
-            ? "语音输入超时，请靠近麦克风再试"
-            : "语音识别失败，请重试";
+            ? UiText.text("语音输入超时，请靠近麦克风再试")
+            : UiText.text("语音识别失败，请重试");
       postVoiceState("error", message, false);
     }
 

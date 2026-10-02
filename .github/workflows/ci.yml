@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           cd android
-          ./gradlew --no-daemon --stacktrace assembleDebug lintDebug
+          ./gradlew --no-daemon --stacktrace assembleDebug lintZhDebug lintEnDebug
 
   check:
     # Keep the required check name in the main-branch ruleset. It succeeds only

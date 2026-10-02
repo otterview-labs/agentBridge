@@ -56,3 +56,14 @@ test('native drafting returns suggestions without invoking an employee or adding
  h.invalid=true;check(!new JSONObject(h.generateReplySuggestions(7)).optBoolean("ok"));h.store.task.put("lastOutput","");int count=h.requests;check(!new JSONObject(h.generateReplySuggestions(7)).optBoolean("ok")&&h.requests==count);System.out.println("ok");
  }`);
 });
+
+test('English drafting requests English and preserves original session records',t=>{
+ harness(t,'EnglishReplyHarness',`${policy}
+ public static void main(String[] args)throws Exception{
+ JSONObject task=new JSONObject().put("title","检查部署配置").put("lastOutput","请确认部署");
+ JSONArray messages=ReplySuggestions.messages(task,true);check(messages.getJSONObject(0).optString("content").contains("concise natural English"));
+ JSONObject record=new JSONObject(messages.getJSONObject(1).optString("content"));check(record.optString("task").equals("检查部署配置"));check(record.optString("output").equals("请确认部署"));
+ UiText.configure("en",Map.of("待输入","Needs input"));check(UiText.text("待输入").equals("Needs input"));check(UiText.text("检查部署配置").equals("检查部署配置"));check(UiText.speechLocale().toLanguageTag().equals("en-US"));
+ UiText.configure("zh-CN",Map.of("待输入","Needs input"));check(UiText.text("待输入").equals("待输入"));check(UiText.speechLocale().toLanguageTag().equals("zh-CN"));System.out.println("ok");
+ }`);
+});

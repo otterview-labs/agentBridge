@@ -105,11 +105,11 @@ public final class StreamingASR {
                   .put("parameters", new JSONObject()
                       .put("format", "pcm")
                       .put("sample_rate", SAMPLE_RATE)
-                      .put("language_hints", new JSONArray().put("zh")))
+                      .put("language_hints", new JSONArray().put(UiText.english() ? "en" : "zh")))
                   .put("input", new JSONObject()));
           webSocket.send(task.toString());
         } catch (Exception error) {
-          fail("ASR 配置发送失败");
+          fail(UiText.text("ASR 配置发送失败"));
         }
       }
 
@@ -137,7 +137,7 @@ public final class StreamingASR {
               settle();
               break;
             case "task-failed":
-              fail("语音识别失败：" + header.optString("error_message", header.optString("error_code", "未知错误")));
+              fail(UiText.text("语音识别失败：") + header.optString("error_message", header.optString("error_code", UiText.text("未知错误"))));
               break;
             default:
               break;
@@ -150,17 +150,17 @@ public final class StreamingASR {
       @Override
       public void onClosed(WebSocket webSocket, int code, String reason) {
         running.set(false);
-        if (!settled.get()) fail("语音连接提前关闭，请检查网络或语音服务权限");
+        if (!settled.get()) fail(UiText.text("语音连接提前关闭，请检查网络或语音服务权限"));
       }
 
       @Override
       public void onFailure(WebSocket webSocket, Throwable t, Response response) {
         Log.w(TAG, "ASR socket failure code=" + (response != null ? response.code() : "?"), t);
-        fail("ASR 连接失败，请检查网络");
+        fail(UiText.text("ASR 连接失败，请检查网络"));
       }
     });
     mainHandler.postDelayed(() -> {
-      if (!taskStarted && !settled.get()) fail("语音服务连接超时，请检查网络或北京地域 API Key");
+      if (!taskStarted && !settled.get()) fail(UiText.text("语音服务连接超时，请检查网络或北京地域 API Key"));
     }, 15_000);
   }
 
@@ -206,7 +206,7 @@ public final class StreamingASR {
             AudioFormat.ENCODING_PCM_16BIT,
             Math.max(minBuffer, CHUNK_SIZE * 4));
         if (record.getState() != AudioRecord.STATE_INITIALIZED) {
-          fail("麦克风初始化失败，请检查麦克风权限或是否被其他应用占用");
+          fail(UiText.text("麦克风初始化失败，请检查麦克风权限或是否被其他应用占用"));
           return;
         }
         record.startRecording();
@@ -214,7 +214,7 @@ public final class StreamingASR {
         while (running.get()) {
           int read = record.read(buffer, 0, buffer.length);
           if (read < 0) {
-            fail("录音失败，请重试");
+            fail(UiText.text("录音失败，请重试"));
             break;
           }
           WebSocket socket = ws;
@@ -222,10 +222,10 @@ public final class StreamingASR {
           socket.send(ByteString.of(buffer, 0, read));
         }
       } catch (SecurityException error) {
-        fail("需要麦克风权限才能使用实时语音");
+        fail(UiText.text("需要麦克风权限才能使用实时语音"));
       } catch (Exception error) {
         Log.w(TAG, "audio capture failed", error);
-        fail("录音失败，请重试");
+        fail(UiText.text("录音失败，请重试"));
       } finally {
         // The capture thread owns the recorder: it is released here and
         // nowhere else, so stop() on another thread can never race a read().

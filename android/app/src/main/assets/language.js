@@ -1,0 +1,1 @@
+window.AGENTBRIDGE_LANGUAGE = 'zh-CN';

@@ -1,6 +1,8 @@
 (function() {
   'use strict';
 
+  const t = window.OfficeI18n.text;
+
   const state = {
     machines: [],
     tasks: [],
@@ -91,7 +93,7 @@
     } catch (error) {
       // Older native builds always prefer the local engine.
     }
-    toast(state.voicePreferCloud ? '已优先使用云端语音（Cherry 音色）' : '已优先使用本机语音');
+    toast(state.voicePreferCloud ? t("已优先使用云端语音（Cherry 音色）") : t("已优先使用本机语音"));
   });
   $('voiceRateSetting').addEventListener('input', () => updateVoiceTuning('voiceRate', 'voiceRateSetting', 'voiceRateEcho', '×'));
   $('voicePitchSetting').addEventListener('input', () => updateVoiceTuning('voicePitch', 'voicePitchSetting', 'voicePitchEcho', ''));
@@ -273,7 +275,7 @@
           parsed = { ok: false, error: error && error.message ? error.message : String(error) };
         }
         hideBusy();
-        if (!parsed.ok) toast(parsed.error || '操作失败');
+        if (!parsed.ok) toast(parsed.error || t("操作失败"));
         resolve(parsed);
       }, 40);
     });
@@ -285,15 +287,15 @@
     let operationId = null;
     try {
       const started = JSON.parse(AgentBridge.beginBridgeCall(method, JSON.stringify(args)));
-      if (!started.ok) throw new Error(started.error || '操作失败');
+      if (!started.ok) throw new Error(started.error || t("操作失败"));
       operationId = started.data.operation.id;
       for (;;) {
         await sleep(300);
         const current = JSON.parse(AgentBridge.operationState(operationId));
-        if (!current.ok) throw new Error(current.error || '无法读取操作状态');
+        if (!current.ok) throw new Error(current.error || t("无法读取操作状态"));
         const operation = current.data.operation;
         if (operation.state !== 'running') {
-          parsed = operation.result || { ok: false, error: operation.message || '操作失败' };
+          parsed = operation.result || { ok: false, error: operation.message || t("操作失败") };
           break;
         }
       }
@@ -306,13 +308,13 @@
       }
     }
     hideBusy();
-    if (!parsed.ok) toast(parsed.error || '操作失败');
+    if (!parsed.ok) toast(parsed.error || t("操作失败"));
     return parsed;
   }
 
   async function loadState() {
     console.log('loading state');
-    const result = await call('state', '读取本机数据…');
+    const result = await call('state', t("读取本机数据…"));
     console.log('state result: ok=' + Boolean(result.ok)
       + ' machines=' + (result.data && result.data.machines ? result.data.machines.length : 0)
       + ' tasks=' + (result.data && result.data.tasks ? result.data.tasks.length : 0));
@@ -329,28 +331,28 @@
 
   async function refreshAll() {
     if (!state.machines.length) {
-      toast('先添加一台 SSH 机器');
+      toast(t("先添加一台 SSH 机器"));
       openMachineSheet();
       return;
     }
     let failed = 0;
     const total = state.machines.length;
     for (const machine of state.machines) {
-      const result = await call('discoverTasks', `正在探查 ${machine.name}…`, machine.id);
+      const result = await call('discoverTasks', `${t("正在探查 ")}${machine.name}…`, machine.id);
       if (!result.ok) failed += 1;
     }
     if (!await loadState()) return;
     await loadStudio();
-    toast(failed === total ? '刷新失败，保留上次记录'
-      : failed ? `已刷新 ${total - failed}/${total} 台，其余保留上次记录`
-        : '任务已刷新');
+    toast(failed === total ? t("刷新失败，保留上次记录")
+      : failed ? `${t("已刷新 ")}${total - failed}/${total}${t(" 台，其余保留上次记录")}`
+        : t("任务已刷新"));
   }
 
   async function loadStudio() {
     if (state.studioLoading) return;
     state.studioLoading = true;
     try {
-      const result = await call('studioOverview', '读取管家与今日记录…');
+      const result = await call('studioOverview', t("读取管家与今日记录…"));
       if (result.ok) {
         state.studio = result.data;
         render();
@@ -366,21 +368,21 @@
 
   async function runScan() {
     const prefix = $('scanPrefix').value.trim() || state.networkHint;
-    const result = await call('scanNetwork', '正在扫描局域网端口…', prefix);
+    const result = await call('scanNetwork', t("正在扫描局域网端口…"), prefix);
     const container = $('scanResult');
     container.textContent = '';
     if (!result.ok) return;
     if (!result.data.hosts.length) {
-      container.appendChild(element('div', 'scanHost', '这个网段暂未发现 22 端口开放设备'));
+      container.appendChild(element('div', 'scanHost', t("这个网段暂未发现 22 端口开放设备")));
       return;
     }
     result.data.hosts.forEach((host) => {
-      const row = element('button', 'scanHost', `${host} 选择`);
+      const row = element('button', 'scanHost', `${host}${t(" 选择")}`);
       row.type = 'button';
       row.addEventListener('click', () => {
         $('machineHost').value = host;
-        if (!$('machineName').value) $('machineName').value = `办公室 ${host.split('.').pop()}`;
-        toast('已填入 SSH 地址');
+        if (!$('machineName').value) $('machineName').value = `${t("办公室 ")}${host.split('.').pop()}`;
+        toast(t("已填入 SSH 地址"));
       });
       container.appendChild(row);
     });
@@ -398,46 +400,46 @@
       password: $('machinePassword').value,
       privateKey: $('machineKey').value
     };
-    const saved = await call('saveMachine', '保存机器配置…', JSON.stringify(payload));
+    const saved = await call('saveMachine', t("保存机器配置…"), JSON.stringify(payload));
     if (!saved.ok) return;
     closeSheet('machineBackdrop');
     await loadState();
-    const probe = await call('probeMachine', `正在连接 ${saved.data.machine.name}…`, saved.data.machine.id);
-    if (probe.ok) toast(`${saved.data.machine.name} 已上线`);
+    const probe = await call('probeMachine', `${t("正在连接 ")}${saved.data.machine.name}…`, saved.data.machine.id);
+    if (probe.ok) toast(`${saved.data.machine.name}${t(" 已上线")}`);
     await loadState();
   }
 
   async function probeMachine(id) {
-    await call('probeMachine', '正在测试 SSH 连接…', id);
+    await call('probeMachine', t("正在测试 SSH 连接…"), id);
     await loadState();
   }
 
   function discoverMachine(id) {
     if (state.backgroundDiscovers.has(id)) {
-      toast('这间办公室正在发现员工，完成后会通知你');
+      toast(t("这间办公室正在发现员工，完成后会通知你"));
       return;
     }
     let parsed;
     try {
       parsed = JSON.parse(AgentBridge.beginDiscoverTasks(id));
     } catch (error) {
-      parsed = { ok: false, error: '无法提交发现员工任务' };
+      parsed = { ok: false, error: t("无法提交发现员工任务") };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '无法提交发现员工任务');
+      toast(parsed.error || t("无法提交发现员工任务"));
       return;
     }
     const machine = state.machines.find(item => item.id === id);
     const operation = parsed.data.operation;
     state.backgroundDiscovers.set(id, {
       operation,
-      machineName: machine ? machine.name : `机器 ${id}`,
-      message: '正在发现员工…',
+      machineName: machine ? machine.name : `${t("机器 ")}${id}`,
+      message: t("正在发现员工…"),
       startedAt: operation.startedAt || Date.now()
     });
     renderOffices();
     renderBackgroundState();
-    toast('发现员工已提交后台，完成后会通知你');
+    toast(t("发现员工已提交后台，完成后会通知你"));
     void pollBackgroundDiscover(id, operation);
   }
 
@@ -451,25 +453,25 @@
         try {
           parsed = JSON.parse(AgentBridge.operationState(startedOperation.id));
         } catch (error) {
-          parsed = { ok: false, error: '无法读取发现员工状态' };
+          parsed = { ok: false, error: t("无法读取发现员工状态") };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法读取发现员工状态');
+        if (!parsed.ok) throw new Error(parsed.error || t("无法读取发现员工状态"));
         const operation = parsed.data.operation;
         entry.operation = operation;
-        entry.message = operation.message || '正在发现员工…';
+        entry.message = operation.message || t("正在发现员工…");
         renderOffices();
         renderBackgroundState();
-        if (operation.state === 'failed') throw new Error(operation.message || '发现员工失败');
+        if (operation.state === 'failed') throw new Error(operation.message || t("发现员工失败"));
         if (operation.state !== 'running') break;
       }
       await loadStateQuiet();
       const entry = state.backgroundDiscovers.get(machineId);
-      const machineName = entry ? entry.machineName : `机器 ${machineId}`;
-      finishBackgroundDiscover(machineId, true, `${machineName} 已完成员工发现`);
+      const machineName = entry ? entry.machineName : `${t("机器 ")}${machineId}`;
+      finishBackgroundDiscover(machineId, true, `${machineName}${t(" 已完成员工发现")}`);
     } catch (error) {
       const entry = state.backgroundDiscovers.get(machineId);
-      const machineName = entry ? entry.machineName : `机器 ${machineId}`;
-      finishBackgroundDiscover(machineId, false, `${machineName} 发现失败：${error.message || String(error)}`);
+      const machineName = entry ? entry.machineName : `${t("机器 ")}${machineId}`;
+      finishBackgroundDiscover(machineId, false, `${machineName}${t(" 发现失败：")}${error.message || String(error)}`);
     }
   }
 
@@ -491,7 +493,7 @@
     try {
       parsed = JSON.parse(AgentBridge.state());
     } catch (error) {
-      parsed = { ok: false, error: '读取本机数据失败' };
+      parsed = { ok: false, error: t("读取本机数据失败") };
     }
     if (!parsed.ok) return false;
     const data = parsed.data;
@@ -513,18 +515,18 @@
   async function resetHostKey(id) {
     const machine = state.machines.find((item) => item.id === id);
     if (!machine) return;
-    if (!window.confirm(`只有在你确认「${machine.name}」重装过系统或换了机器时才重置。重置后下次连接会信任它当前的主机指纹。继续？`)) return;
-    const result = await call('resetHostKey', '重置主机指纹…', id);
+    if (!window.confirm(`${t("只有在你确认「")}${machine.name}${t("」重装过系统或换了机器时才重置。重置后下次连接会信任它当前的主机指纹。继续？")}`)) return;
+    const result = await call('resetHostKey', t("重置主机指纹…"), id);
     if (!result.ok) return;
-    await call('probeMachine', `正在连接 ${machine.name}…`, id);
+    await call('probeMachine', `${t("正在连接 ")}${machine.name}…`, id);
     await loadState();
   }
 
   async function deleteMachine(id) {
     const machine = state.machines.find((item) => item.id === id);
     if (!machine) return;
-    if (!window.confirm(`删除「${machine.name}」和它的任务记录？`)) return;
-    const deleted = await call('deleteMachine', '删除办公室…', id);
+    if (!window.confirm(`${t("删除「")}${machine.name}${t("」和它的任务记录？")}`)) return;
+    const deleted = await call('deleteMachine', t("删除办公室…"), id);
     if (deleted.ok) {
       state.tasks.filter(task => task.machineId === id).forEach(task => state.drafts.delete(task.id));
     }
@@ -549,7 +551,7 @@
     $('renameTask').disabled = !task;
     $('deleteTask').disabled = !task || Boolean(background) || Boolean(tailing);
     if (!task) {
-      $('taskStatusLine').textContent = '本次未发现此会话，以下为上次记录';
+      $('taskStatusLine').textContent = t("本次未发现此会话，以下为上次记录");
       $('taskNeed').classList.add('hidden');
       renderReplySuggestions(null);
       return;
@@ -558,22 +560,22 @@
     $('taskAvatar').replaceChildren(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
     const resumable = task.controlMode === 'process' ? task.externalSessionId : task.paneId;
     $('sendTask').disabled = !resumable || Boolean(background) || Boolean(tailing);
-    $('taskMeta').textContent = `${agentNames[task.agentType] || task.agentType} · ${task.controlMode === 'process' ? '恢复会话' : 'tmux'} · ${background ? '后台执行中' : tailing ? '后台刷新中' : resumable ? '可回复' : '无会话 ID，暂不能回复'}`;
+    $('taskMeta').textContent = `${agentNames[task.agentType] || task.agentType} · ${task.controlMode === 'process' ? t("恢复会话") : 'tmux'} · ${background ? t("后台执行中") : tailing ? t("后台刷新中") : resumable ? t("可回复") : t("无会话 ID，暂不能回复")}`;
     $('taskTitle').textContent = task.title;
     const machine = state.machines.find((item) => item.id === task.machineId);
     $('taskStatusLine').textContent = [
       taskStatusText(task),
-      machine ? `${machine.name} · ${machineCheckText(machine)}` : '机器记录不存在',
+      machine ? `${machine.name} · ${machineCheckText(machine)}` : t("机器记录不存在"),
       task.workspacePath
     ].filter(Boolean).join(' · ');
     $('taskNeed').textContent = task.requiredInput
-      ? `${isRecordedTask(task) ? '上次待确认' : '需要你确认'}：${task.requiredInput}` : '';
+      ? `${isRecordedTask(task) ? t("上次待确认") : t("需要你确认")}：${task.requiredInput}` : '';
     $('taskNeed').classList.toggle('hidden', !task.requiredInput);
     renderTaskStatusCard(task);
     renderConversationTimeline(task);
     const outputPre = $('taskOutput');
     outputPre.replaceChildren();
-    appendRichOutput(outputPre, task.lastOutput || '暂无输出');
+    appendRichOutput(outputPre, task.lastOutput || t("暂无输出"));
     renderReplySuggestions(task);
   }
 
@@ -590,23 +592,23 @@
     const entry = task ? state.replySuggestions.get(task.id) : null;
     const busy = Boolean(task && (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)));
     button.disabled = !task || Boolean(entry?.running) || busy;
-    button.textContent = entry?.running ? '正在写…' : entry?.result ? '换一组' : '帮我写回复';
+    button.textContent = entry?.running ? t("正在写…") : entry?.result ? t("换一组") : t("帮我写回复");
     const status = $('replySuggestionStatus');
-    if (!task) { status.textContent = '找不到这条记录了，请重新选择员工。'; return; }
-    if (entry?.running) { status.textContent = '正在看这段对话，你可以先写。'; return; }
+    if (!task) { status.textContent = t("找不到这条记录了，请重新选择员工。"); return; }
+    if (entry?.running) { status.textContent = t("正在看这段对话，你可以先写。"); return; }
     if (entry && entry.key !== replyContextKey(task)) {
-      status.textContent = '记录更新了，请重新写一组。';
+      status.textContent = t("记录更新了，请重新写一组。");
       return;
     }
     if (entry?.error) { status.textContent = entry.error; return; }
     if (!entry?.result) {
       status.textContent = state.studio?.model?.ready
-        ? '根据上次刷新的内容，帮你写几句。'
-        : '先配置模型，也可以自己写。';
+        ? t("根据上次刷新的内容，帮你写几句。")
+        : t("先配置模型，也可以自己写。");
       return;
     }
     const result = entry.result;
-    status.textContent = `${result.summary} · AI 草稿，参考上次刷新记录。${result.decisionRequired ? '怎么回，你来定。' : ''}`;
+    status.textContent = `${result.summary}${t(" · AI 草稿，参考上次刷新记录。")}${result.decisionRequired ? t("怎么回，你来定。") : ''}`;
     result.choices.forEach(choice => {
       const pick = element('button', 'replySuggestionChoice');
       pick.type = 'button';
@@ -616,16 +618,16 @@
         const current = currentTask();
         if (!current || current.id !== task.id || replyContextKey(current) !== entry.key
             || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) {
-          toast('记录变了，请重新写一组'); return;
+          toast(t("记录变了，请重新写一组")); return;
         }
         const draft = $('replyText').value.trim();
         if (draft && draft !== choice.text.trim()) {
-          toast('你已经写了内容，清空后再选'); return;
+          toast(t("你已经写了内容，清空后再选")); return;
         }
         $('replyText').value = choice.text;
         state.drafts.set(task.id, choice.text);
         $('replyText').focus();
-        toast('已填入，改好再发送');
+        toast(t("已填入，改好再发送"));
       });
       container.appendChild(pick);
     });
@@ -636,7 +638,7 @@
     if (!task || state.replySuggestions.get(task.id)?.running
         || state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) return;
     if (!state.studio?.model?.ready) {
-      toast('先配置模型，再帮你写回复');
+      toast(t("先配置模型，再帮你写回复"));
       if (closeSheet('taskBackdrop')) openCloudSheet();
       return;
     }
@@ -646,7 +648,7 @@
     let operationId = null;
     try {
       const started = JSON.parse(AgentBridge.beginBridgeCall('generateReplySuggestions', JSON.stringify([task.id])));
-      if (!started.ok) throw new Error(started.error || '没能开始写回复，请再试一次');
+      if (!started.ok) throw new Error(started.error || t("没能开始写回复，请再试一次"));
       operationId = started.data.operation.id;
       const deadline = Date.now() + 210000;
       let failures = 0;
@@ -657,33 +659,33 @@
         catch (error) { read = { ok: false }; }
         if (!read.ok) {
           if (++failures < 3 && Date.now() < deadline) continue;
-          throw new Error('没读到回复建议，可以重试或自己写');
+          throw new Error(t("没读到回复建议，可以重试或自己写"));
         }
         failures = 0;
         const operation = read.data.operation;
         if (operation.state === 'running') {
-          if (Date.now() >= deadline) throw new Error('等得有点久，可以重试或自己写');
+          if (Date.now() >= deadline) throw new Error(t("等得有点久，可以重试或自己写"));
           continue;
         }
         if (operation.state !== 'succeeded' || !operation.result?.ok) {
-          throw new Error(operation.result?.error || operation.message || '没写出回复建议，可以重试');
+          throw new Error(operation.result?.error || operation.message || t("没写出回复建议，可以重试"));
         }
         const result = operation.result.data;
         const latest = state.tasks.find(item => item.id === task.id);
         if (!latest || replyContextKey(result?.context) !== entry.key || replyContextKey(latest) !== entry.key) {
-          throw new Error('记录更新了，请重新写一组');
+          throw new Error(t("记录更新了，请重新写一组"));
         }
         if (result.source !== 'model' || typeof result.summary !== 'string'
             || !Array.isArray(result.choices) || result.choices.length < 2 || result.choices.length > 3
             || result.choices.some(choice => typeof choice.label !== 'string' || !choice.label.trim()
               || typeof choice.text !== 'string' || !choice.text.trim() || choice.text.length > 600)) {
-          throw new Error('没写出合适的建议，可以重试或自己写');
+          throw new Error(t("没写出合适的建议，可以重试或自己写"));
         }
         entry.result = result;
         break;
       }
     } catch (error) {
-      entry.error = error.message || '没写出回复建议，可以自己写';
+      entry.error = error.message || t("没写出回复建议，可以自己写");
     } finally {
       entry.running = false;
       if (operationId !== null) {
@@ -697,15 +699,15 @@
     const card = $('taskStatusCard');
     card.replaceChildren();
     const statusMap = {
-      running: { label: '执行中', tone: 'running', icon: '▶', desc: '正在工作，查看最新输出了解进展' },
-      idle: { label: '空闲', tone: 'idle', icon: '⏸', desc: task.requiredInput ? '在等你的回复' : '已完成或暂停，需要人工核实' },
+      running: { label: t("执行中"), tone: 'running', icon: '▶', desc: t("正在工作，查看最新输出了解进展") },
+      idle: { label: t("空闲"), tone: 'idle', icon: '⏸', desc: task.requiredInput ? t("在等你的回复") : t("已完成或暂停，需要人工核实") },
     };
-    const info = statusMap[task.status] || { label: task.status || '未知', tone: 'other', icon: '•', desc: '' };
+    const info = statusMap[task.status] || { label: task.status || t("未知"), tone: 'other', icon: '•', desc: '' };
     if (task.requiredInput) {
-      info.label = '待输入';
+      info.label = t("待输入");
       info.tone = 'attention';
       info.icon = '✋';
-      info.desc = '需要你回复才能继续';
+      info.desc = t("需要你回复才能继续");
     }
     card.dataset.tone = info.tone;
     const iconSpan = element('span', 'tscIcon', info.icon);
@@ -743,14 +745,14 @@
     container.replaceChildren();
     const turns = conversationTurns(task);
     const header = element('div', 'conversationHeader');
-    header.appendChild(element('strong', '', turns.length > 1 ? '最近问答' : '最新记录'));
-    header.appendChild(element('small', '', isRecordedTask(task) ? '上次同步记录' : '来自当前会话'));
+    header.appendChild(element('strong', '', turns.length > 1 ? t("最近问答") : t("最新记录")));
+    header.appendChild(element('small', '', isRecordedTask(task) ? t("上次同步记录") : t("来自当前会话")));
     container.appendChild(header);
 
     if (!turns.length) {
       const empty = element('div', 'conversationEmpty');
-      empty.appendChild(element('strong', '', '还没有可读的问答'));
-      empty.appendChild(element('span', '', '可以先发送一条指令，或点击“刷新输出”。'));
+      empty.appendChild(element('strong', '', t("还没有可读的问答")));
+      empty.appendChild(element('span', '', t("可以先发送一条指令，或点击“刷新输出”。")));
       container.appendChild(empty);
       return;
     }
@@ -786,35 +788,35 @@
     if (user) {
       turns.push({
         role: 'user',
-        title: '我问',
-        label: '最近指令',
+        title: t("我问"),
+        label: t("最近指令"),
         text: user,
-        footer: '发送后会进入同一个会话'
+        footer: t("发送后会进入同一个会话")
       });
     }
     if (assistant) {
       turns.push({
         role: 'assistant',
-        title: agentNames[task.agentType] || '员工',
-        label: task.status === 'running' ? '最新进展' : '最近回复',
+        title: agentNames[task.agentType] || t("员工"),
+        label: task.status === 'running' ? t("最新进展") : t("最近回复"),
         text: assistant,
-        footer: task.status === 'running' ? '会话仍在执行，内容可能继续变化' : ''
+        footer: task.status === 'running' ? t("会话仍在执行，内容可能继续变化") : ''
       });
     }
     if (!turns.length && output) {
       turns.push({
         role: 'system',
-        title: '会话记录',
-        label: '技术输出',
+        title: t("会话记录"),
+        label: t("技术输出"),
         text: output,
-        footer: '已保留原始格式'
+        footer: t("已保留原始格式")
       });
     }
     if (!turns.length && task.requiredInput) {
       turns.push({
         role: 'assistant',
-        title: '等待确认',
-        label: '需要你处理',
+        title: t("等待确认"),
+        label: t("需要你处理"),
         text: task.requiredInput,
         footer: ''
       });
@@ -826,7 +828,7 @@
     const text = String(source || '');
     for (const label of labels) {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = new RegExp(`${escaped}\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果)\\s*[:：]|$)`, 'u').exec(text);
+      const match = new RegExp(`${escaped}${t("\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果)\\s*[:：]|$)")}`, 'u').exec(text);
       if (match?.[1]?.trim()) return match[1].trim();
     }
     return '';
@@ -859,13 +861,13 @@
         container.appendChild(element('span', '', part.trim()));
       }
     });
-    if (!container.childElementCount) container.appendChild(element('span', '', '（空内容）'));
+    if (!container.childElementCount) container.appendChild(element('span', '', t("（空内容）")));
   }
 
   async function renameCurrentTask() {
-    const value = window.prompt('新的任务名称', currentTask() ? currentTask().title : '');
+    const value = window.prompt(t("新的任务名称"), currentTask() ? currentTask().title : '');
     if (!value || !state.currentTaskId) return;
-    const result = await call('renameTask', '修改员工名牌…', state.currentTaskId, value);
+    const result = await call('renameTask', t("修改员工名牌…"), state.currentTaskId, value);
     if (result.ok) {
       $('taskTitle').textContent = result.data.task.title;
       await loadState();
@@ -876,35 +878,35 @@
     const task = currentTask();
     if (!task) return;
     if (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)) {
-      toast('这个员工还有后台任务，完成后再删除');
+      toast(t("这个员工还有后台任务，完成后再删除"));
       return;
     }
     const name = taskDisplayName(task);
-    if (!window.confirm(`把「${name}」移到已删除列表？\n\n不会删除机器上的项目、会话记录或文件。`)) return;
-    const result = await call('deleteTask', '移出办公室…', task.id);
+    if (!window.confirm(`${t("把「")}${name}${t("」移到已删除列表？\n\n不会删除机器上的项目、会话记录或文件。")}`)) return;
+    const result = await call('deleteTask', t("移出办公室…"), task.id);
     if (!result.ok) return;
     state.drafts.delete(task.id);
     showDeletedOffices.add(task.machineId);
     closeSheet('taskBackdrop');
     await loadState();
-    toast('已移到删除列表');
+    toast(t("已移到删除列表"));
   }
 
   function refreshCurrentTask() {
     const task = currentTask();
     if (!task) return;
     if (state.backgroundTails.has(task.id)) {
-      toast('这个任务输出正在后台刷新，完成后会通知你');
+      toast(t("这个任务输出正在后台刷新，完成后会通知你"));
       return;
     }
     let parsed;
     try {
       parsed = JSON.parse(AgentBridge.beginTailTask(task.id));
     } catch (error) {
-      parsed = { ok: false, error: '无法提交后台刷新' };
+      parsed = { ok: false, error: t("无法提交后台刷新") };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '无法提交后台刷新');
+      toast(parsed.error || t("无法提交后台刷新"));
       return;
     }
     const operation = parsed.data.operation;
@@ -913,12 +915,12 @@
       machineId: task.machineId,
       stableKey: task.stableKey || operation.stableKey || '',
       taskName: compactTaskTitle(task),
-      message: '正在刷新任务输出…',
+      message: t("正在刷新任务输出…"),
       startedAt: operation.startedAt || Date.now()
     });
     renderTaskDetail();
     renderBackgroundState();
-    toast('刷新输出已提交后台，完成后会通知你');
+    toast(t("刷新输出已提交后台，完成后会通知你"));
     void pollBackgroundTail(task.id, operation);
   }
 
@@ -932,15 +934,15 @@
         try {
           parsed = JSON.parse(AgentBridge.operationState(startedOperation.id));
         } catch (error) {
-          parsed = { ok: false, error: '无法读取后台刷新状态' };
+          parsed = { ok: false, error: t("无法读取后台刷新状态") };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法读取后台刷新状态');
+        if (!parsed.ok) throw new Error(parsed.error || t("无法读取后台刷新状态"));
         const operation = parsed.data.operation;
         entry.operation = operation;
-        entry.message = operation.message || '正在刷新任务输出…';
+        entry.message = operation.message || t("正在刷新任务输出…");
         renderTaskDetail();
         renderBackgroundState();
-        if (operation.state === 'failed') throw new Error(operation.message || '刷新任务输出失败');
+        if (operation.state === 'failed') throw new Error(operation.message || t("刷新任务输出失败"));
         if (operation.state !== 'running') break;
       }
       const entry = state.backgroundTails.get(taskId);
@@ -958,12 +960,12 @@
           state.drafts.delete(taskId);
         }
       }
-      const title = nextTask ? compactTaskTitle(nextTask) : (entry ? entry.taskName : `任务 ${taskId}`);
-      finishBackgroundTail(taskId, true, `${title} 输出已刷新`);
+      const title = nextTask ? compactTaskTitle(nextTask) : (entry ? entry.taskName : `${t("任务 ")}${taskId}`);
+      finishBackgroundTail(taskId, true, `${title}${t(" 输出已刷新")}`);
     } catch (error) {
       const entry = state.backgroundTails.get(taskId);
-      const title = entry ? entry.taskName : `任务 ${taskId}`;
-      finishBackgroundTail(taskId, false, `${title} 刷新失败：${error.message || String(error)}`);
+      const title = entry ? entry.taskName : `${t("任务 ")}${taskId}`;
+      finishBackgroundTail(taskId, false, `${title}${t(" 刷新失败：")}${error.message || String(error)}`);
     }
   }
 
@@ -984,12 +986,12 @@
     if (!state.currentTaskId || !currentTask()) return;
     const task = currentTask();
     if (state.backgroundSends.has(task.id)) {
-      toast('这个任务已在后台执行，完成后会通知你');
+      toast(t("这个任务已在后台执行，完成后会通知你"));
       return;
     }
     const value = $('replyText').value.trim();
     if (!value) {
-      toast('先输入要发送回会话的内容');
+      toast(t("先输入要发送回会话的内容"));
       return;
     }
 
@@ -997,17 +999,17 @@
     try {
       parsed = JSON.parse(AgentBridge.beginSendPrompt(task.id, value, 'android'));
     } catch (error) {
-      parsed = { ok: false, error: '无法提交后台任务' };
+      parsed = { ok: false, error: t("无法提交后台任务") };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '无法提交后台任务');
+      toast(parsed.error || t("无法提交后台任务"));
       return;
     }
 
     const operation = parsed.data.operation;
     state.backgroundSends.set(task.id, {
       operation,
-      message: '已提交，正在检查网络…',
+      message: t("已提交，正在检查网络…"),
       network: null,
       prompt: value,
       startedAt: operation.startedAt || Date.now()
@@ -1018,7 +1020,7 @@
     if (state.currentTaskId === task.id) $('replyText').value = '';
     renderTaskDetail();
     renderBackgroundState();
-    toast('消息已提交，发送结果会通知你');
+    toast(t("消息已提交，发送结果会通知你"));
     void pollBackgroundSend(task.id, operation);
   }
 
@@ -1033,17 +1035,17 @@
         try {
           parsed = JSON.parse(AgentBridge.operationState(startedOperation.id));
         } catch (error) {
-          parsed = { ok: false, error: '无法读取后台任务状态' };
+          parsed = { ok: false, error: t("无法读取后台任务状态") };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法读取后台任务状态');
+        if (!parsed.ok) throw new Error(parsed.error || t("无法读取后台任务状态"));
 
         const operation = parsed.data.operation;
         currentEntry.operation = operation;
-        currentEntry.message = operation.message || '后台执行中…';
+        currentEntry.message = operation.message || t("后台执行中…");
         currentEntry.network = operation.network || null;
         if (state.currentTaskId === taskId) renderTaskDetail();
         renderBackgroundState();
-        if (operation.state === 'failed') throw new Error(operation.message || '任务执行失败');
+        if (operation.state === 'failed') throw new Error(operation.message || t("任务执行失败"));
         if (operation.state !== 'running') break;
       }
 
@@ -1055,8 +1057,8 @@
         if (index >= 0) state.tasks[index] = updatedTask;
       }
       finishBackgroundSend(taskId, true, operation.stillRunning
-        ? `${updatedTask ? compactTaskTitle(updatedTask) + '：' : ''}${operation.message || '回复已送达，远程仍在处理'}`
-        : updatedTask ? `消息已发送：${compactTaskTitle(updatedTask)}` : '消息已发送');
+        ? `${updatedTask ? compactTaskTitle(updatedTask) + '：' : ''}${operation.message || t("回复已送达，远程仍在处理")}`
+        : updatedTask ? `${t("消息已发送：")}${compactTaskTitle(updatedTask)}` : t("消息已发送"));
     } catch (error) {
       finishBackgroundSend(taskId, false, error.message || String(error));
     }
@@ -1096,7 +1098,7 @@
     const running = [
       ...[...state.backgroundSends.entries()].map(([taskId, entry]) => {
         const task = state.tasks.find(item => item.id === taskId);
-        return `${entry.message}\n${task ? compactTaskTitle(task) : `任务 ${taskId}`}`;
+        return `${entry.message}\n${task ? compactTaskTitle(task) : `${t("任务 ")}${taskId}`}`;
       }),
       ...[...state.backgroundDiscovers.values()].map(entry => `${entry.message}\n${entry.machineName}`),
       ...[...state.backgroundTails.values()].map(entry => `${entry.message}\n${entry.taskName}`),
@@ -1104,7 +1106,7 @@
     ];
     const notices = state.backgroundNotices.map(item => `${item.time} ${item.kind === 'success' ? '✅' : '❌'} ${item.message}`);
     if (!running.length && !notices.length) {
-      toast('当前没有后台任务');
+      toast(t("当前没有后台任务"));
       return;
     }
     window.alert([...running, ...notices].join('\n\n'));
@@ -1113,13 +1115,13 @@
   }
 
   function compactTaskTitle(task) {
-    return String(task.title || task.workSummary || `任务 ${task.id}`).slice(0, 48);
+    return String(task.title || task.workSummary || `${t("任务 ")}${task.id}`).slice(0, 48);
   }
 
   function renderBackgroundState() {
     const button = $('backgroundState');
     const running = state.backgroundSends.size + state.backgroundDiscovers.size + state.backgroundTails.size + state.backgroundReports.size;
-    button.textContent = running ? `后台 ${running}` : state.backgroundNotices.length ? `通知 ${state.backgroundNotices.length}` : '后台';
+    button.textContent = running ? `${t("后台 ")}${running}` : state.backgroundNotices.length ? `${t("通知 ")}${state.backgroundNotices.length}` : t("后台");
     button.classList.toggle('connected', running > 0 || state.backgroundNotices.length > 0);
   }
 
@@ -1128,7 +1130,7 @@
   }
 
   function openMachineSheet(machine) {
-    $('machineSheetTitle').textContent = machine ? `编辑 ${machine.name}` : '添加 SSH 机器';
+    $('machineSheetTitle').textContent = machine ? `${t("编辑 ")}${machine.name}` : t("添加 SSH 机器");
     $('machineId').value = machine ? machine.id : '';
     $('machineName').value = machine ? machine.name : '';
     $('machineHost').value = machine ? machine.host : '';
@@ -1137,9 +1139,9 @@
     // Saved credentials never reach the page; an empty field keeps them.
     $('machinePassword').value = '';
     $('machineKey').value = '';
-    $('machinePassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('machinePassword').placeholder = machine && machine.hasPassword ? t("已保存，留空则不修改") : '';
     $('machineKey').placeholder = machine && machine.hasPrivateKey
-      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
+      ? t("已保存，留空则不修改") : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.authType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-auth]').forEach((item) => item.classList.toggle('active', item.dataset.auth === state.authType));
     $('passwordLabel').classList.toggle('hidden', state.authType !== 'password');
@@ -1152,15 +1154,15 @@
     const server = state.frpServer;
     const machine = server ? state.machines.find((item) => item.id === server.machineId) : null;
     $('frpMachineId').value = machine ? machine.id : '';
-    $('frpName').value = machine ? machine.name : '云端入口';
+    $('frpName').value = machine ? machine.name : t("云端入口");
     $('frpHost').value = machine ? machine.host : '';
     $('frpUsername').value = machine ? machine.username : '';
     $('frpPort').value = machine ? machine.port : 22;
     $('frpPassword').value = '';
     $('frpKey').value = '';
-    $('frpPassword').placeholder = machine && machine.hasPassword ? '已保存，留空则不修改' : '';
+    $('frpPassword').placeholder = machine && machine.hasPassword ? t("已保存，留空则不修改") : '';
     $('frpKey').placeholder = machine && machine.hasPrivateKey
-      ? '已保存，留空则不修改' : '-----BEGIN OPENSSH PRIVATE KEY-----';
+      ? t("已保存，留空则不修改") : '-----BEGIN OPENSSH PRIVATE KEY-----';
     state.frpAuthType = machine && machine.authType === 'key' ? 'key' : 'password';
     document.querySelectorAll('[data-frp-auth]').forEach((item) => item.classList.toggle('active', item.dataset.frpAuth === state.frpAuthType));
     $('frpPasswordLabel').classList.toggle('hidden', state.frpAuthType !== 'password');
@@ -1184,58 +1186,58 @@
       authType: state.frpAuthType,
       password: $('frpPassword').value,
       privateKey: $('frpKey').value,
-      name: $('frpName').value.trim() || '云端入口',
+      name: $('frpName').value.trim() || t("云端入口"),
       publicAddress: $('frpPublicAddress').value.trim() || $('frpHost').value.trim(),
       bindPort: Number($('frpBindPort').value || 7001),
       version: $('frpVersion').value.trim(),
       downloadBase: $('frpDownloadBase').value.trim(),
       existingToken: $('frpExistingToken').value
     };
-    const result = await call('saveFrpServer', '保存公网入口…', JSON.stringify(payload));
+    const result = await call('saveFrpServer', t("保存公网入口…"), JSON.stringify(payload));
     if (!result.ok) return;
     closeSheet('frpBackdrop');
     await loadState();
-    const deployed = await call('deployFrpServer', '正在自动部署公网入口…');
+    const deployed = await call('deployFrpServer', t("正在自动部署公网入口…"));
     await loadState();
-    toast(deployed.ok ? frpDeploymentToast(deployed.data.frpServer) : '入口已保存，请查看部署错误');
+    toast(deployed.ok ? frpDeploymentToast(deployed.data.frpServer) : t("入口已保存，请查看部署错误"));
   }
 
   async function deployFrpServer() {
-    const result = await call('deployFrpServer', '自动部署公网 FRP 服务端…');
+    const result = await call('deployFrpServer', t("自动部署公网 FRP 服务端…"));
     await loadState();
     if (result.ok) toast(frpDeploymentToast(result.data.frpServer));
   }
 
   function frpDeploymentToast(server) {
-    if (server && server.deployment === 'adopted-existing') return '已复用服务器上的 FRP，请继续开通机器';
-    if (server && server.deployment === 'reused') return 'agentBridge FRP 已复用，请继续开通机器';
-    return '入口服务已启动，请继续开通机器';
+    if (server && server.deployment === 'adopted-existing') return t("已复用服务器上的 FRP，请继续开通机器");
+    if (server && server.deployment === 'reused') return t("agentBridge FRP 已复用，请继续开通机器");
+    return t("入口服务已启动，请继续开通机器");
   }
 
   function frpDeploymentText(server) {
     if (!server || !server.deployment) return '';
-    if (server.deployment === 'adopted-existing') return ' · 复用已有 FRP';
-    if (server.deployment === 'reused') return ' · 复用 agentBridge FRP';
+    if (server.deployment === 'adopted-existing') return t(" · 复用已有 FRP");
+    if (server.deployment === 'reused') return t(" · 复用 agentBridge FRP");
     return '';
   }
 
   async function deployPublicRelay(machineId) {
-    const result = await call('deployFrpRelay', '安装安全中转客户端…', machineId);
+    const result = await call('deployFrpRelay', t("安装安全中转客户端…"), machineId);
     await loadState();
-    if (result.ok) toast('公网中转 SSH 验证通过');
+    if (result.ok) toast(t("公网中转 SSH 验证通过"));
   }
 
   async function disablePublicRelay(machineId) {
-    if (!window.confirm('关闭这台机器的公网访问？关闭后出门时将不能远程操作它。')) return;
-    const result = await call('disableFrpRelay', '关闭安全中转…', machineId);
+    if (!window.confirm(t("关闭这台机器的公网访问？关闭后出门时将不能远程操作它。"))) return;
+    const result = await call('disableFrpRelay', t("关闭安全中转…"), machineId);
     await loadState();
-    if (result.ok) toast('公网访问已关闭');
+    if (result.ok) toast(t("公网访问已关闭"));
   }
 
   async function setPublicMode(machineId, mode) {
-    const result = await call('setMachinePublicMode', '切换公网模式…', machineId, mode);
+    const result = await call('setMachinePublicMode', t("切换公网模式…"), machineId, mode);
     await loadState();
-    if (result.ok) toast('公网模式已更新');
+    if (result.ok) toast(t("公网模式已更新"));
   }
 
   function renderPublic() {
@@ -1247,27 +1249,27 @@
     const entry = element('article', 'publicCard');
     const header = element('header', 'publicHeader');
     header.appendChild(element('p', 'eyebrow', 'SECURE PUBLIC ENTRY'));
-    header.appendChild(element('h2', '', server ? server.publicAddress : '三步开通远程访问'));
+    header.appendChild(element('h2', '', server ? server.publicAddress : t("三步开通远程访问")));
     header.appendChild(element('p', 'publicMeta', server
-      ? `SSH ${serverMachine ? serverMachine.username + '@' + serverMachine.host + ':' + serverMachine.port : '未配置'} · FRP ${server.bindPort} · ${frpStatusText(server.status)}${frpDeploymentText(server)}`
-      : '填公网服务器、用户名、密码；优先复用已有 FRP，没有则自动部署；再给需要出门的机器一键开通。'));
+      ? `SSH ${serverMachine ? serverMachine.username + '@' + serverMachine.host + ':' + serverMachine.port : t("未配置")} · FRP ${server.bindPort} · ${frpStatusText(server.status)}${frpDeploymentText(server)}`
+      : t("填公网服务器、用户名、密码；优先复用已有 FRP，没有则自动部署；再给需要出门的机器一键开通。")));
     if (server && server.lastError) header.appendChild(element('p', 'deploymentError', server.lastError));
     const actions = element('div', 'officeActions');
-    actions.appendChild(actionButton(server ? '快速配置' : '开始配置', openFrpSheet, server ? '' : 'dark'));
-    if (server) actions.appendChild(actionButton(server.deployment === 'adopted-existing' ? '重新检查' : '重新部署', deployFrpServer));
+    actions.appendChild(actionButton(server ? t("快速配置") : t("开始配置"), openFrpSheet, server ? '' : 'dark'));
+    if (server) actions.appendChild(actionButton(server.deployment === 'adopted-existing' ? t("重新检查") : t("重新部署"), deployFrpServer));
     header.appendChild(actions);
     entry.appendChild(header);
 
     const body = element('div', 'publicBody');
-    body.appendChild(element('p', 'securityNote', '安全默认：只暴露公网入口的 SSH 和 FRP 端口；目标机器不直接暴露 SSH，出门访问走 SSH + FRP STCP 加密隧道。'));
+    body.appendChild(element('p', 'securityNote', t("安全默认：只暴露公网入口的 SSH 和 FRP 端口；目标机器不直接暴露 SSH，出门访问走 SSH + FRP STCP 加密隧道。")));
     if (!server) {
       const steps = element('div', 'officeEmpty');
-      steps.textContent = '1. 添加一台公网 Linux 机器 → 2. 自动部署入口 → 3. 给办公室一键开通远程访问';
+      steps.textContent = t("1. 添加一台公网 Linux 机器 → 2. 自动部署入口 → 3. 给办公室一键开通远程访问");
       body.appendChild(steps);
     } else {
       const candidates = state.machines.filter((item) => item.id !== server.machineId);
       if (!candidates.length) {
-        body.appendChild(element('div', 'officeEmpty', '还没有可配置远程访问的私有机器。'));
+        body.appendChild(element('div', 'officeEmpty', t("还没有可配置远程访问的私有机器。")));
       } else {
         candidates.forEach((machine) => {
           const relay = state.frpRelays.find((item) => item.machineId === machine.id);
@@ -1276,32 +1278,32 @@
           const title = element('div', 'publicMachineTitle');
           title.appendChild(element('strong', '', machine.name));
           title.appendChild(element('span', `stateChip ${enabled ? 'running' : 'idle'}`,
-            server.status !== 'online' ? '入口未就绪' : relay ? frpStatusText(relay.status) : '未开通'));
+            server.status !== 'online' ? t("入口未就绪") : relay ? frpStatusText(relay.status) : t("未开通")));
           card.appendChild(title);
           card.appendChild(element('small', '', `${machine.username}@${machine.host}:${machine.port} · ${enabled
-            ? relay.verifiedAt ? `上次验证 ${checkTime(relay.verifiedAt)}` : '旧配置，请重新验证'
-            : '尚未验证公网连接'}`));
+            ? relay.verifiedAt ? `${t("上次验证 ")}${checkTime(relay.verifiedAt)}` : t("旧配置，请重新验证")
+            : t("尚未验证公网连接")}`));
           const error = machine.publicAccessError || (relay && relay.lastError);
           if (error) card.appendChild(element('p', 'deploymentError', error));
           const row = element('div', 'officeActions');
-          const deploy = actionButton(server.status !== 'online' ? '先部署公网入口' : enabled ? '重新配置' : '一键开通远程访问',
+          const deploy = actionButton(server.status !== 'online' ? t("先部署公网入口") : enabled ? t("重新配置") : t("一键开通远程访问"),
             () => deployPublicRelay(machine.id), 'dark');
           deploy.disabled = server.status !== 'online';
           row.appendChild(deploy);
-          if (relay && relay.enabled) row.appendChild(actionButton('关闭远程', () => disablePublicRelay(machine.id), 'warn'));
+          if (relay && relay.enabled) row.appendChild(actionButton(t("关闭远程"), () => disablePublicRelay(machine.id), 'warn'));
           card.appendChild(row);
 
           const advanced = element('details', 'advancedDetails');
-          const summary = element('summary', '', '连接模式');
+          const summary = element('summary', '', t("连接模式"));
           advanced.appendChild(summary);
           const advancedBody = element('div', 'advancedBody');
           const modes = element('div', 'modeRow');
-          [['off', '不上公网'], ['auto', '自动'], ['public', '仅公网']].forEach(([mode, label]) => {
+          [['off', t("不上公网")], ['auto', t("自动")], ['public', t("仅公网")]].forEach(([mode, label]) => {
             modes.appendChild(actionButton(label, () => setPublicMode(machine.id, mode),
               (machine.publicMode || 'off') === mode ? 'dark' : ''));
           });
           advancedBody.appendChild(modes);
-          advancedBody.appendChild(element('p', 'formNote', '自动：同 Wi-Fi 直连，出门走公网。仅公网：永远走公网入口。不上公网：关闭远程访问优先级。'));
+          advancedBody.appendChild(element('p', 'formNote', t("自动：同 Wi-Fi 直连，出门走公网。仅公网：永远走公网入口。不上公网：关闭远程访问优先级。")));
           advanced.appendChild(advancedBody);
           card.appendChild(advanced);
           body.appendChild(card);
@@ -1313,17 +1315,17 @@
   }
 
   function frpStatusText(status) {
-    if (status === 'online') return '在线';
-    if (status === 'deploying') return '部署中';
-    if (status === 'error') return '错误';
-    if (status === 'disabled') return '已关闭';
-    return '未部署';
+    if (status === 'online') return t("在线");
+    if (status === 'deploying') return t("部署中");
+    if (status === 'error') return t("错误");
+    if (status === 'disabled') return t("已关闭");
+    return t("未部署");
   }
 
   function publicModeText(mode) {
-    if (mode === 'auto') return '自动';
-    if (mode === 'public') return '仅公网';
-    return '不上公网';
+    if (mode === 'auto') return t("自动");
+    if (mode === 'public') return t("仅公网");
+    return t("不上公网");
   }
 
   function render() {
@@ -1333,14 +1335,14 @@
     $('offices').classList.toggle('hidden', state.view !== 'offices');
     $('todo').classList.toggle('hidden', state.view !== 'todo');
     $('public').classList.toggle('hidden', state.view !== 'public');
-    $('taskCount').textContent = `${state.tasks.length} 位员工`;
+    $('taskCount').textContent = `${state.tasks.length}${t(" 位员工")}`;
     const attention = state.tasks.filter((task) => task.requiredInput).length;
-    $('attentionCount').textContent = `${attention} 个待输入`;
+    $('attentionCount').textContent = `${attention}${t(" 个待输入")}`;
     $('attentionCount').disabled = attention === 0;
-    $('todoTab').textContent = attention ? `待输入 · ${attention}` : '待输入';
+    $('todoTab').textContent = attention ? `${t("待输入 · ")}${attention}` : t("待输入");
     $('networkLine').textContent = state.networkHint
-      ? `${state.machines.length} 间办公室 · 手动刷新检查状态`
-      : `${state.machines.length} 间办公室 · 未识别 Wi-Fi，可手动添加`;
+      ? `${state.machines.length}${t(" 间办公室 · 手动刷新检查状态")}`
+      : `${state.machines.length}${t(" 间办公室 · 未识别 Wi-Fi，可手动添加")}`;
     renderOffices();
     renderTodo();
     renderPublic();
@@ -1355,7 +1357,7 @@
     container.textContent = '';
     if (!state.machines.length) {
       const empty = element('div', 'empty');
-      empty.innerHTML = '<div class="emptyAvatar"></div><h3>小镇还空着</h3><p>添加一台支持 SSH 的 Mac / Linux，<br>手机会直接去那里找 Claude 和 Codex 员工。</p>';
+      empty.innerHTML = t("<div class=\"emptyAvatar\"></div><h3>小镇还空着</h3><p>添加一台支持 SSH 的 Mac / Linux，<br>手机会直接去那里找 Claude 和 Codex 员工。</p>");
       container.appendChild(empty);
       return;
     }
@@ -1370,7 +1372,7 @@
       titleMeta.appendChild(element(
         'span',
         `officeStatus ${machine.lastStatus === 'online' ? 'online' : machine.lastStatus === 'offline' ? 'offline' : ''}`,
-        machine.lastStatus === 'online' ? '在线' : machine.lastStatus === 'offline' ? '离线' : '未检查',
+        machine.lastStatus === 'online' ? t("在线") : machine.lastStatus === 'offline' ? t("离线") : t("未检查"),
       ));
       const tools = machineToolsLabel(machine);
       if (tools) titleMeta.appendChild(element('span', 'officeTools', tools));
@@ -1379,22 +1381,22 @@
       const actions = element('div', 'officeActions');
       const deletedTasks = state.deletedTasks.filter(task => task.machineId === machine.id);
       if (String(machine.lastError || '').includes('主机指纹')) {
-        actions.appendChild(actionButton('重置主机指纹', () => resetHostKey(machine.id), 'warn'));
+        actions.appendChild(actionButton(t("重置主机指纹"), () => resetHostKey(machine.id), 'warn'));
       }
-      actions.appendChild(actionButton('测试', () => probeMachine(machine.id), 'advancedAction'));
+      actions.appendChild(actionButton(t("测试"), () => probeMachine(machine.id), 'advancedAction'));
       const discovering = state.backgroundDiscovers.has(machine.id);
-      actions.appendChild(actionButton(discovering ? '发现中' : '找任务', discovering ? () => toast('这间办公室正在发现员工') : () => discoverMachine(machine.id), 'dark'));
-      actions.appendChild(actionButton(isCollapsed(machine.id) ? '展开' : '收起', () => toggleSprites(machine.id), 'spriteToggle advancedAction'));
+      actions.appendChild(actionButton(discovering ? t("发现中") : t("找任务"), discovering ? () => toast(t("这间办公室正在发现员工")) : () => discoverMachine(machine.id), 'dark'));
+      actions.appendChild(actionButton(isCollapsed(machine.id) ? t("展开") : t("收起"), () => toggleSprites(machine.id), 'spriteToggle advancedAction'));
       if (deletedTasks.length) {
         actions.appendChild(actionButton(
-          showDeletedOffices.has(machine.id) ? '收起删除' : `删除 ${deletedTasks.length}`,
+          showDeletedOffices.has(machine.id) ? t("收起删除") : `${t("删除 ")}${deletedTasks.length}`,
           () => toggleDeletedOffice(machine.id),
           'deletedToggle advancedAction',
         ));
       }
-      actions.appendChild(actionButton('编辑', () => editMachine(machine.id), 'advancedAction'));
-      actions.appendChild(actionButton('删除', () => deleteMachine(machine.id), 'warn advancedAction'));
-      actions.appendChild(actionButton('更多', () => {
+      actions.appendChild(actionButton(t("编辑"), () => editMachine(machine.id), 'advancedAction'));
+      actions.appendChild(actionButton(t("删除"), () => deleteMachine(machine.id), 'warn advancedAction'));
+      actions.appendChild(actionButton(t("更多"), () => {
         office.classList.toggle('showAdvanced');
       }));
       header.appendChild(title);
@@ -1408,13 +1410,13 @@
           'div',
           'officeCollapsedSummary',
           tasks.length
-            ? `${tasks.length} 位员工已收起${attention ? ` · ${attention} 个待输入` : ''}`
-            : '员工列表已收起',
+            ? `${tasks.length}${t(" 位员工已收起")}${attention ? ` · ${attention}${t(" 个待输入")}` : ''}`
+            : t("员工列表已收起"),
         ));
       } else {
         const employees = element('div', 'employees');
         if (!tasks.length) {
-          employees.appendChild(element('div', 'officeEmpty', '这间办公室还没有发现员工，点击“找任务”试试。'));
+          employees.appendChild(element('div', 'officeEmpty', t("这间办公室还没有发现员工，点击“找任务”试试。")));
         } else {
           tasks.forEach((task) => employees.appendChild(employeeCard(task)));
         }
@@ -1434,11 +1436,11 @@
   function appendDeletedEmployees(office, tasks) {
     const section = element('section', 'deletedEmployees');
     const header = element('header');
-    header.appendChild(element('strong', '', '删除列表'));
-    header.appendChild(element('small', '', '不占用工作现场，可随时恢复'));
+    header.appendChild(element('strong', '', t("删除列表")));
+    header.appendChild(element('small', '', t("不占用工作现场，可随时恢复")));
     section.appendChild(header);
     if (!tasks.length) {
-      section.appendChild(element('p', 'officeEmpty', '这里没有已删除员工。'));
+      section.appendChild(element('p', 'officeEmpty', t("这里没有已删除员工。")));
       office.appendChild(section);
       return;
     }
@@ -1449,8 +1451,8 @@
       stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
       const info = element('div', 'deletedEmployeeInfo');
       info.appendChild(element('strong', '', taskDisplayName(task)));
-      info.appendChild(element('small', '', `${agentNames[task.agentType] || task.agentType} · 删除于 ${checkTime(task.deletedAt)}`));
-      const restore = actionButton('恢复', () => void restoreDeletedTask(task.id), 'dark');
+      info.appendChild(element('small', '', `${agentNames[task.agentType] || task.agentType}${t(" · 删除于 ")}${checkTime(task.deletedAt)}`));
+      const restore = actionButton(t("恢复"), () => void restoreDeletedTask(task.id), 'dark');
       row.append(stage, info, restore);
       list.appendChild(row);
     });
@@ -1459,10 +1461,10 @@
   }
 
   async function restoreDeletedTask(id) {
-    const result = await call('restoreDeletedTask', '恢复员工…', id);
+    const result = await call('restoreDeletedTask', t("恢复员工…"), id);
     if (!result.ok) return;
     await loadState();
-    toast('员工已恢复');
+    toast(t("员工已恢复"));
   }
 
   function renderPiDetail() {
@@ -1490,11 +1492,11 @@
       return compactButlerText(clean || id, 18);
     };
     const planSummary = lastReport ? [
-      `基于已同步记录：已验收 ${(lastReport.completed || []).length} 项`,
-      `推进 ${(lastReport.ongoing || []).length} 项`,
-      `阻塞 ${(lastReport.blockers || []).length} 项`,
-      `明天建议 ${(lastReport.tomorrow || []).length} 项`,
-      `待你决定 ${(lastReport.decisions || []).length} 项`,
+      `${t("基于已同步记录：已验收 ")}${(lastReport.completed || []).length}${t(" 项")}`,
+      `${t("推进 ")}${(lastReport.ongoing || []).length}${t(" 项")}`,
+      `${t("阻塞 ")}${(lastReport.blockers || []).length}${t(" 项")}`,
+      `${t("明天建议 ")}${(lastReport.tomorrow || []).length}${t(" 项")}`,
+      `${t("待你决定 ")}${(lastReport.decisions || []).length}${t(" 项")}`,
     ].join('，') + '。' : '';
     const planItem = (item, label) => {
       const ids = Array.isArray(item.taskIds) ? item.taskIds.filter(Boolean) : [];
@@ -1516,96 +1518,96 @@
         .replace(/；\s*为同内容的空闲会话，待区分保留哪条。/gu, '；另一条同内容会话待区分保留。')
         .replace(/^处于待输入状态：到\s*/u, '到 ')
         .trim();
-      return { title: text || '未命名事项', label: [label, ...ids].join(' · ') };
+      return { title: text || t("未命名事项"), label: [label, ...ids].join(' · ') };
     };
 
     const aiTodayItems = lastReport
       ? [
-          ...lastReport.completed.map(item => planItem(item, '已做')),
-          ...lastReport.ongoing.map(item => planItem(item, '推进中')),
+          ...lastReport.completed.map(item => planItem(item, t("已做"))),
+          ...lastReport.ongoing.map(item => planItem(item, t("推进中"))),
         ]
       : [];
     const aiTomorrowItems = lastReport && Array.isArray(lastReport.tomorrow)
-      ? lastReport.tomorrow.map(item => planItem(item, '明日建议'))
+      ? lastReport.tomorrow.map(item => planItem(item, t("明日建议")))
       : [];
     const rawTodayItems = [
       ...(Array.isArray(report.completed) ? report.completed : []).map(item => ({
         title: item.title,
-        label: item.label || item.source || '已做'
+        label: item.label || item.source || t("已做")
       })),
       ...(Array.isArray(report.ongoing) ? report.ongoing : []).map(item => ({
         title: item.title,
-        label: item.label || item.source || '推进中'
+        label: item.label || item.source || t("推进中")
       })),
     ];
     const rawTomorrowItems = (Array.isArray(report.suggestions) ? report.suggestions : []).map(item => ({
       title: item.title,
-      label: item.next || '明日建议'
+      label: item.next || t("明日建议")
     }));
     const todayItems = state.butlerPlanMode === 'records' ? rawTodayItems : aiTodayItems;
     const tomorrowItems = state.butlerPlanMode === 'records' ? rawTomorrowItems : aiTomorrowItems;
     const suggestion = attention[0]
-      ? `先处理「${attention[0].title}」：${attention[0].requiredInput}`
-      : (tomorrowItems[0] ? `明天可以先做：${tomorrowItems[0].title}` : '问我任务进展，或一起排个先后。');
+      ? `${t("先处理「")}${attention[0].title}${window.OfficeI18n.language === 'en' ? '”: ' : '」：'}${attention[0].requiredInput}`
+      : (tomorrowItems[0] ? `${t("明天可以先做：")}${tomorrowItems[0].title}` : t("问我任务进展，或一起排个先后。"));
 
     const modelText = model.label ? model.label.replace(/^Pi\s*[·:-]?\s*/u, '').trim() : '';
     $('piAvatar').replaceChildren(employeeSprite('pi', 2));
-    $('piAvatar').appendChild(element('span', 'employeeBubble', attention.length ? `${attention.length} 个待输入` : '管家待命'));
-    $('openCloudFromButler').textContent = model.ready ? '模型设置' : '配置模型';
-    $('piMeta').textContent = model.ready && modelText ? modelText : '模型未连接';
-    $('piSheetTitle').textContent = '聊聊任务';
+    $('piAvatar').appendChild(element('span', 'employeeBubble', attention.length ? `${attention.length}${t(" 个待输入")}` : t("管家待命")));
+    $('openCloudFromButler').textContent = model.ready ? t("模型设置") : t("配置模型");
+    $('piMeta').textContent = model.ready && modelText ? modelText : t("模型未连接");
+    $('piSheetTitle').textContent = t("聊聊任务");
     $('butlerEmployeeName').textContent = attention.length
-      ? `有 ${attention.length} 件事等你确认`
-      : tomorrowItems.length ? '明天的安排在这里' : '想问哪件事？';
+      ? `${t("有 ")}${attention.length}${t(" 件事等你确认")}`
+      : tomorrowItems.length ? t("明天的安排在这里") : t("想问哪件事？");
     $('butlerEmployeeSub').textContent = cleanButlerText(suggestion);
     document.querySelectorAll('[data-plan-mode]').forEach((button) => {
       button.classList.toggle('active', button.dataset.planMode === state.butlerPlanMode);
     });
     $('butlerReportMeta').textContent = state.butlerPlanMode === 'records'
-      ? `原始记录 · 已同步 ${(Array.isArray(report.completed) ? report.completed : []).length + (Array.isArray(report.ongoing) ? report.ongoing : []).length} 条`
+      ? `${t("原始记录 · 已同步 ")}${(Array.isArray(report.completed) ? report.completed : []).length + (Array.isArray(report.ongoing) ? report.ongoing : []).length}${t(" 条")}`
       : lastReport
       ? `${savedReport.model || modelText || 'AI'} · ${checkTime(savedReport.generatedAt)}`
-      : '尚未生成';
+      : t("尚未生成");
     $('butlerAiSummary').textContent = state.butlerPlanMode === 'records'
-      ? '这里是上次刷新的任务记录。“空闲”可能是做完了，也可能只是暂停。'
+      ? t("这里是上次刷新的任务记录。“空闲”可能是做完了，也可能只是暂停。")
       : lastReport && lastReport.summary
       ? planSummary
-      : '看看今天做了什么，明天先做什么。';
-    $('butlerMessageLabel').textContent = model.ready ? (modelText || '模型已配置') : '未配置模型';
-    $('butlerAttentionCount').textContent = `${attention.length} 件`;
-    $('butlerPlanPreview').textContent = lastReport ? '已有安排' : '尚未整理';
-    const connectionText = state.modelChecking ? '正在测试连接…'
-      : state.modelCheckError || (model.verifiedAt ? '连接正常，可以聊天了。'
-        : model.ready ? '配置已保存，点「验证连接」试一下。' : '先配置模型，再开始聊天。');
+      : t("看看今天做了什么，明天先做什么。");
+    $('butlerMessageLabel').textContent = model.ready ? (modelText || t("模型已配置")) : t("未配置模型");
+    $('butlerAttentionCount').textContent = `${attention.length}${t(" 件")}`;
+    $('butlerPlanPreview').textContent = lastReport ? t("已有安排") : t("尚未整理");
+    const connectionText = state.modelChecking ? t("正在测试连接…")
+      : state.modelCheckError || (model.verifiedAt ? t("连接正常，可以聊天了。")
+        : model.ready ? t("配置已保存，点「验证连接」试一下。") : t("先配置模型，再开始聊天。"));
     $('butlerConnectionText').textContent = connectionText;
     $('connectionHint').classList.toggle('error', Boolean(state.modelCheckError));
-    $('checkButlerModel').textContent = !model.ready ? '配置模型' : state.modelChecking ? '验证中…' : '验证连接';
+    $('checkButlerModel').textContent = !model.ready ? t("配置模型") : state.modelChecking ? t("验证中…") : t("验证连接");
     $('checkButlerModel').disabled = state.modelChecking || state.sending;
 
     renderPlainRows($('piToday'), todayItems, 'today', state.butlerPlanMode === 'records'
-      ? '今天还没有记录。'
-      : '点「整理任务」，看看今天做了什么。');
+      ? t("今天还没有记录。")
+      : t("点「整理任务」，看看今天做了什么。"));
     renderPlainRows($('piTomorrow'), tomorrowItems, 'tomorrow', state.butlerPlanMode === 'records'
-      ? '还没有明天的安排。'
-      : '点「整理任务」，想想明天先做什么。');
+      ? t("还没有明天的安排。")
+      : t("点「整理任务」，想想明天先做什么。"));
     renderPlainRows($('piAttention'), attention.map(task => ({
       title: task.title, label: task.requiredInput
-    })), 'attention', '暂时没有任务等你回复。');
+    })), 'attention', t("暂时没有任务等你回复。"));
 
     $('piMessages').replaceChildren();
     const messages = Array.isArray(studio.messages) ? studio.messages.slice(-20) : [];
     if (!messages.length && !state.pendingChat && !state.failedChat) {
       const welcome = element('div', 'chatWelcome');
       welcome.appendChild(element('span', 'welcomeMark', '···'));
-      welcome.appendChild(element('h4', '', model.ready ? '想问哪件事？' : '模型还没配置'));
+      welcome.appendChild(element('h4', '', model.ready ? t("想问哪件事？") : t("模型还没配置")));
       welcome.appendChild(element('p', '', model.ready
-        ? '可以问问任务做到哪了。'
-        : '点上方「配置模型」，保存后验证连接。'));
+        ? t("可以问问任务做到哪了。")
+        : t("点上方「配置模型」，保存后验证连接。")));
       $('piMessages').appendChild(welcome);
     } else {
       messages.forEach(message => {
         const row = element('div', `piMessage${message.role === 'user' ? ' user' : ''}`);
-        row.appendChild(element('strong', '', message.role === 'user' ? '我' : '管家'));
+        row.appendChild(element('strong', '', message.role === 'user' ? t("我") : t("管家")));
         if (message.role === 'user') {
           row.appendChild(element('span', '', message.content));
         } else {
@@ -1626,7 +1628,7 @@
     $('sendPi').disabled = state.sending || Boolean(state.failedChat?.operation) || !$('piInput').value.trim();
     const reportRunning = state.backgroundReports.size > 0;
     $('generateReport').disabled = !model.ready || reportRunning;
-    $('generateReport').textContent = reportRunning ? '规划生成中…' : '整理任务';
+    $('generateReport').textContent = reportRunning ? t("规划生成中…") : t("整理任务");
     requestAnimationFrame(() => {
       const messages = $('piMessages');
       if (messages) messages.scrollTop = messages.scrollHeight;
@@ -1636,14 +1638,14 @@
   function renderPlainRows(container, items, kind, emptyText) {
     container.replaceChildren();
     if (!items || !items.length) {
-      container.appendChild(element('p', 'formNote', emptyText || '暂无记录。'));
+      container.appendChild(element('p', 'formNote', emptyText || t("暂无记录。")));
       return;
     }
     items.slice(0, kind === 'tomorrow' ? 4 : 3).forEach(item => {
       const row = element('div', `plainRow ${kind}`);
       row.appendChild(element('span', '', ''));
       const copy = element('div');
-      copy.appendChild(element('strong', '', compactButlerText(item.title || item.text || '未命名事项', 120)));
+      copy.appendChild(element('strong', '', compactButlerText(item.title || item.text || t("未命名事项"), 120)));
       copy.appendChild(element('small', '', compactButlerText(item.label || item.next || item.source || '', 140)));
       row.appendChild(copy);
       container.appendChild(row);
@@ -1654,7 +1656,7 @@
     const studio = state.studio || {};
     const model = studio.model || {};
     const ready = Boolean(model.ready);
-    $('cloudState').textContent = state.modelCheckError ? '连接异常' : model.verifiedAt ? '模型已验证' : ready ? '模型待验证' : '配置模型';
+    $('cloudState').textContent = state.modelCheckError ? t("连接异常") : model.verifiedAt ? t("模型已验证") : ready ? t("模型待验证") : t("配置模型");
     $('cloudState').classList.toggle('connected', Boolean(model.verifiedAt) && !state.modelCheckError);
   }
 
@@ -1672,10 +1674,10 @@
     const modelId = $('modelId').value.trim();
     const apiKey = $('modelApiKey').value;
     if (!baseUrl || !modelId) {
-      toast('请填写模型 Base URL 和模型名称');
+      toast(t("请填写模型 Base URL 和模型名称"));
       return;
     }
-    const modelResult = await call('saveStudioModel', '保存 OpenAI 格式模型…', JSON.stringify({
+    const modelResult = await call('saveStudioModel', t("保存 OpenAI 格式模型…"), JSON.stringify({
       baseUrl, modelId, apiKey
     }));
     if (!modelResult.ok) return;
@@ -1684,10 +1686,10 @@
     if (!state.failedChat?.operation) state.failedChat = null;
     state.chatNotices = [];
     $('modelApiKey').value = '';
-    $('modelCheckResult').textContent = '已保存，点「验证连接」试一下。';
+    $('modelCheckResult').textContent = t("已保存，点「验证连接」试一下。");
     $('modelCheckResult').classList.remove('error');
     render();
-    toast('配置已保存，请验证连接');
+    toast(t("配置已保存，请验证连接"));
   }
 
   async function checkModelConnection() {
@@ -1698,28 +1700,28 @@
     const button = $('testModelConnection');
     button.disabled = true;
     document.querySelector('#cloudForm button[type="submit"]').disabled = true;
-    $('modelCheckResult').textContent = '正在测试连接…';
+    $('modelCheckResult').textContent = t("正在测试连接…");
     $('modelCheckResult').classList.remove('error');
     renderPiDetail();
     let operation;
     try {
       const result = JSON.parse(AgentBridge.beginStudioModelCheck());
-      if (!result.ok) throw new Error(result.error || '无法开始验证');
+      if (!result.ok) throw new Error(result.error || t("无法开始验证"));
       operation = result.data.operation;
       const startedAt = Date.now();
       while (operation.state === 'running' || !operation.state) {
-        if (Date.now() - startedAt > 180000) throw new Error('验证超时，请检查手机网络和模型地址后重试');
+        if (Date.now() - startedAt > 180000) throw new Error(t("验证超时，请检查手机网络和模型地址后重试"));
         await sleep(350);
         const current = JSON.parse(AgentBridge.operationState(operation.id));
-        if (!current.ok) throw new Error(current.error || '无法读取验证结果');
+        if (!current.ok) throw new Error(current.error || t("无法读取验证结果"));
         operation = current.data.operation;
       }
-      if (operation.state !== 'succeeded') throw new Error(operation.message || '验证失败');
+      if (operation.state !== 'succeeded') throw new Error(operation.message || t("验证失败"));
       state.studio = operation.studio || state.studio;
-      $('modelCheckResult').textContent = '连接正常，可以发消息了。';
-      toast('连接正常，可以聊天了');
+      $('modelCheckResult').textContent = t("连接正常，可以发消息了。");
+      toast(t("连接正常，可以聊天了"));
     } catch (error) {
-      state.modelCheckError = error.message || '验证失败，请检查配置';
+      state.modelCheckError = error.message || t("验证失败，请检查配置");
       $('modelCheckResult').textContent = state.modelCheckError;
       $('modelCheckResult').classList.add('error');
       toast(state.modelCheckError);
@@ -1740,11 +1742,11 @@
   function startCallMode() {
     if (state.callMode) return;
     if (state.failedChat?.operation) {
-      toast('先在聊天中继续查看上一条消息的回复');
+      toast(t("先在聊天中继续查看上一条消息的回复"));
       return;
     }
     if (!state.studio?.model?.ready) {
-      toast('先配置管家模型，再开始通话');
+      toast(t("先配置管家模型，再开始通话"));
       openCloudSheet();
       return;
     }
@@ -1752,7 +1754,7 @@
       const voice = JSON.parse(AgentBridge.getTtsStatus());
       if (voice.ok && (voice.data.recognitionAvailable === false && !voice.data.cloudAvailable
           || !voice.data.ready || state.voicePreferCloud && !voice.data.cloudAvailable)) {
-        toast('先在语音设置中准备好识别和播报，再开始通话');
+        toast(t("先在语音设置中准备好识别和播报，再开始通话"));
         openVoiceSettings();
         $('voiceServiceDetails').open = true;
         return;
@@ -1765,7 +1767,7 @@
       parsed = { ok: false };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '通话音频启动失败');
+      toast(parsed.error || t("通话音频启动失败"));
       return;
     }
     state.callMode = true;
@@ -1773,7 +1775,7 @@
     callSessionToken += 1;
     state.callMuted = false;
     state.callStartedAt = Date.now();
-    state.callTranscript = '通话已接通。你说话，管家回复后会继续聆听。';
+    state.callTranscript = t("通话已接通。你说话，管家回复后会继续聆听。");
     callErrorCount = 0;
     setCallStatus('listening');
     // A call always sends what it hears and speaks the reply, without
@@ -1783,7 +1785,7 @@
     $('butlerChatDock').setAttribute('inert', '');
     $('callEnd').focus({ preventScroll: true });
     $('callAvatar').replaceChildren(employeeSprite('pi', 2));
-    $('callMuteLabel').textContent = state.callMuted ? '取消静音' : '静音';
+    $('callMuteLabel').textContent = state.callMuted ? t("取消静音") : t("静音");
     $('callMute').classList.toggle('active', state.callMuted);
     $('callMute').setAttribute('aria-pressed', String(state.callMuted));
     $('callSpeaker').classList.toggle('active', state.callSpeaker);
@@ -1791,7 +1793,7 @@
     renderCallMode();
     callTimerInterval = setInterval(renderCallMode, 1000);
     scheduleCallListening(450);
-    toast('通话模式已开启');
+    toast(t("通话模式已开启"));
   }
 
   function endCallMode() {
@@ -1816,14 +1818,14 @@
     $('startCall').focus({ preventScroll: true });
     document.body.classList.remove('voice-listening');
     updateVoiceUi('stopped');
-    toast('通话已结束');
+    toast(t("通话已结束"));
   }
 
   function toggleCallMute() {
     state.callMuted = !state.callMuted;
     $('callMute').classList.toggle('active', state.callMuted);
     $('callMute').setAttribute('aria-pressed', String(state.callMuted));
-    $('callMuteLabel').textContent = state.callMuted ? '取消静音' : '静音';
+    $('callMuteLabel').textContent = state.callMuted ? t("取消静音") : t("静音");
     if (state.callMuted) {
       callListenToken += 1;
       try { AgentBridge.cancelVoiceInput(); } catch (error) {
@@ -1845,8 +1847,8 @@
     callErrorCount = 0;
     $('callMute').classList.remove('active');
     $('callMute').setAttribute('aria-pressed', 'false');
-    $('callMuteLabel').textContent = '静音';
-    state.callTranscript = '再说一次，我在听。';
+    $('callMuteLabel').textContent = t("静音");
+    state.callTranscript = t("再说一次，我在听。");
     setCallStatus('listening');
     scheduleCallListening(120);
   }
@@ -1856,7 +1858,7 @@
     $('callSpeaker').classList.toggle('active', state.callSpeaker);
     $('callSpeaker').setAttribute('aria-pressed', String(state.callSpeaker));
     try { AgentBridge.setConversationSpeaker(state.callSpeaker); } catch (error) {
-      toast('扬声器切换失败');
+      toast(t("扬声器切换失败"));
     }
     renderCallMode();
   }
@@ -1872,17 +1874,17 @@
     const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
     const seconds = String(elapsed % 60).padStart(2, '0');
     const statuses = {
-      connecting: '正在接通…',
-      listening: '正在聆听',
-      thinking: '管家思考中',
-      speaking: '管家播报中',
-      muted: '麦克风已静音',
-      error: '通话异常'
+      connecting: t("正在接通…"),
+      listening: t("正在聆听"),
+      thinking: t("管家思考中"),
+      speaking: t("管家播报中"),
+      muted: t("麦克风已静音"),
+      error: t("通话异常")
     };
     document.querySelector('.callStage').dataset.status = state.callStatus;
     $('callTimer').textContent = `${minutes}:${seconds}`;
     $('callStatus').textContent = statuses[state.callStatus] || statuses.connecting;
-    $('callTranscript').textContent = state.callTranscript || '说话后会自动发给管家。';
+    $('callTranscript').textContent = state.callTranscript || t("说话后会自动发给管家。");
     $('callRetry').classList.toggle('hidden', state.callStatus !== 'error');
     $('callRetry').disabled = state.sending;
     document.querySelectorAll('.callWave span').forEach((bar, index) => {
@@ -1909,7 +1911,7 @@
         state.voiceRecording = true;
         setCallStatus('listening');
       } else {
-        state.callTranscript = parsed.error || '麦克风启动失败，可点“取消静音”重试。';
+        state.callTranscript = parsed.error || t("麦克风启动失败，可点“取消静音”重试。");
         setCallStatus('error');
       }
     }, delay);
@@ -1919,16 +1921,16 @@
     if (state.sending) return;
     const recovery = resume === true ? state.failedChat?.operation : null;
     if (!recovery && state.failedChat?.operation) {
-      toast('上一条消息已提交，请先继续查看回复');
+      toast(t("上一条消息已提交，请先继续查看回复"));
       return;
     }
     const value = recovery ? state.failedChat.value : $('piInput').value.trim();
     if (!value) {
-      toast('先输入要问管家的内容');
+      toast(t("先输入要问管家的内容"));
       return;
     }
     if (!recovery && !state.studio?.model?.ready) {
-      toast('先配置管家模型，再发送消息');
+      toast(t("先配置管家模型，再发送消息"));
       openCloudSheet();
       return;
     }
@@ -1944,7 +1946,7 @@
     autoResizeChatInput();
     renderPiDetail();
     if (state.callMode) {
-      state.callTranscript = `我：${value}`;
+      state.callTranscript = `${t("我：")}${value}`;
       setCallStatus('thinking');
     }
     setChatTyping(true);
@@ -1956,9 +1958,9 @@
         try {
           parsed = JSON.parse(AgentBridge.beginStudioMessage(value));
         } catch (error) {
-          parsed = { ok: false, error: '无法启动管家回复' };
+          parsed = { ok: false, error: t("无法启动管家回复") };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法启动管家回复');
+        if (!parsed.ok) throw new Error(parsed.error || t("无法启动管家回复"));
         operation = parsed.data.operation;
       }
       let pollingFailures = 0;
@@ -1968,7 +1970,7 @@
         try {
           currentResult = JSON.parse(AgentBridge.operationState(operation.id));
         } catch (error) {
-          currentResult = { ok: false, error: '无法读取管家回复状态' };
+          currentResult = { ok: false, error: t("无法读取管家回复状态") };
         }
         if (!currentResult.ok) {
           // The bridge/Activity can be recreated after a turn committed but
@@ -1984,17 +1986,17 @@
           if (!currentResult.ok) {
             pollingFailures += 1;
             if (pollingFailures < 3) { await sleep(500); continue; }
-            throw new Error('消息已提交，暂时无法读取回复。请继续查看，避免重复发送。');
+            throw new Error(t("消息已提交，暂时无法读取回复。请继续查看，避免重复发送。"));
           }
         }
         pollingFailures = 0;
         const current = currentResult.data.operation;
         setChatTyping(true, current.message);
         if (current.state !== 'running') {
-          if (!['failed', 'succeeded'].includes(current.state)) throw new Error('暂时无法确认回复状态，请继续查看');
+          if (!['failed', 'succeeded'].includes(current.state)) throw new Error(t("暂时无法确认回复状态，请继续查看"));
           terminal = true;
           operation = current;
-          if (current.state === 'failed') throw new Error(current.message || '管家回复失败');
+          if (current.state === 'failed') throw new Error(current.message || t("管家回复失败"));
           break;
         }
       }
@@ -2007,19 +2009,19 @@
       const reply = operation.studio?.reply || messages[messages.length - 1];
       if (stillInCall()) {
         state.callTranscript = reply?.role === 'assistant'
-          ? `我：${value}\n管家：${reply.content}` : `我：${value}`;
+          ? `${t("我：")}${value}${t("\n管家：")}${reply.content}` : `${t("我：")}${value}`;
       }
       const shouldSpeak = stillInCall()
         || (callSession === null && !state.callMode && state.voiceSpeakReply);
       if (reply && reply.role === 'assistant' && shouldSpeak) {
         let spoken = false;
         try {
-          const speech = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || '管家已回复。'));
+          const speech = JSON.parse(AgentBridge.speakText(cleanSpeakText(reply.content) || t("管家已回复。")));
           spoken = speech.ok;
           if (!speech.ok) {
-            state.chatNotices.push(speech.error || '播报失败，回复已保留在对话中');
-            if (stillInCall()) state.callTranscript += `\n${speech.error || '播报失败，请检查语音设置'}`;
-            toast(speech.error || '语音播报失败');
+            state.chatNotices.push(speech.error || t("播报失败，回复已保留在对话中"));
+            if (stillInCall()) state.callTranscript += `\n${speech.error || t("播报失败，请检查语音设置")}`;
+            toast(speech.error || t("语音播报失败"));
           }
         } catch (error) {
           spoken = false;
@@ -2062,7 +2064,7 @@
 
   function appendChatMessage(role, content) {
     const row = element('div', `piMessage ${role === 'user' ? 'user' : ''}`);
-    row.appendChild(element('strong', '', role === 'user' ? '我' : '管家'));
+    row.appendChild(element('strong', '', role === 'user' ? t("我") : t("管家")));
     if (role === 'user') {
       row.appendChild(element('span', '', content));
     } else {
@@ -2140,7 +2142,7 @@
     const row = element('div', 'chatNotice');
     row.textContent = content;
     if (retry) {
-      const button = element('button', '', state.failedChat?.operation ? '继续查看回复' : '重试这条消息');
+      const button = element('button', '', state.failedChat?.operation ? t("继续查看回复") : t("重试这条消息"));
       button.type = 'button';
       button.addEventListener('click', () => {
         if (state.sending || !state.failedChat) return;
@@ -2149,7 +2151,7 @@
           return;
         }
         if ($('piInput').value.trim() && $('piInput').value.trim() !== state.failedChat.value) {
-          toast('输入框中有新的草稿，请先发送或清空');
+          toast(t("输入框中有新的草稿，请先发送或清空"));
           return;
         }
         $('piInput').value = state.failedChat.value;
@@ -2170,11 +2172,11 @@
     if (!existing) {
       const row = element('div', 'piMessage typing');
       row.id = 'chatTyping';
-      row.appendChild(element('strong', '', '管家'));
-      row.appendChild(element('span', '', '正在思考…'));
+      row.appendChild(element('strong', '', t("管家")));
+      row.appendChild(element('span', '', t("正在思考…")));
       $('piMessages').appendChild(row);
     } else {
-      existing.querySelector('span').textContent = message || '正在思考…';
+      existing.querySelector('span').textContent = message || t("正在思考…");
     }
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
   }
@@ -2202,7 +2204,7 @@
       parsed = { ok: false };
     }
     if (!parsed.ok) {
-      updateVoiceUi('error', '语音识别不可用');
+      updateVoiceUi('error', t("语音识别不可用"));
       return;
     }
     state.voiceRecording = true;
@@ -2269,7 +2271,7 @@
     state.voiceRecording = false;
     updateVoiceUi('processing');
     try { AgentBridge.stopVoiceInput(); } catch (error) {
-      updateVoiceUi('error', '语音识别连接失败');
+      updateVoiceUi('error', t("语音识别连接失败"));
     }
   }
 
@@ -2284,19 +2286,19 @@
 
   function updateVoiceUi(type, text) {
     const labels = {
-      ready: '正在听…轻点结束，或按住后松手',
-      recording: '正在听…松手发送，上滑取消',
-      partial: '正在识别…',
-      processing: '正在整理…',
-      'cloud-recording': '正在录音…松手转文字，上滑取消',
-      'cloud-processing': '正在转文字…',
-      final: '识别完成',
-      speaking: '管家播报中',
-      'speak-ended': '播报完成',
-      'speak-error': text || '播报失败，请检查语音设置',
-      stopped: '按住麦克风说话',
-      'permission-denied': text || '需要麦克风权限',
-      error: text || '语音识别失败'
+      ready: t("正在听…轻点结束，或按住后松手"),
+      recording: t("正在听…松手发送，上滑取消"),
+      partial: t("正在识别…"),
+      processing: t("正在整理…"),
+      'cloud-recording': t("正在录音…松手转文字，上滑取消"),
+      'cloud-processing': t("正在转文字…"),
+      final: t("识别完成"),
+      speaking: t("管家播报中"),
+      'speak-ended': t("播报完成"),
+      'speak-error': text || t("播报失败，请检查语音设置"),
+      stopped: t("按住麦克风说话"),
+      'permission-denied': text || t("需要麦克风权限"),
+      error: text || t("语音识别失败")
     };
     $('voiceStateText').textContent = labels[type] || labels.stopped;
     const listening = state.voiceRecording;
@@ -2305,13 +2307,13 @@
     $('voicePanel').classList.toggle('hidden', !listening && !transcribing);
     $('voicePanel').classList.toggle('cancel', Boolean(voicePointer.cancelArmed));
     $('voicePanelTitle').textContent = voicePointer.cancelArmed
-      ? '松开取消'
-      : transcribing ? '转写中…' : '正在听…';
+      ? t("松开取消")
+      : transcribing ? t("转写中…") : t("正在听…");
     $('voicePanelHint').textContent = transcribing
-      ? '正在上传识别，马上就好'
+      ? t("正在上传识别，马上就好")
       : voicePointer.cancelArmed
-        ? '这次录音不会发给管家'
-        : state.voiceAutoSend ? '松开后转文字并发送' : '松开后放入输入框';
+        ? t("这次录音不会发给管家")
+        : state.voiceAutoSend ? t("松开后转文字并发送") : t("松开后放入输入框");
     $('voiceButton').classList.toggle('recording', state.voiceRecording);
     $('voiceButton').style.setProperty('--voice-level', `${Math.max(12, Math.min(100, state.voiceLevel))}%`);
     renderCallMode();
@@ -2329,7 +2331,7 @@
         autoResizeChatInput();
       }
       if (state.callMode && event.type === 'partial' && event.text) {
-        state.callTranscript = `我：${event.text}`;
+        state.callTranscript = `${t("我：")}${event.text}`;
         renderCallMode();
       }
       if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') state.voiceRecording = true;
@@ -2343,7 +2345,7 @@
           state.chatNotices = [...state.chatNotices.slice(-2), event.text];
           renderPiDetail();
         }
-        toast(event.text || '语音服务失败，请检查语音设置');
+        toast(event.text || t("语音服务失败，请检查语音设置"));
       }
       if (state.callMode) {
         if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
@@ -2358,26 +2360,26 @@
           scheduleCallListening(260);
         }
         if (event.type === 'speak-error') {
-          state.callTranscript = event.text || '播报失败，请检查语音设置';
+          state.callTranscript = event.text || t("播报失败，请检查语音设置");
           setCallStatus('error');
           callListenToken += 1;
         }
         if (event.type === 'final') callErrorCount = 0;
         if (event.type === 'permission-denied') {
           endCallMode();
-          toast(event.text || '需要麦克风权限才能通话');
+          toast(event.text || t("需要麦克风权限才能通话"));
           return;
         }
         if (event.type === 'error') {
-          state.callTranscript = event.text || '语音识别失败';
+          state.callTranscript = event.text || t("语音识别失败");
           callErrorCount += 1;
           if (callErrorCount >= 3) {
             // Retrying a broken microphone or network forever only drains the battery.
-            state.callTranscript = `${event.text || '语音识别失败'}。已连续失败 ${callErrorCount} 次，请检查语音设置后点“重新聆听”。`;
+            state.callTranscript = `${event.text || t("语音识别失败")}${t("。已连续失败 ")}${callErrorCount}${t(" 次，请检查语音设置后点“重新聆听”。")}`;
             state.callMuted = true;
             $('callMute').classList.add('active');
             $('callMute').setAttribute('aria-pressed', 'true');
-            $('callMuteLabel').textContent = '取消静音';
+            $('callMuteLabel').textContent = t("取消静音");
             setCallStatus('error');
             return;
           }
@@ -2402,7 +2404,7 @@
 
   function generateTodayReport() {
     if (state.backgroundReports.size) {
-      toast('任务安排正在后台生成，完成后会通知你');
+      toast(t("任务安排正在后台生成，完成后会通知你"));
       return;
     }
     const date = state.studio && state.studio.date
@@ -2412,21 +2414,21 @@
     try {
       parsed = JSON.parse(AgentBridge.beginStudioReport(date));
     } catch (error) {
-      parsed = { ok: false, error: '无法提交任务安排生成任务' };
+      parsed = { ok: false, error: t("无法提交任务安排生成任务") };
     }
     if (!parsed.ok) {
-      toast(parsed.error || '无法提交任务安排生成任务');
+      toast(parsed.error || t("无法提交任务安排生成任务"));
       return;
     }
     const operation = parsed.data.operation;
     state.backgroundReports.set(date, {
       operation,
-      message: '正在生成任务安排…',
+      message: t("正在生成任务安排…"),
       startedAt: operation.startedAt || Date.now()
     });
     renderPiDetail();
     renderBackgroundState();
-    toast('任务安排生成已提交后台，完成后会通知你');
+    toast(t("任务安排生成已提交后台，完成后会通知你"));
     void pollBackgroundReport(date, operation);
   }
 
@@ -2440,15 +2442,15 @@
         try {
           parsed = JSON.parse(AgentBridge.operationState(startedOperation.id));
         } catch (error) {
-      parsed = { ok: false, error: '无法读取任务安排状态' };
+      parsed = { ok: false, error: t("无法读取任务安排状态") };
         }
-        if (!parsed.ok) throw new Error(parsed.error || '无法读取任务安排状态');
+        if (!parsed.ok) throw new Error(parsed.error || t("无法读取任务安排状态"));
         const operation = parsed.data.operation;
         entry.operation = operation;
-        entry.message = operation.message || '正在生成任务安排…';
+        entry.message = operation.message || t("正在生成任务安排…");
         renderPiDetail();
         renderBackgroundState();
-        if (operation.state === 'failed') throw new Error(operation.message || '任务安排生成失败');
+        if (operation.state === 'failed') throw new Error(operation.message || t("任务安排生成失败"));
         if (operation.state !== 'running') break;
       }
 
@@ -2457,9 +2459,9 @@
       if (operation.task) state.studio = operation.task;
       state.butlerPlanMode = 'ai';
       try { localStorage.setItem('butlerPlanMode', 'ai'); } catch (error) { /* in-memory mode still works */ }
-      finishBackgroundReport(date, true, '任务安排已生成');
+      finishBackgroundReport(date, true, t("任务安排已生成"));
     } catch (error) {
-      finishBackgroundReport(date, false, `任务安排生成失败：${error.message || String(error)}`);
+      finishBackgroundReport(date, false, `${t("任务安排生成失败：")}${error.message || String(error)}`);
     }
   }
 
@@ -2521,26 +2523,26 @@
   }
 
   function refreshTtsEngineStatus() {
-    let status = '语音状态未知';
+    let status = t("语音状态未知");
     try {
       const parsed = JSON.parse(AgentBridge.getTtsStatus());
       if (parsed.ok && parsed.data.ready) {
         status = parsed.data.mode === 'cloud'
-          ? '本机语音引擎不可用，已自动切换云端语音（qwen3-tts）'
-          : `本机语音引擎已就绪 · ${parsed.data.language || 'zh-CN'}`;
+          ? t("本机语音引擎不可用，已自动切换云端语音（qwen3-tts）")
+          : `${t("本机语音引擎已就绪 · ")}${parsed.data.language || 'zh-CN'}`;
       } else {
-        status = '声音尚未就绪：启用本机中文语音引擎，或配置下方云端语音。';
+        status = t("声音尚未就绪：启用本机中文语音引擎，或配置下方云端语音。");
       }
       if (parsed.ok) {
         const data = parsed.data;
-        $('voiceInputStatus').textContent = `${data.cloudAvailable ? '云端识别已配置'
-          : data.recognitionAvailable ? '本机识别可用' : '识别尚未就绪，请配置云端语音'} · ${data.microphoneGranted ? '麦克风已授权' : '首次录音时需授权麦克风'}`;
-        $('voiceServiceState').textContent = data.hasVoiceKey ? '独立密钥已保存'
-          : data.cloudAvailable ? '沿用模型密钥' : '可单独配置';
-        $('voiceApiKey').placeholder = data.hasVoiceKey ? '已保存，留空保持原值' : '输入百炼北京地域 API Key';
+        $('voiceInputStatus').textContent = `${data.cloudAvailable ? t("云端识别已配置")
+          : data.recognitionAvailable ? t("本机识别可用") : t("识别尚未就绪，请配置云端语音")} · ${data.microphoneGranted ? t("麦克风已授权") : t("首次录音时需授权麦克风")}`;
+        $('voiceServiceState').textContent = data.hasVoiceKey ? t("独立密钥已保存")
+          : data.cloudAvailable ? t("沿用模型密钥") : t("可单独配置");
+        $('voiceApiKey').placeholder = data.hasVoiceKey ? t("已保存，留空保持原值") : t("输入百炼北京地域 API Key");
       }
     } catch (error) {
-      status = '当前版本不支持语音状态读取';
+      status = t("当前版本不支持语音状态读取");
     }
     $('ttsEngineStatus').textContent = status;
   }
@@ -2550,12 +2552,12 @@
       const parsed = JSON.parse(AgentBridge.saveVoiceService(JSON.stringify({
         apiKey: $('voiceApiKey').value.trim(), clear
       })));
-      if (!parsed.ok) throw new Error(parsed.error || '保存语音配置失败');
+      if (!parsed.ok) throw new Error(parsed.error || t("保存语音配置失败"));
       $('voiceApiKey').value = '';
       refreshTtsEngineStatus();
-      toast(clear ? '独立语音密钥已清除' : '语音配置已保存，请试听并测试识别');
+      toast(clear ? t("独立语音密钥已清除") : t("语音配置已保存，请试听并测试识别"));
     } catch (error) {
-      toast(error.message || '当前版本不支持独立语音配置');
+      toast(error.message || t("当前版本不支持独立语音配置"));
     }
   }
 
@@ -2592,10 +2594,10 @@
 
   function previewButlerVoice() {
     try {
-      const parsed = JSON.parse(AgentBridge.speakText('你好，我是管家。这是当前的语速和音调。'));
-      if (!parsed.ok) toast(parsed.error || '语音播报不可用');
+      const parsed = JSON.parse(AgentBridge.speakText(t("你好，我是管家。这是当前的语速和音调。")));
+      if (!parsed.ok) toast(parsed.error || t("语音播报不可用"));
     } catch (error) {
-      toast('语音播报不可用');
+      toast(t("语音播报不可用"));
     }
   }
 
@@ -2622,7 +2624,7 @@
     const tasks = prioritizeTasks(state.tasks.filter((task) => task.requiredInput));
     if (!tasks.length) {
       const empty = element('div', 'empty');
-      empty.innerHTML = '<div class="emptyAvatar"></div><h3>暂无待输入记录</h3><p>点击顶部刷新，检查最新会话状态。</p>';
+      empty.innerHTML = t("<div class=\"emptyAvatar\"></div><h3>暂无待输入记录</h3><p>点击顶部刷新，检查最新会话状态。</p>");
       container.appendChild(empty);
       return;
     }
@@ -2673,35 +2675,35 @@
   }
 
   function taskDisplayName(task) {
-    const title = String(task.title || '未命名任务').trim();
+    const title = String(task.title || t("未命名任务")).trim();
     let normalized = title
       .replace(/^(?:Codex|Claude|Gemini)\s*·\s*/u, '')
       .replace(/\[Image:[^\]]*\]/giu, '图片输入')
       .replace(/!\[[^\]]*\]\([^)]*\)/gu, '图片输入')
       .replace(/\s+/gu, ' ')
       .trim();
-    if (/^\[Image:/iu.test(normalized)) normalized = '图片输入';
-    return normalized || '未命名任务';
+    if (/^\[Image:/iu.test(normalized)) normalized = t("图片输入");
+    return normalized || t("未命名任务");
   }
 
   function taskCardSummary(task) {
     const source = String(task.workSummary || task.lastOutput || task.workspacePath || task.paneId || '');
     if (/\[Image:|!\[[^\]]*\]\([^)]*\)/u.test(`${task.title || ''}\n${source}`)) {
-      return '收到一张图片输入，点击查看上下文。';
+      return t("收到一张图片输入，点击查看上下文。");
     }
-    return source.trim() || '暂无工作摘要';
+    return source.trim() || t("暂无工作摘要");
   }
 
   function taskBubbleText(task, currentState) {
-    if (isRecordedTask(task)) return '上次';
-    if (currentState === 'attention') return '举手';
-    if (currentState === 'running') return '敲键盘';
-    if (currentState === 'idle') return '空闲';
-    return '记录';
+    if (isRecordedTask(task)) return t("上次");
+    if (currentState === 'attention') return t("举手");
+    if (currentState === 'running') return t("敲键盘");
+    if (currentState === 'idle') return t("空闲");
+    return t("记录");
   }
 
   function taskStatusText(task) {
-    return `${isRecordedTask(task) ? '上次：' : ''}${statusText(task)}`;
+    return `${isRecordedTask(task) ? t("上次：") : ''}${statusText(task)}`;
   }
 
   function prioritizeTasks(tasks) {
@@ -2838,19 +2840,19 @@
 
   function machineCheckText(machine) {
     const checked = checkTime(machine.lastCheckedAt);
-    if (!checked) return '尚未检查 · 点击找任务';
-    const status = machine.lastStatus === 'online' ? '上次连接正常'
-      : machine.lastStatus === 'offline' ? '检查失败 · 保留旧记录' : '状态待确认';
+    if (!checked) return t("尚未检查 · 点击找任务");
+    const status = machine.lastStatus === 'online' ? t("上次连接正常")
+      : machine.lastStatus === 'offline' ? t("检查失败 · 保留旧记录") : t("状态待确认");
     return `${status} · ${checked}`;
   }
 
   function statusText(task) {
-    if (task.requiredInput) return '等待你输入';
-    if (task.status === 'running') return '正在工作';
-    if (task.status === 'idle') return '会话空闲';
-    if (task.status === 'stopped') return '已停止';
-    if (task.status === 'missing') return '已消失';
-    return task.status || '未知';
+    if (task.requiredInput) return t("等待你输入");
+    if (task.status === 'running') return t("正在工作");
+    if (task.status === 'idle') return t("会话空闲");
+    if (task.status === 'stopped') return t("已停止");
+    if (task.status === 'missing') return t("已消失");
+    return task.status || t("未知");
   }
 
   function actionButton(label, handler, extra) {
@@ -2873,7 +2875,7 @@
   let busyCount = 0;
   function showBusy(text, network) {
     busyCount = Math.max(1, busyCount);
-    $('busyText').textContent = text || '处理中…';
+    $('busyText').textContent = text || t("处理中…");
     $('busyNetwork').textContent = network || '';
     if (!network) $('busyElapsed').textContent = '';
     $('busy').classList.remove('hidden');
@@ -2885,7 +2887,7 @@
 
   function updateBusyElapsed(startedAt) {
     const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-    $('busyElapsed').textContent = `已等待 ${elapsed} 秒`;
+    $('busyElapsed').textContent = `${t("已等待 ")}${elapsed}${t(" 秒")}`;
   }
 
   function sleep(milliseconds) {

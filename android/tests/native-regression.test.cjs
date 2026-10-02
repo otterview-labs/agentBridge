@@ -24,7 +24,7 @@ function runHarness(t, name, body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asb-native-tests-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, `${name}.java`);
-  fs.writeFileSync(file, body);
+  fs.writeFileSync(file, body + '\n' + fs.readFileSync(path.join(source, 'UiText.java'), 'utf8').replace(/^package .*;\n/m, ''));
   execFileSync(javac, ['-d', root, file]);
   return execFileSync(java, ['-cp', root, name], { encoding: 'utf8', timeout: 10000 });
 }
