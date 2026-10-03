@@ -50,7 +50,6 @@ html[lang='en'] h1 { font-size: clamp(40px, 4.8vw, 60px); line-height: 1.12; }
 .download:active { transform: translateY(1px); }
 .language-note { margin: 15px 0 0; font-size: 14px; }
 .release-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 0; margin: 22px 0 8px; list-style: none; color: var(--sub); font-size: 13px; font-variant-numeric: tabular-nums; }
-.install-note { color: var(--sub); font-size: 13px; margin-bottom: 0; }
 .connection-note { color: var(--sub); font-size: 13px; line-height: 1.7; margin: 25px 0 0; max-width: 33em; }
 .hero-preview { min-width: 0; scroll-margin-top: 24px; }
 .stage { display: flex; justify-content: center; padding: 28px 32px; background: var(--stage); border-radius: var(--radius); }
