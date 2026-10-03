@@ -60,8 +60,6 @@ html[lang='en'] h1 { font-size: clamp(40px, 4.8vw, 60px); line-height: 1.12; }
 .preview-tabs button { min-height: 44px; padding: 8px 8px 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; font-size: 14px; color: var(--sub); transition: color .18s ease, border-color .18s ease; }
 .preview-tabs button[aria-pressed='true'] { color: var(--green); border-color: var(--green); font-weight: 700; }
 .preview-tabs button:hover { color: var(--accent); }
-.preview-description { margin: 12px auto 0; color: var(--sub); font-size: 13px; line-height: 1.7; max-width: 33em; min-height: 44px; text-align: center; }
-.preview-note { margin: 5px 0 0; color: var(--sub); font-size: 12px; text-align: center; }
 .purpose, .features, .guide { display: grid; grid-template-columns: .85fr 1.15fr; gap: 80px; border-top: 1px solid var(--line); padding-block: 64px; }
 h2 { max-width: 12em; font-size: 32px; line-height: 1.4; font-weight: 800; letter-spacing: -.025em; margin-bottom: 16px; text-wrap: balance; }
 h3 { font-size: 20px; font-weight: 700; line-height: 1.5; letter-spacing: -.015em; margin-bottom: 10px; }
@@ -117,7 +115,6 @@ footer a { display: inline-flex; align-items: center; min-height: 44px; }
   .stage { padding-block: 24px; }
   .phone { width: 286px; }
   .preview-tabs { gap: 16px; }
-  .preview-description { max-width: 28em; }
   .purpose, .features, .guide { grid-template-columns: 1fr; gap: 20px; padding-block: 38px; }
   h2 { font-size: 27px; max-width: none; margin-bottom: 12px; }
   h3 { font-size: 19px; }

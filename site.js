@@ -3,14 +3,12 @@
   var views = JSON.parse(document.getElementById('preview-data').textContent);
   var buttons = document.querySelectorAll('[data-view]');
   var preview = document.getElementById('preview-image');
-  var description = document.getElementById('preview-description');
   buttons.forEach(function (button) {
     button.addEventListener('click', function () {
       var view = views[button.dataset.view];
       if (!view) return;
       preview.src = view.image;
       preview.alt = view.alt;
-      description.textContent = view.description;
       buttons.forEach(function (item) {
         item.setAttribute('aria-pressed', String(item === button));
       });
