@@ -4,17 +4,19 @@
 
 # agentBridge · 办公小镇
 
-### 把分散的 AI 工作，放在一起。
+### 电脑上的 AI 任务，手机上接着聊。
 
-Codex、Claude 开了好几个会话，做过什么、还差什么，在手机上一处看。<br>
-每台电脑一间办公室，每个任务一位像素员工。
+在安卓手机上查看、回复 Codex 和 Claude Code 会话。<br>
+几台电脑上的任务和记录放在一起：每台电脑一间办公室，每个任务一位像素员工。
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
 [![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
-**[中文下载页](https://otterview-labs.github.io/agentBridge/)** · [English](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [快速开始](#快速开始) · [使用文档](docs/android-app.md)
+[中文](README.md) · **[English README](README.en.md)**
+
+[中文下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
 
 | 像素办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
@@ -26,35 +28,35 @@ Codex、Claude 开了好几个会话，做过什么、还差什么，在手机�
 
 ## 为什么做办公小镇
 
-用的 AI 工具多了，任务和记录也散开了。Codex 在这台电脑改代码，Claude 在另一台电脑查问题。过几天回头看，常常想不起做过什么，也不知道哪件事还在等自己。
+用的 AI 工具多了，任务和记录也散得到处都是。做过什么、哪件事还没结束，有时候自己都记不清。这是做办公小镇的第一个原因。
 
-办公小镇先把这些工作放到一起：看每个会话的进展，翻以前的记录，接着原来的任务聊。现在支持 Codex 和 Claude Code；其他工具会逐步接进来。
+现在可以把几台电脑上的 Codex 和 Claude Code 会话放在一起，在手机上查看进展、翻记录，接着原来的任务聊。电脑上的任务照常执行。
 
-还有一个想法：有些事 AI 本来就能自己解决，不应该每一步都等人盯着。我们希望它能自己安排、推进这些日常任务，遇到需要你决定的事再来找你。
+第二个原因是，有些事 AI 本来就能自己解决，我不想每个任务都要操心。接下来想让它在设定的范围内，自己安排和处理日常任务，需要人决定的时候再来问。
 
-**现在能用：** 集中查看会话和记录、回复员工、让管家查进展和写回复草稿。**接下来要做：** 在你设定的范围内，让 AI 自己管理和处理任务。当前管家只能查询和讨论，实际指令仍由你从员工卡片发出。
+自主任务管理还在计划中。当前管家可以查记录、讨论进展、帮你写回复草稿；给员工的指令仍由你在任务卡片里发出。
 
 ## 离开电脑，继续手上的任务
 
-Codex 在改代码，Claude 在查问题，你要出门了。用 agentBridge 打开电脑上的会话，读它刚才的输出、补充要求，或者回答它的问题。消息回到原会话，任务继续在你的电脑上执行。
+电脑还在跑任务，你可以在手机上读它刚才的输出、补充要求，或者回答它的问题。消息发回原会话，不用重新交代一遍背景。
 
-- **接着原会话聊。** 读取 Codex、Claude Code 的输出和对话记录，在手机上发送消息。
-- **把任务放进像素办公室。** 正在工作、空闲、等你输入，都有对应的员工状态。需要回复的任务排在前面，点开卡片就能处理。
-- **几台电脑，一起看。** Mac、Linux 各有自己的办公室，任务集中在同一个 App 里。
-- **手机直连电脑。** 通过 SSH 连接现有会话，电脑端无需安装 agentBridge 或部署配套服务。
+- 读取 Codex、Claude Code 的输出和对话记录，回复现有会话。
+- 在像素办公室里查看正在工作、空闲和等你输入的任务。需要回复的任务排在前面。
+- 一起查看几台 Mac、Linux 电脑的任务，每台电脑各有自己的办公室。
+- 手机通过 SSH 连接电脑，电脑端无需安装 agentBridge 或部署配套服务。
 
 任务状态在点击刷新后更新；离线电脑显示的是历史记录。
 
 ## 找管家聊任务
 
-想先了解进展，可以直接问管家：
+不想逐个翻任务时，可以直接问管家：
 
 > 哪些任务需要我回复？<br>
 > 这个任务最近做了什么？
 
 管家可以刷新任务、检查电脑连接、读取输出，再根据查到的内容回答。模型由你选择，支持 OpenAI 兼容接口。
 
-不知道怎么回员工时，点卡片里的「帮我写回复」，让模型根据该任务的记录写几条草稿。选一条，改好后发送。管家负责查记录和讨论，给员工的指令由你在卡片里发出。
+不知道怎么回员工时，点卡片里的「帮我写回复」。模型会根据该任务的记录写几条草稿，你选一条，改好后发送。草稿参考最近一次刷新的记录，选中不会自动发出去。
 
 也可以用语音聊：按住说话，或打开「拨给管家」，通过 App 内的语音通话询问进展。使用前需要配置模型，并测试语音识别和播报。
 
@@ -122,4 +124,4 @@ npm test
 
 ---
 
-**An Android remote for Codex and Claude Code, with a pixel-art office.** Connect to your own Mac or Linux machine over SSH, read output, and reply to existing sessions. Machines become offices; tasks become employees. An optional AI butler can look up task information, discuss progress, and draft replies using your model provider. Voice chat requires separate speech setup. Chinese and English APKs are available and can be installed side by side. The purpose is to bring scattered AI sessions and work records into one place, then gradually let agents handle routine tasks within boundaries you set. Autonomous task management is a planned next step; the current butler only queries and discusses tasks.
+Read the [English README](README.en.md) for features, setup, and development instructions.
