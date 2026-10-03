@@ -7,6 +7,7 @@
 ### Codex 和 Claude Code 的安卓客户端
 
 在手机上查看输出、翻记录，接着电脑上的会话回消息。<br>
+让管家查任务进展、找需要回复的任务，或帮你写回复草稿。<br>
 每台电脑一间办公室，每个任务一位像素员工。
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
