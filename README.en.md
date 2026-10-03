@@ -7,6 +7,7 @@
 ### Android client for Codex and Claude Code
 
 Read output, browse history, and reply to sessions running on your computers.<br>
+Ask the AI butler to check progress, find tasks needing your reply, or help draft a response.<br>
 Each computer becomes an office; each task gets a pixel employee.
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
