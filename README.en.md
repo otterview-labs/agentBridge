@@ -4,10 +4,10 @@
 
 # agentBridge · Office Town
 
-### Pick up your AI work from your phone.
+### Android client for Codex and Claude Code
 
-Read and reply to Codex and Claude Code sessions on Android.<br>
-Keep tasks from several computers together. Each computer becomes an office; each task gets a pixel employee.
+Read output, browse history, and reply to sessions running on your computers.<br>
+Each computer becomes an office; each task gets a pixel employee.
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
 [![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
@@ -26,42 +26,51 @@ Keep tasks from several computers together. Each computer becomes an office; eac
 
 </div>
 
-## Why I’m building Office Town
-
-The more AI tools I use, the more places there are to check. Tasks and records end up spread across sessions and computers. Sometimes I lose track of what got done and what still needs attention.
-
-Office Town brings Codex and Claude Code sessions together. I can read their history, check progress, and reply from my phone while the work continues on my computers.
-
-I also want routine tasks to need less attention. The next step is to let agents plan and handle work within boundaries I set, asking when a decision needs me. Autonomous task management is still planned. Today, the butler can query records, discuss progress, and help draft replies. You send instructions from an employee card.
-
-## What you can do now
-
-- Read output and conversation history, then reply to the original Codex or Claude Code session.
-- See which tasks are working, idle, or waiting for input. Tasks needing a reply appear first.
-- Check several Mac and Linux computers in one app, with a separate office for each.
-- Connect over SSH. Your computer needs no agentBridge installation or companion service.
-
-Tap refresh for the latest task status. Offline computers show saved records.
-
-## Ask the butler
-
-You can ask “Which tasks need my reply?” or “What has this task done recently?” The butler can refresh tasks, check connections, and read output before answering. Configure your own model through an OpenAI-compatible API.
-
-For help writing a reply, choose **Help me reply** on an employee card. Drafts use the last refreshed task records. Select one, edit it, and send it yourself; selecting a draft does not send it.
-
-Voice input and in-app calls are available after speech setup. Verify text chat first, then test recognition and playback before starting a call.
-
 ## Get started
 
 You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, with an existing Codex or Claude Code session.
 
-1. [Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) and install it. The signed release is about 1.5 MB.
-2. Add your computer using the LAN scan or its SSH address, username, and password or private key.
-3. Find tasks, open an employee card, and send a reply. Refresh to see new output.
+### 1. Download the app
 
-Keep your computer on. Away from your LAN, use a reachable SSH address or your own FRP connection. See the [Android guide](docs/android-app.md#add-a-machine) for connection details.
+[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 1.5 MB.
 
-For the butler, save your provider URL, model name, and API key in model settings, verify the connection, and send a text message. Then test the microphone and speech playback. If system speech services are unavailable, configure Bailian / DashScope cloud speech with a Beijing-region key. Chat and speech can use separate keys.
+### 2. Connect your computer
+
+Use the LAN scan or enter your computer's SSH address, username, and password or private key.
+
+### 3. Find a task and reply
+
+Find existing sessions, open an employee card, and send a reply. Tap refresh to see new output.
+
+You can set up the butler and voice later. Start by connecting your computer and sending a reply. See the [Android guide](docs/android-app.md) for detailed setup.
+
+## How it works
+
+Tasks keep running on your computers. The app uses SSH to read session records and send messages back to the original Codex or Claude Code session. Your computer needs no agentBridge installation or companion service.
+
+Keep your computer on. Away from your LAN, use a reachable SSH address or your own FRP connection. See the [connection guide](docs/android-app.md#add-a-machine).
+
+Tap refresh for the latest task status. Offline computers show saved records.
+
+## What you can do
+
+- Read output and conversation history while away from your desk, then add instructions or answer the agent's questions.
+- Keep tasks from several Mac and Linux computers together, with a separate office for each.
+- See which tasks are working, idle, or waiting for input. Tasks needing a reply appear first.
+- Ask the butler “Which tasks need my reply?” or “What has this task done recently?” It can refresh tasks, check connections, and read output before answering.
+- Choose **Help me reply** on an employee card for drafts based on the last refreshed task records. Select one, edit it, and send it yourself; selecting a draft does not send it.
+- Use voice input or an in-app call to ask about progress. Configure the model and test speech recognition and playback first.
+
+Choose your own butler model through an OpenAI-compatible API. Instructions to employees are sent from their task cards.
+
+<details>
+<summary>Set up butler chat and voice</summary>
+
+Save your provider URL, model name, and API key in model settings, verify the connection, and send a text message.
+
+Then test the microphone and speech playback before starting a call. If system speech services are unavailable, configure Bailian / DashScope cloud speech with a Beijing-region key. Chat and speech can use separate keys. See the [Android guide](docs/android-app.md).
+
+</details>
 
 ## Supported tools and editions
 
@@ -74,6 +83,12 @@ For the butler, save your provider URL, model name, and API key in model setting
 The Chinese **办公小镇** and English **Office Town** apps can be installed together. Each keeps its own settings and records. The Chinese edition updates existing Chinese releases; future English releases update the English app. Original task records retain their language.
 
 Operations such as finding tasks and sending messages can continue after the phone locks, with a notification when they finish or fail.
+
+## Why I’m building Office Town
+
+The more AI tools I use, the more places there are to check. Tasks and records end up spread across sessions and computers. Sometimes I lose track of what got done and what still needs attention. I want one place to check that work and its history.
+
+I also want routine tasks to need less attention. Next, I want the butler to follow up, plan, and handle work within boundaries I set, asking when a decision needs me. Autonomous task management is still planned.
 
 ## Data and privacy
 
