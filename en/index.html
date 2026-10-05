@@ -85,7 +85,7 @@
 </script>
 <link rel="icon" href="../icon-bridge.svg" type="image/svg+xml">
 <link rel="preload" href="../fonts/manrope-latin.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="../site.css?v=20261003-simple">
+<link rel="stylesheet" href="../site.css?v=20261005-demo">
 </head>
 <body>
 <a class="skip" href="#download">Skip to download</a>
@@ -104,12 +104,24 @@
         <p class="language-note"><a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk" lang="zh-CN">下载中文 APK</a></p>
         <ul class="release-meta" aria-label="Release details"><li id="release-version">v0.5.44</li><li>Android 7.0+</li><li id="release-size">1.5 MB</li></ul>
       </div>
+      <a class="demo-link" href="#demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 11 7-11 7V5Z"/></svg>Watch a 46-second demo</a>
       <p class="connection-note">Connect to your Mac or Linux computer over SSH. No agentBridge installation is needed on the computer.</p>
     </div>
     <div class="hero-preview" id="app-preview">
       <div class="stage"><figure class="phone"><img id="preview-image" src="../office-en-0.5.44.png" alt="Office Town: pixel employees, task output and tasks waiting for input (sample records)" width="390" height="844" fetchpriority="high"></figure></div>
       <div class="preview-tabs" role="group" aria-label="Choose an app screenshot"><button type="button" data-view="office" aria-pressed="true" aria-controls="preview-image">Office</button><button type="button" data-view="butler" aria-pressed="false" aria-controls="preview-image">Butler chat</button><button type="button" data-view="call" aria-pressed="false" aria-controls="preview-image">Voice chat</button></div>
     </div>
+  </section>
+  <section class="demo" id="demo" aria-labelledby="demo-title">
+    <div class="section-heading"><h2 id="demo-title">The fix is done. Why is it still waiting?</h2><p>Ask the butler which task needs a reply, check the recent messages, and choose a draft.</p></div>
+    <figure class="demo-player">
+      <video controls playsinline preload="none" width="1920" height="1080" poster="../demo/office-town-en.png" aria-label="Office Town app demo with English narration" aria-describedby="demo-caption">
+        <source src="../demo/office-town-en.mp4" type="video/mp4">
+        <track kind="captions" src="../demo/office-town-en.vtt" srclang="en" label="English">
+        <a href="../demo/office-town-en.mp4">Open the demo video</a>
+      </video>
+      <figcaption id="demo-caption">46-second app recording. Sample tasks, actual model responses, shortened waits, AI narration. A selected reply stays a draft until you send it. <a href="../demo/office-town-en.mp4">Open video</a></figcaption>
+    </figure>
   </section>
   <section class="purpose" aria-labelledby="purpose-title">
     <div class="section-heading"><h2 id="purpose-title">Why I’m building Office Town</h2><p>I want one place to keep track of the work.</p></div>
