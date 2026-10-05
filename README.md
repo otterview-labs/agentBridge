@@ -19,6 +19,10 @@
 
 [下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
 
+<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh.png" width="760" alt="代码修好了，怎么还在等我？"></a>
+
+**[看 42 秒操作实录](https://otterview-labs.github.io/agentBridge/#demo)** · 找待回复的任务、翻记录、选回复草稿。
+
 | 像素办公室 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/office-0.5.44.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.44.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.44.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
