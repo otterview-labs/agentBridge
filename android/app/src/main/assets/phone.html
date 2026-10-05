@@ -21,7 +21,7 @@
     <div class="topActions">
       <button class="cloudState" id="backgroundState" type="button">后台</button>
       <button class="cloudState" id="cloudState" type="button">未连接</button>
-      <button class="iconButton" id="refreshAll" title="刷新">⟳</button>
+      <button class="iconButton" id="refreshAll" title="刷新"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg></button>
     </div>
   </header>
 
@@ -46,13 +46,13 @@
       <article class="butlerHero">
         <header class="butlerHeroHeader">
           <div>
-            <p class="eyebrow">小镇管家</p>
             <h2 id="piSheetTitle">聊聊任务</h2>
             <p id="piMeta">模型未连接</p>
           </div>
           <div class="officeActions">
             <button class="smallAction" type="button" id="openCloudFromButler">配置模型</button>
-            <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态">↻</button>
+            <button class="callToggle" type="button" id="startCall">通话</button>
+            <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg></button>
           </div>
         </header>
         <div class="butlerHeroBody">
@@ -121,7 +121,6 @@
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="machineSheetTitle">
     <header>
       <div>
-        <p class="eyebrow">MACHINE</p>
         <h2 id="machineSheetTitle">添加 SSH 机器</h2>
       </div>
       <button class="iconButton subtle" data-close="machineBackdrop" aria-label="关闭机器设置">✕</button>
@@ -158,7 +157,6 @@
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="frpSheetTitle">
     <header>
       <div>
-        <p class="eyebrow">PUBLIC ENTRY · FRP</p>
         <h2 id="frpSheetTitle">公网安全入口</h2>
       </div>
       <button class="iconButton subtle" data-close="frpBackdrop" aria-label="关闭公网设置">✕</button>
@@ -225,13 +223,15 @@
         <div id="replySuggestionChoices"></div>
       </section>
       <label class="replyLabel">给员工的消息<textarea id="replyText" rows="4" placeholder="写下你要回复的内容"></textarea></label>
-      <div class="taskActions">
-        <button class="ghostAction" id="renameTask">改名</button>
-        <button class="ghostAction deleteAction" id="deleteTask">删除</button>
-        <button class="ghostAction" id="tailTask">刷新输出</button>
-        <button class="primaryAction" id="sendTask">发送 →</button>
-      </div>
     </div>
+    <footer class="taskActions safe">
+      <button class="ghostAction" id="tailTask">刷新输出</button>
+      <button class="primaryAction" id="sendTask">发送 →</button>
+      <details class="taskTools">
+        <summary>更多操作</summary>
+        <div><button class="ghostAction" id="renameTask">改名</button><button class="ghostAction deleteAction" id="deleteTask">删除</button></div>
+      </details>
+    </footer>
   </section>
 </div>
 
@@ -239,7 +239,6 @@
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="cloudSheetTitle">
     <header>
       <div>
-        <p class="eyebrow">管家 · 模型</p>
         <h2 id="cloudSheetTitle">管家模型</h2>
       </div>
       <button class="iconButton subtle" data-close="cloudBackdrop" aria-label="关闭模型设置">✕</button>
@@ -264,7 +263,6 @@
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="voiceSheetTitle">
     <header>
       <div>
-        <p class="eyebrow">管家 · 语音</p>
         <h2 id="voiceSheetTitle">语音设置</h2>
       </div>
       <button type="button" class="iconButton subtle" data-close="voiceBackdrop" aria-label="关闭语音设置">✕</button>
@@ -306,7 +304,6 @@
   <section class="callStage">
     <header>
       <div>
-        <p class="eyebrow">管家在这里</p>
         <h2 id="callTitle">管家通话</h2>
       </div>
       <span class="callTimer" id="callTimer">00:00</span>
@@ -338,16 +335,16 @@
     <button type="button" data-quick-prompt="帮我安排明天的优先级。">安排明日</button>
   </div>
   <div class="chatInputRow">
-    <button class="voiceButton" id="voiceButton" type="button" aria-label="按住说话，也可以轻点开始或结束">🎤</button>
+    <button class="voiceButton" id="voiceButton" type="button" aria-label="按住说话，也可以轻点开始或结束"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button>
     <label class="sr-only" for="piInput">问管家安排</label>
     <textarea id="piInput" rows="1" maxlength="4000" placeholder="说说你想做的事…"></textarea>
-    <button class="sendButton" id="sendPi" type="button" aria-label="发送">↑</button>
+    <button class="sendButton" id="sendPi" type="button" aria-label="发送"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19 0-14M6 11l6-6 6 6"/></svg></button>
   </div>
   <div class="voiceOptions">
     <button type="button" id="voiceAutoSend" class="active" aria-pressed="true">说完自动发送</button>
     <button type="button" id="voiceSpeakReply" class="active" aria-pressed="true">语音播报</button>
     <button type="button" id="openVoiceSettings">语音设置</button>
-    <button type="button" id="startCall" class="callToggle">拨给管家 ↗</button>
+
     <span id="voiceStateText">点击麦克风开始说话</span>
   </div>
 </div>

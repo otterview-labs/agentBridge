@@ -557,7 +557,7 @@ test('modal contains focus, locks background and restores focus on close', async
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden');
   await page.locator('[data-close="taskBackdrop"]').focus();
   await page.keyboard.press('Shift+Tab');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'sendTask');
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.taskTools summary')), true);
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.close), 'taskBackdrop');
   await page.keyboard.press('Escape');
@@ -627,6 +627,7 @@ test('deleted employees move to a separate restorable list', async t => {
     dialog.accept();
   });
   await page.locator('[data-task-id="1"]').click();
+  await page.locator('.taskTools summary').click();
   await page.locator('#deleteTask').click();
   await page.waitForFunction(() => document.body.innerText.includes('删除列表'));
   assert.equal(await page.locator('.employee').count(), 2);
@@ -1188,4 +1189,48 @@ test('long reply suggestions wrap within a narrow task sheet', async t => {
   const dimensions = await page.locator('.taskSheet').evaluate(sheet => ({ client: sheet.clientWidth, scroll: sheet.scrollWidth }));
   assert.ok(dimensions.scroll <= dimensions.client + 1, JSON.stringify(dimensions));
   assert.equal(await page.evaluate(() => window.sendCount), 0);
+});
+
+
+test('latest task output replaces a stale summary and displays file labels safely', async t => {
+  const page = await openPhone(t);
+  await page.evaluate(() => {
+    const original = AgentBridge.state;
+    AgentBridge.state = () => {
+      const result = JSON.parse(original());
+      Object.assign(result.data.tasks[0], {
+        workSummary: '旧摘要：仍在等确认',
+        lastOutput: '本次输出：\n测试通过，文件：[redirect.test.js](/tmp/demo/redirect.test.js)。\n[unsafe](javascript:alert(1))'
+      });
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.match(await page.locator('#conversationTimeline').textContent(), /测试通过/);
+  assert.doesNotMatch(await page.locator('#conversationTimeline').textContent(), /旧摘要/);
+  assert.equal(await page.locator('#conversationTimeline .fileReference').first().textContent(), 'redirect.test.js');
+  assert.equal(await page.locator('#conversationTimeline a').count(), 0);
+  const layout = await page.evaluate(() => ({
+    send: document.querySelector('#sendTask').getBoundingClientRect().toJSON(),
+    viewport: innerHeight
+  }));
+  assert.ok(layout.send.bottom <= layout.viewport && layout.send.top >= 0, JSON.stringify(layout));
+});
+
+test('latest butler reply stays above the composer at compact height', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.setViewportSize({ width: 363, height: 620 });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('谁在等我');
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => document.querySelector('#piMessages').textContent.includes('先处理待输入员工'));
+  await page.waitForTimeout(80);
+  const layout = await page.evaluate(() => {
+    const chat = document.querySelector('#piMessages'), dock = document.querySelector('#butlerChatDock');
+    return { bottom: chat.getBoundingClientRect().bottom, dockTop: dock.getBoundingClientRect().top,
+      remaining: chat.scrollHeight - chat.clientHeight - chat.scrollTop };
+  });
+  assert.ok(layout.bottom <= layout.dockTop, JSON.stringify(layout));
+  assert.ok(layout.remaining <= 2, JSON.stringify(layout));
 });

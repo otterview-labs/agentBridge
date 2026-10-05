@@ -49,6 +49,7 @@
   };
   const showDeletedOffices = new Set();
   const voicePointer = { id: null, x: 0, y: 0, startedAt: 0, cancelArmed: false };
+  let chatLayoutFrame = null;
   const agentNames = { codex: 'Codex', 'claude-code': 'Claude', gemini: 'Gemini' };
   const $ = (id) => document.getElementById(id);
   console.log('phone-controller bootstrap');
@@ -227,7 +228,13 @@
     if (!sheet) return;
     const controls = Array.from(sheet.querySelectorAll(
       'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary'
-    )).filter((node) => node.getClientRects().length > 0);
+    )).filter((node) => {
+      if (!node.getClientRects().length) return false;
+      for (let parent = node.parentElement; parent && parent !== sheet; parent = parent.parentElement) {
+        if (parent.matches('details:not([open])') && node !== parent.querySelector(':scope > summary')) return false;
+      }
+      return true;
+    });
     const first = controls[0];
     const last = controls[controls.length - 1];
     if (!first) return;
@@ -539,7 +546,10 @@
     state.currentTaskId = id;
     renderTaskDetail();
     $('replyText').value = state.drafts.get(id) || '';
+    $('rawRecord').open = false;
+    document.querySelector('.taskTools').open = false;
     openSheet('taskBackdrop');
+    document.querySelector('.taskBody').scrollTop = 0;
   }
 
   function renderTaskDetail() {
@@ -695,6 +705,30 @@
     }
   }
 
+  function uiIcon(name) {
+    const paths = {
+      user: 'M20 21v-2a7 7 0 0 0-14 0v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+      terminal: 'M4 5h16v14H4z M7 9l3 3-3 3 M13 15h4',
+      attention: 'M12 3 2 21h20L12 3z M12 9v5 M12 17h.01',
+      running: 'M8 5v14l12-7L8 5z',
+      idle: 'M8 5v14 M16 5v14',
+      other: 'M12 8v4 M12 16h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0'
+    };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'uiIcon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', paths[name] || paths.other);
+    svg.appendChild(path);
+    return svg;
+  }
+
   function renderTaskStatusCard(task) {
     const card = $('taskStatusCard');
     card.replaceChildren();
@@ -710,7 +744,8 @@
       info.desc = t("需要你回复才能继续");
     }
     card.dataset.tone = info.tone;
-    const iconSpan = element('span', 'tscIcon', info.icon);
+    const iconSpan = element('span', 'tscIcon');
+    iconSpan.appendChild(uiIcon(info.tone));
     const labelSpan = element('strong', 'tscLabel', info.label);
     const machine = state.machines.find((item) => item.id === task.machineId);
     const descSpan = element('span', 'tscDesc', [info.desc, machine ? machine.name : '', task.workspacePath ? task.workspacePath.split('/').pop() : ''].filter(Boolean).join(' · '));
@@ -761,7 +796,7 @@
       const row = element('article', `conversationTurn ${turn.role}`);
       const meta = element('div', 'conversationMeta');
       const avatar = element('span', `turnAvatar ${turn.role}`);
-      avatar.textContent = turn.role === 'user' ? '👤' : turn.role === 'assistant' ? '🤖' : '📋';
+      avatar.appendChild(uiIcon(turn.role === 'user' ? 'user' : 'terminal'));
       meta.appendChild(avatar);
       const metaText = element('div', 'turnMetaText');
       metaText.appendChild(element('strong', '', turn.title));
@@ -782,7 +817,8 @@
     const output = String(task.lastOutput || '');
     const user = conversationLabeled(output, ['最近指令', '最近用户', '最近提问'])
       || conversationLabeled(summary, ['最近指令', '最近用户', '最近提问']);
-    const assistant = conversationLabeled(output, ['最近输出', '最近回复', '最近结果'])
+    const assistant = conversationLabeled(output, ['本次输出', 'Latest output'])
+      || conversationLabeled(output, ['最近输出', '最近回复', '最近结果'])
       || conversationLabeled(summary, ['最近输出', '最近回复', '最近结果']);
     const turns = [];
     if (user) {
@@ -828,7 +864,7 @@
     const text = String(source || '');
     for (const label of labels) {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = new RegExp(`${escaped}${t("\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果)\\s*[:：]|$)")}`, 'u').exec(text);
+      const match = new RegExp(`${escaped}${t("\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果|本次输出|Latest output)\\s*[:：]|$)")}`, 'u').exec(text);
       if (match?.[1]?.trim()) return match[1].trim();
     }
     return '';
@@ -858,7 +894,9 @@
         node.textContent = body.trim();
         container.appendChild(node);
       } else {
-        container.appendChild(element('span', '', part.trim()));
+        const paragraph = element('span');
+        paragraph.appendChild(renderInlineMarkup(part.trim()));
+        container.appendChild(paragraph);
       }
     });
     if (!container.childElementCount) container.appendChild(element('span', '', t("（空内容）")));
@@ -1082,6 +1120,12 @@
     }
     render();
     renderBackgroundState();
+    if (succeeded && state.currentTaskId === taskId && !$('taskBackdrop').classList.contains('hidden')) {
+      requestAnimationFrame(() => {
+        const latest = $('conversationTimeline').querySelector('.conversationTurn.assistant:last-child');
+        (latest || $('conversationTimeline')).scrollIntoView({ block: 'start' });
+      });
+    }
   }
 
   function addBackgroundNotice(kind, message) {
@@ -1468,6 +1512,9 @@
   }
 
   function renderPiDetail() {
+    const chat = $('piMessages');
+    const scrollPosition = chat.scrollTop;
+    const followLatest = state.followChat || !chat.children.length || chat.scrollHeight - chat.clientHeight - chat.scrollTop < 32;
     const studio = state.studio || {};
     const model = studio.model || { ready: false, label: '' };
     const report = studio.report || {};
@@ -1631,7 +1678,9 @@
     $('generateReport').textContent = reportRunning ? t("规划生成中…") : t("整理任务");
     requestAnimationFrame(() => {
       const messages = $('piMessages');
-      if (messages) messages.scrollTop = messages.scrollHeight;
+      updateChatLayout();
+      if (messages) messages.scrollTop = followLatest ? messages.scrollHeight : scrollPosition;
+      state.followChat = false;
     });
   }
 
@@ -1939,6 +1988,7 @@
       && state.callMode && callSession === callSessionToken;
     state.sending = true;
     state.pendingChat = value;
+    state.followChat = true;
     state.failedChat = null;
     state.chatNotices = [];
     $('sendPi').disabled = true;
@@ -2112,9 +2162,14 @@
 
   function renderInlineMarkup(text) {
     const fragment = document.createDocumentFragment();
-    const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    const parts = String(text).split(/(\[[^\]\n]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`)/g);
     for (const part of parts) {
-      if (/^\*\*[^*]+\*\*$/.test(part)) {
+      const file = /^\[([^\]\n]+)\]\(([^\s)]+)\)$/.exec(part);
+      if (file) {
+        const reference = element('span', 'fileReference', file[1]);
+        reference.title = file[2];
+        fragment.appendChild(reference);
+      } else if (/^\*\*[^*]+\*\*$/.test(part)) {
         fragment.appendChild(element('b', '', part.slice(2, -2)));
       } else if (/^`[^`]+`$/.test(part)) {
         fragment.appendChild(element('code', '', part.slice(1, -1)));
@@ -2892,6 +2947,35 @@
 
   function sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+
+  function updateChatLayout() {
+    chatLayoutFrame = null;
+    if (state.view !== 'butler') return;
+    const viewport = window.visualViewport;
+    const keyboardOffset = viewport ? Math.max(0, innerHeight - viewport.height - viewport.offsetTop) : 0;
+    document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
+    const dock = $('butlerChatDock').getBoundingClientRect();
+    const messages = $('piMessages').getBoundingClientRect();
+    document.documentElement.style.setProperty('--dock-height', `${dock.height + keyboardOffset}px`);
+    const followLatest = $('piMessages').scrollHeight - $('piMessages').clientHeight - $('piMessages').scrollTop < 32;
+    document.documentElement.style.setProperty('--chat-height', `${Math.max(0, dock.top - messages.top - 16)}px`);
+    if (followLatest) $('piMessages').scrollTop = $('piMessages').scrollHeight;
+  }
+
+  function scheduleChatLayout() {
+    if (chatLayoutFrame !== null) cancelAnimationFrame(chatLayoutFrame);
+    chatLayoutFrame = requestAnimationFrame(updateChatLayout);
+  }
+
+  window.addEventListener('resize', scheduleChatLayout);
+  window.visualViewport?.addEventListener('resize', scheduleChatLayout);
+  window.visualViewport?.addEventListener('scroll', scheduleChatLayout);
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver(scheduleChatLayout);
+    ['butlerChatDock', 'connectionHint'].forEach(id => observer.observe($(id)));
+    observer.observe(document.querySelector('.butlerHero'));
   }
 
   let toastTimer = null;

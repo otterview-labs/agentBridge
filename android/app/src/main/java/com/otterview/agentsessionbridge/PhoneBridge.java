@@ -2413,12 +2413,17 @@ final class PhoneBridge {
               .put("suggestedReply", "")
               .put("updatedAt", now());
           if (outcome.finished) {
-            fields.put("lastOutput", "本次输出：\n" + outcome.output)
+            fields.put("lastOutput", UiText.text("本次输出：") + "\n" + outcome.output)
+                .put("workSummary", outcome.output.contains("__ASB_CODEX_QUEUED__")
+                    ? UiText.text("回复已加入原会话队列，等待执行。")
+                    : outcome.output.trim().isEmpty() ? UiText.text("回复执行已结束，暂无输出。")
+                    : Work.truncate(Work.clean(outcome.output), 2400))
                 .put("status", outcome.output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle");
           } else {
             fields.put("lastOutput", "回复已送达，远程仍在处理（手机等了 " + (REPLY_WAIT_MS / 1000) + " 秒）。"
                 + "请稍后点刷新查看结果，不要重复发送。" + (outcome.output.isEmpty() ? "" : "\n\n目前的输出：\n" + outcome.output))
-                .put("status", "running");
+                .put("status", "running")
+                .put("workSummary", UiText.text("回复已送达，远程仍在处理。"));
           }
           JSONObject updated = store.patchTask(id, fields);
           return success(new JSONObject()
