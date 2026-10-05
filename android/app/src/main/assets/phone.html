@@ -208,7 +208,6 @@
       </div>
       <button class="iconButton subtle" data-close="taskBackdrop" aria-label="关闭任务详情">✕</button>
     </header>
-    <div class="taskStatusLine" id="taskStatusLine"></div>
     <div class="taskBody">
       <div class="taskStatusCard" id="taskStatusCard"></div>
       <p class="taskNeed hidden" id="taskNeed"></p>
@@ -217,14 +216,19 @@
         <summary>查看原始记录</summary>
         <pre class="output" id="taskOutput"></pre>
       </details>
+      <details class="taskContext">
+        <summary>连接与会话信息</summary>
+        <div class="taskStatusLine" id="taskStatusLine"></div>
+      </details>
       <section class="replySuggestions" aria-label="回复建议">
         <div class="replySuggestionsHeader"><strong>回复建议</strong><button class="ghostAction" id="generateReplySuggestions">帮我写回复</button></div>
         <p id="replySuggestionStatus" role="status" aria-live="polite">根据上次刷新的内容，帮你写几句。</p>
         <div id="replySuggestionChoices"></div>
       </section>
-      <label class="replyLabel">给员工的消息<textarea id="replyText" rows="4" placeholder="写下你要回复的内容"></textarea></label>
     </div>
     <footer class="taskActions safe">
+      <label class="replyLabel">给员工的消息<textarea id="replyText" rows="2" placeholder="写下你要回复的内容"></textarea></label>
+      <p id="taskDelivery" class="taskDelivery hidden" role="status" aria-live="polite"></p>
       <button class="ghostAction" id="tailTask">刷新输出</button>
       <button class="primaryAction" id="sendTask">发送 →</button>
       <details class="taskTools">

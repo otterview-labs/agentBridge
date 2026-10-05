@@ -1,4 +1,8 @@
 window.AGENTBRIDGE_EN = {
+  "连接与会话信息": "Connection and session details",
+  "本次消息": "This message",
+  "处理中…": "Processing…",
+  "表格": "Table",
   "找管家聊聊": "Talk to the butler",
   "问进度，找待回复的任务": "Check progress and pending replies",
   "\n管家：": "\nButler:",

@@ -184,6 +184,7 @@ async function openPhone(t, options = {}) {
       },
       beginSendPrompt: () => {
         window.sendCount += 1;
+        if (options.rejectSend) return fail('会话暂时无法连接，请稍后重试');
         operation = { kind: 'send', id: 'test-send', startedAt: Date.now(),
           task: structuredClone(data.tasks[0]) };
         return ok({ operation });
@@ -1267,4 +1268,99 @@ test('latest butler reply stays above the composer at compact height', async t =
   });
   assert.ok(layout.bottom <= layout.dockTop, JSON.stringify(layout));
   assert.ok(layout.remaining <= 2, JSON.stringify(layout));
+});
+
+test('butler and employee replies share safe code, table and list formatting', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  const code = '  const literal = "**raw**";\n  const html = "<img src=x onerror=alert(1)>";';
+  const reply = '# 测试结果\n\n两项测试通过。\n\n- 保留查询参数\n- 保留锚点\n\n| 检查 | 结果 |\n| --- | --- |\n| 登录回跳 | 通过 |\n\n```js\n' + code + '\n```\n\n[unsafe](javascript:alert(1))';
+  await page.evaluate(reply => {
+    const studio = AgentBridge.studioOverview;
+    AgentBridge.studioOverview = () => {
+      const data = JSON.parse(studio());
+      data.data.messages = [{ role: 'user', content: '看看测试结果' }, { role: 'assistant', content: reply }];
+      return JSON.stringify(data);
+    };
+    const state = AgentBridge.state;
+    AgentBridge.state = () => {
+      const data = JSON.parse(state());
+      data.data.tasks[0].lastOutput = '最近指令：看看测试结果\n最近输出：' + reply;
+      return JSON.stringify(data);
+    };
+  }, reply);
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#refreshButler').click();
+  await page.locator('#piMessages .messageTable').waitFor();
+  const check = async region => {
+    assert.equal(await region.locator('.messageCode code').textContent(), code);
+    assert.equal(await region.locator('.messageCodeLanguage').textContent(), 'js');
+    assert.equal(await region.locator('.messageTable th').count(), 2);
+    assert.equal(await region.locator('.butlerListItem').count(), 2);
+    assert.equal(await region.locator('img,script,a').count(), 0);
+    assert.match(await region.locator('.butlerHeading').textContent(), /测试结果/);
+  };
+  await check(page.locator('#piMessages'));
+  await page.locator('[data-view="offices"]').click();
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  await check(page.locator('#conversationTimeline'));
+});
+
+test('employee input stays visible while reading long replies at keyboard height', async t => {
+  const page = await openPhone(t);
+  await page.evaluate(() => {
+    const read = AgentBridge.state;
+    AgentBridge.state = () => {
+      const result = JSON.parse(read());
+      result.data.tasks[0].lastOutput = '最近输出：' + '这是一段较长的任务回复。\n\n'.repeat(50);
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('保留我的草稿');
+  for (const height of [800, 420]) {
+    await page.setViewportSize({ width: 363, height });
+    await page.locator('.taskBody').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    const bounds = await page.evaluate(() => ({
+      input: document.getElementById('replyText').getBoundingClientRect().toJSON(),
+      send: document.getElementById('sendTask').getBoundingClientRect().toJSON(),
+      body: document.querySelector('.taskBody').getBoundingClientRect().toJSON(), height: innerHeight
+    }));
+    assert.ok(bounds.input.top >= bounds.body.bottom - 1 && bounds.input.bottom <= bounds.height, JSON.stringify(bounds));
+    assert.ok(bounds.send.bottom <= bounds.height, JSON.stringify(bounds));
+  }
+  assert.equal(await page.locator('#replyText').inputValue(), '保留我的草稿');
+});
+
+test('employee send shows the submitted message and a persistent returned result', async t => {
+  const page = await openPhone(t, { holdSend: true });
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('请保留现有实现，只补测试');
+  await page.locator('#sendTask').click();
+  assert.match(await page.locator('#taskDelivery').textContent(), /已提交/);
+  assert.match(await page.locator('.conversationTurn.user').last().textContent(), /请保留现有实现，只补测试/);
+  await page.evaluate(() => { window.releaseSend = true; });
+  await page.waitForFunction(() => document.getElementById('taskDelivery').dataset.state === 'success');
+  assert.match(await page.locator('.conversationTurn.assistant').textContent(), /回复后的新输出/);
+  assert.match(await page.locator('.conversationTurn.user').textContent(), /请保留现有实现，只补测试/);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+});
+
+test('rejected employee submission keeps the draft and a visible error for retry', async t => {
+  const page = await openPhone(t, { rejectSend: true });
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('请保留现有实现，只补测试');
+  await page.locator('#sendTask').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+  assert.equal(await page.locator('#taskDelivery').getAttribute('data-state'), 'error');
+  assert.match(await page.locator('#taskDelivery').textContent(), /会话暂时无法连接/);
+  assert.equal(await page.locator('#replyText').inputValue(), '请保留现有实现，只补测试');
+  assert.equal(await page.locator('#sendTask').isEnabled(), true);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+  assert.equal(await page.locator('#replyText').inputValue(), '请保留现有实现，只补测试');
 });
