@@ -19,6 +19,10 @@ Each computer becomes an office; each task gets a pixel employee.
 
 [Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
+<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en.png" width="760" alt="The fix is done. Why is it still waiting?"></a>
+
+**[Watch the 46-second app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Find a task needing a reply, read its history, and choose a draft.
+
 | Office | Butler chat | Voice chat |
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/office-en-0.5.44.png" width="240" alt="Office with pixel employees and tasks awaiting input"> | <img src="docs/screenshots/butler-en-0.5.44.png" width="240" alt="Butler chat with task questions and message input"> | <img src="docs/screenshots/call-en-0.5.44.png" width="240" alt="Voice chat with listening, microphone, speaker and end-call controls"> |
