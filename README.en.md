@@ -47,7 +47,7 @@ Use the LAN scan or enter your computer's SSH address, username, and password or
 
 Find existing sessions, open an employee card, and send a reply. Tap refresh to see new output.
 
-You can set up the butler and voice later. Start by connecting your computer and sending a reply. See the [Android guide](docs/android-app.md) for detailed setup.
+You can set up the butler and voice later. Start by connecting your computer and sending a reply. Follow the [first-use guide](docs/getting-started.en.md) for setup and help with connection, discovery, and butler problems.
 
 ## How it works
 

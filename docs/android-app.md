@@ -1,5 +1,7 @@
 # Android Phone Controller
 
+Installing the APK for the first time? Start with the [English first-use guide](getting-started.en.md) or [中文首次使用指南](getting-started.zh.md). The sections below cover implementation, advanced setup, and development.
+
 The Android app is a phone-first controller. It has no server component. On launch it opens a local office-town UI and talks to remote Mac /
 Linux machines over SSH directly from the phone.
 

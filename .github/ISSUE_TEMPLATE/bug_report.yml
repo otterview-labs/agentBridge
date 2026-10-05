@@ -1,5 +1,5 @@
-name: Bug report
-description: Report a reproducible defect without including private data
+name: Bug report / 问题反馈
+description: Report an app problem or a step you could not complete / 反馈 App 问题或卡住的步骤
 title: "[Bug]: "
 labels:
   - bug
@@ -10,29 +10,44 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Description
-      description: What happened, and what did you expect?
+      label: What happened? / 遇到了什么问题？
+      description: What did you expect, and what did the app show? / 想做什么，App 实际显示了什么？
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Reproduction
-      description: Provide minimal, safe steps using placeholder paths and data.
+      label: Steps and error / 操作步骤和错误提示
+      description: Describe the steps and include a redacted error or screenshot. / 写下操作步骤，可附去掉私人信息后的错误提示或截图。
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Version or commit
+      label: App version or commit / App 版本
+      placeholder: "0.5.44, or unsure / 不确定"
     validations:
       required: true
   - type: input
     id: environment
     attributes:
-      label: Node.js and operating system
+      label: Android version and computer OS / 手机与电脑系统
+      placeholder: "Android 14; macOS 15 / Ubuntu 24.04"
     validations:
       required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which step failed? / 卡在哪一步？
+      options:
+        - Installation or update / 安装或更新
+        - SSH connection / 连接电脑
+        - Finding sessions / 找任务
+        - Reading records / 查看记录
+        - Sending a reply / 给员工发送消息
+        - Butler model or chat / 管家模型或聊天
+        - Speech or calls / 语音或通话
+        - Something else / 其他问题
   - type: checkboxes
     id: privacy
     attributes:
