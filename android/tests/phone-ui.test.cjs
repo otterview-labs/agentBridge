@@ -509,6 +509,40 @@ test('attention shortcut and employee ordering prioritize pending input', async 
   }
 });
 
+test('town butler shortcut opens chat without submitting a message', async t => {
+  for (const language of ['zh-CN', 'en']) {
+    const page = await openPhone(t, { language, modelReady: true });
+    const shortcut = page.locator('.townButler');
+    assert.match(await shortcut.textContent(), language === 'en'
+      ? /Talk to the butler.*Check progress and pending replies/
+      : /找管家聊聊.*问进度，找待回复的任务/);
+    await shortcut.click();
+    assert.equal(await page.locator('#butler').isVisible(), true);
+    assert.equal(await page.locator('.tab[data-view="butler"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.evaluate(() => window.chatCount), 0);
+    await page.locator('[data-view="offices"]').click();
+    await page.locator('[data-task-id="2"]').click();
+    assert.match(await page.locator('#taskNeed').textContent(), /是否允许执行部署脚本/);
+  }
+});
+
+test('office connection details stay available behind expanded controls', async t => {
+  const page = await openPhone(t);
+  const office = page.locator('.office').first();
+  const address = office.locator('.officeMeta > span').first();
+  const more = office.getByRole('button', { name: '更多', exact: true });
+  assert.equal(await address.isVisible(), false);
+  assert.equal(await more.getAttribute('aria-expanded'), 'false');
+  await more.click();
+  assert.equal(await more.getAttribute('aria-expanded'), 'true');
+  assert.equal(await address.isVisible(), true);
+  assert.match(await address.textContent(), /demo@192\.168\.1\.8:22/);
+  assert.equal(await office.locator('.officeCheck').isVisible(), true);
+  await more.click();
+  assert.equal(await address.isVisible(), false);
+  assert.equal(await more.getAttribute('aria-expanded'), 'false');
+});
+
 test('offline employees show historical status with no work animation', async t => {
   const page = await openPhone(t);
   await page.emulateMedia({ reducedMotion: 'no-preference' });

@@ -712,6 +712,7 @@
       attention: 'M12 3 2 21h20L12 3z M12 9v5 M12 17h.01',
       running: 'M8 5v14l12-7L8 5z',
       idle: 'M8 5v14 M16 5v14',
+      arrow: 'M5 12h14 M13 6l6 6-6 6',
       other: 'M12 8v4 M12 16h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0'
     };
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1399,6 +1400,20 @@
   function renderOffices() {
     const container = $('offices');
     container.textContent = '';
+    const butler = element('button', 'townButler');
+    butler.type = 'button';
+    const avatar = element('span', 'townButlerAvatar');
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.appendChild(employeeSprite('pi', 2));
+    const advice = element('span', 'townButlerText');
+    advice.appendChild(element('strong', '', t("找管家聊聊")));
+    advice.appendChild(element('span', '', t("问进度，找待回复的任务")));
+    butler.append(avatar, advice, uiIcon('arrow'));
+    butler.addEventListener('click', () => {
+      selectView('butler');
+      $('piInput').focus({ preventScroll: true });
+    });
+    container.appendChild(butler);
     if (!state.machines.length) {
       const empty = element('div', 'empty');
       empty.innerHTML = t("<div class=\"emptyAvatar\"></div><h3>小镇还空着</h3><p>添加一台支持 SSH 的 Mac / Linux，<br>手机会直接去那里找 Claude 和 Codex 员工。</p>");
@@ -1440,9 +1455,11 @@
       }
       actions.appendChild(actionButton(t("编辑"), () => editMachine(machine.id), 'advancedAction'));
       actions.appendChild(actionButton(t("删除"), () => deleteMachine(machine.id), 'warn advancedAction'));
-      actions.appendChild(actionButton(t("更多"), () => {
-        office.classList.toggle('showAdvanced');
-      }));
+      const more = actionButton(t("更多"), () => {
+        more.setAttribute('aria-expanded', String(office.classList.toggle('showAdvanced')));
+      });
+      more.setAttribute('aria-expanded', 'false');
+      actions.appendChild(more);
       header.appendChild(title);
       header.appendChild(actions);
       office.appendChild(header);
@@ -1706,6 +1723,7 @@
     const model = studio.model || {};
     const ready = Boolean(model.ready);
     $('cloudState').textContent = state.modelCheckError ? t("连接异常") : model.verifiedAt ? t("模型已验证") : ready ? t("模型待验证") : t("配置模型");
+    $('cloudState').setAttribute('title', $('cloudState').textContent);
     $('cloudState').classList.toggle('connected', Boolean(model.verifiedAt) && !state.modelCheckError);
   }
 
@@ -2709,12 +2727,15 @@
     card.dataset.agent = task.agentType;
     card.dataset.taskId = String(task.id);
     card.dataset.record = isRecordedTask(task) ? 'true' : 'false';
+    card.type = 'button';
     const displayName = taskDisplayName(task);
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
     stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
-    stage.append(element('span', 'employeeBubble', taskBubbleText(task, currentState)));
+    const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
+    bubble.setAttribute('aria-hidden', 'true');
+    stage.append(bubble);
     card.appendChild(stage);
     info.appendChild(element('span', 'employeeName', displayName));
     info.appendChild(element('span', 'employeeSub', taskCardSummary(task)));

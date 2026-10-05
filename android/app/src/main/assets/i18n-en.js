@@ -1,4 +1,6 @@
 window.AGENTBRIDGE_EN = {
+  "找管家聊聊": "Talk to the butler",
+  "问进度，找待回复的任务": "Check progress and pending replies",
   "\n管家：": "\nButler:",
   " · AI 草稿，参考上次刷新记录。": " · AI draft, based on last refresh.",
   " · 删除于 ": " · Deleted at ",
