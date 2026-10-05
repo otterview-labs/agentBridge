@@ -14,7 +14,7 @@ h2 { margin: 0; font-size: 21px; line-height: 1.22; letter-spacing: -.02em; }
 .summary:before { display: none; }
 .summaryMain { display: flex; align-items: baseline; gap: 10px; position: relative; }
 .summaryMain { flex-wrap: wrap; }
-.townScene { position: absolute; right: 12px; bottom: 18px; width: 72px; height: 74px; opacity: .85; }
+.townScene { position: absolute; right: 12px; bottom: 6px; width: 72px; height: 74px; opacity: .85; }
 .townWindow { position: absolute; right: 4px; top: 0; width: 40px; height: 40px; border: 3px solid #93aa91; background: #d5dfb3; box-shadow: 4px 4px 0 #203b2c; }
 .townWindow:before, .townWindow:after { content: ""; position: absolute; background: #93aa91; }
 .townWindow:before { width: 3px; height: 100%; left: 50%; }
