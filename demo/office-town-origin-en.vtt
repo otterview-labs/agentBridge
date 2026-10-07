@@ -1,0 +1,217 @@
+WEBVTT
+
+1
+00:00:00.150 --> 00:00:02.056
+I have been building a small project
+
+2
+00:00:02.056 --> 00:00:03.110
+called Office Town.
+
+3
+00:00:03.950 --> 00:00:05.802
+The reason is pretty simple.
+
+4
+00:00:05.802 --> 00:00:08.272
+I often have several AI sessions open.
+
+5
+00:00:08.272 --> 00:00:10.618
+I am coding different projects while
+
+6
+00:00:10.618 --> 00:00:12.656
+working on Xiaohongshu content.
+
+7
+00:00:12.656 --> 00:00:15.002
+One session is changing the training
+
+8
+00:00:15.002 --> 00:00:15.681
+platform,
+
+9
+00:00:15.681 --> 00:00:18.274
+another is drafting a post or trying out
+
+10
+00:00:18.274 --> 00:00:18.830
+titles.
+
+11
+00:00:19.383 --> 00:00:20.474
+When I come back,
+
+12
+00:00:20.474 --> 00:00:22.024
+I have to check each one.
+
+13
+00:00:22.024 --> 00:00:23.460
+Where did we leave off?
+
+14
+00:00:23.460 --> 00:00:25.354
+Is anyone waiting for my reply?
+
+15
+00:00:25.354 --> 00:00:27.306
+Sometimes I cannot even remember
+
+16
+00:00:27.306 --> 00:00:29.143
+everything I asked them to do.
+
+17
+00:00:29.717 --> 00:00:32.167
+The records are spread across different
+
+18
+00:00:32.167 --> 00:00:32.645
+tools.
+
+19
+00:00:32.645 --> 00:00:34.080
+Away from my computer,
+
+20
+00:00:34.080 --> 00:00:36.172
+picking things up is awkward too.
+
+21
+00:00:36.172 --> 00:00:38.383
+I wanted to bring them together and
+
+22
+00:00:38.383 --> 00:00:40.117
+check progress on my phone.
+
+23
+00:00:40.683 --> 00:00:42.711
+This is the current interface.
+
+24
+00:00:42.711 --> 00:00:45.308
+Each employee represents an AI session.
+
+25
+00:00:45.308 --> 00:00:47.525
+I can open one to read my earlier
+
+26
+00:00:47.525 --> 00:00:48.159
+request,
+
+27
+00:00:48.159 --> 00:00:49.299
+see what it did,
+
+28
+00:00:49.299 --> 00:00:51.643
+and find anything still unresolved.
+
+29
+00:00:52.217 --> 00:00:53.762
+I also added a butler.
+
+30
+00:00:53.762 --> 00:00:56.079
+I can ask what needs my attention,
+
+31
+00:00:56.079 --> 00:00:58.397
+and it checks the task records for
+
+32
+00:00:58.397 --> 00:01:00.457
+anything waiting for my reply.
+
+33
+00:01:03.217 --> 00:01:04.674
+For the training platform,
+
+34
+00:01:04.674 --> 00:01:06.757
+I can send more details from my phone.
+
+35
+00:01:06.757 --> 00:01:08.683
+The original session on my computer
+
+36
+00:01:08.683 --> 00:01:09.777
+continues the work.
+
+37
+00:01:13.217 --> 00:01:15.879
+It works the same way for a Xiaohongshu
+
+38
+00:01:15.879 --> 00:01:16.398
+draft.
+
+39
+00:01:16.398 --> 00:01:18.930
+I can choose a title or ask for a few
+
+40
+00:01:18.930 --> 00:01:21.527
+paragraphs to be rewritten in the same
+
+41
+00:01:21.527 --> 00:01:22.177
+session.
+
+42
+00:01:23.217 --> 00:01:24.077
+When it finishes,
+
+43
+00:01:24.077 --> 00:01:25.617
+I come back and read the result.
+
+44
+00:01:33.217 --> 00:01:35.118
+That is where the project is today:
+
+45
+00:01:35.118 --> 00:01:36.967
+tasks and their progress together,
+
+46
+00:01:36.967 --> 00:01:38.817
+so I can pick up where I left off.
+
+47
+00:01:39.383 --> 00:01:39.842
+Later,
+
+48
+00:01:39.842 --> 00:01:42.190
+I want the butler to handle more of the
+
+49
+00:01:42.190 --> 00:01:42.877
+follow-up.
+
+50
+00:01:42.877 --> 00:01:44.824
+When the requirements are clear,
+
+51
+00:01:44.824 --> 00:01:47.115
+it could keep things moving on its own
+
+52
+00:01:47.115 --> 00:01:49.463
+and ask me when something is uncertain.
+
+53
+00:01:50.017 --> 00:01:52.332
+I would rather not keep watching every
+
+54
+00:01:52.332 --> 00:01:52.737
+task.
