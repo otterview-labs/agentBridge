@@ -2154,7 +2154,36 @@
     meta.appendChild(element('strong', 'piMessageAuthor', user ? t("我") : t("管家")));
     row.appendChild(meta);
     row.appendChild(user ? element('div', 'messageUserText', content) : renderButlerText(content));
+    if (!user) appendChatTaskLinks(row, content);
     return row;
+  }
+
+  function appendChatTaskLinks(row, content) {
+    // Ignore fenced code and URLs: remote text can reference an existing task,
+    // but it cannot construct a destination or a command.
+    const prose = String(content || '').replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '')
+      .replace(/https?:\/\/\S+/g, '');
+    const ids = new Set(Array.from(prose.matchAll(/\bS-(\d+)\b/g), match => match[1]));
+    const tasks = state.tasks.filter(task => ids.has(String(task.id)));
+    if (!tasks.length) return;
+    const links = element('div', 'chatTaskLinks');
+    for (const task of tasks.slice(0, 3)) {
+      const link = element('button', 'chatTaskLink');
+      link.type = 'button';
+      link.dataset.taskId = task.id;
+      const text = element('span');
+      text.append(element('strong', '', task.title), element('small', '',
+        `${agentNames[task.agentType] || task.agentType} · ${taskStatusText(task)}`));
+      link.append(text, uiIcon('arrow'));
+      link.addEventListener('click', () => {
+        if (!state.tasks.some(item => item.id === task.id)) {
+          toast(t("找不到这条记录了，请重新选择员工。")); return;
+        }
+        openTask(task.id);
+      });
+      links.appendChild(link);
+    }
+    row.appendChild(links);
   }
 
   // Render a small, shared Markdown subset with DOM text nodes only. Remote

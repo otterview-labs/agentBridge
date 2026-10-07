@@ -202,7 +202,7 @@
       <div class="employeeHeader">
         <div class="avatar" id="taskAvatar">👤</div>
         <div>
-          <p class="eyebrow" id="taskMeta">TASK</p>
+          <p class="taskMetaLine" id="taskMeta"></p>
           <h2 id="taskTitle">任务</h2>
         </div>
       </div>
@@ -227,10 +227,10 @@
       </section>
     </div>
     <footer class="taskActions safe">
-      <label class="replyLabel">给员工的消息<textarea id="replyText" rows="2" placeholder="写下你要回复的内容"></textarea></label>
+      <label class="replyLabel"><span class="visuallyHidden">给员工的消息</span><textarea id="replyText" rows="2" placeholder="写下你要回复的内容"></textarea></label>
+      <button class="primaryAction" id="sendTask">发送 →</button>
       <p id="taskDelivery" class="taskDelivery hidden" role="status" aria-live="polite"></p>
       <button class="ghostAction" id="tailTask">刷新输出</button>
-      <button class="primaryAction" id="sendTask">发送 →</button>
       <details class="taskTools">
         <summary>更多操作</summary>
         <div><button class="ghostAction" id="renameTask">改名</button><button class="ghostAction deleteAction" id="deleteTask">删除</button></div>

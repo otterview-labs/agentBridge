@@ -776,6 +776,7 @@ test('butler puts chat above collapsed planning without horizontal overflow', as
   const page = await openPhone(t, { modelReady: true });
   await page.locator('[data-view="butler"]').click();
   assert.equal(await page.locator('#butlerPlanDetails').getAttribute('open'), null);
+  await page.waitForFunction(() => document.getElementById('piMessages').getBoundingClientRect().bottom <= document.getElementById('butlerChatDock').getBoundingClientRect().top);
   const layout = await page.evaluate(() => ({
     chatBottom: document.getElementById('piMessages').getBoundingClientRect().bottom,
     dockTop: document.getElementById('butlerChatDock').getBoundingClientRect().top,
@@ -1363,4 +1364,27 @@ test('rejected employee submission keeps the draft and a visible error for retry
   await page.locator('[data-task-id="1"]').click();
   assert.equal(await page.locator('#taskDelivery').isVisible(), true);
   assert.equal(await page.locator('#replyText').inputValue(), '请保留现有实现，只补测试');
+});
+
+
+test('butler task references open only existing tasks and never send messages', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.evaluate(() => {
+    const read = AgentBridge.studioOverview;
+    AgentBridge.studioOverview = () => {
+      const result = JSON.parse(read());
+      result.data.messages = [{ role: 'assistant', content: '检查部署配置与远程连接（S-2）在等你确认。不存在的 S-999 不应打开。\n\n```text\nS-1\n```\nhttps://example.test/S-3' }];
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#refreshButler').click();
+  const links = page.locator('.chatTaskLink');
+  await links.first().waitFor();
+  assert.equal(await links.count(), 1);
+  assert.equal(await links.getAttribute('data-task-id'), '2');
+  await links.click();
+  assert.equal(await page.locator('#taskTitle').textContent(), '检查部署配置与远程连接');
+  assert.equal(await page.locator('#replyText').inputValue(), '');
+  assert.equal(await page.evaluate(() => window.sendCount), 0);
 });

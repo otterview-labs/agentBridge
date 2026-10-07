@@ -537,7 +537,7 @@ final class PhoneBridge {
     format.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
     String date = format.format(new java.util.Date());
     JSONObject local = new JSONObject(studioState()).getJSONObject("data");
-    JSONArray sourceTasks = local.getJSONArray("tasks");
+    JSONArray sourceTasks = store.tasks();
     JSONArray tasks = new JSONArray();
     JSONArray ongoing = new JSONArray();
     JSONArray suggestions = new JSONArray();
@@ -550,9 +550,12 @@ final class PhoneBridge {
           .put("agentType", source.optString("agentType"))
           .put("status", source.optString("status"))
           .put("updatedAt", source.optString("updatedAt"))
-          .put("label", source.optBoolean("requiredInput") ? UiText.text("待输入") : UiText.text("待核实"))
-          .put("needsAttention", source.optBoolean("requiredInput"))
-          .put("next", source.optBoolean("requiredInput") ? UiText.text("等待手机回复后继续。") : UiText.text("进入手机控制台查看输出后处理。"))
+          .put("requiredInput", boundedText(sanitize(source.optString("requiredInput")), 320, "…"))
+          .put("workSummary", boundedText(sanitize(source.optString("workSummary")), 400, "…"))
+          .put("lastOutput", boundedText(sanitize(source.optString("lastOutput")), 1200, "…"))
+          .put("label", !source.optString("requiredInput").isEmpty() ? UiText.text("待输入") : UiText.text("待核实"))
+          .put("needsAttention", !source.optString("requiredInput").isEmpty())
+          .put("next", !source.optString("requiredInput").isEmpty() ? UiText.text("等待手机回复后继续。") : UiText.text("进入手机控制台查看输出后处理。"))
           .put("source", UiText.text("手机 SSH 会话记录"))
           .put("completedToday", false);
       tasks.put(task);
@@ -659,12 +662,12 @@ final class PhoneBridge {
         "你是 agentBridge 的管家，帮用户查看电脑上的 Codex、Claude 任务。\n"
             + "职责：查进展、读输出，和用户讨论下一步。\n\n"
             + "回答规则：\n"
-            + "1. 直接回答用户的问题，简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
-            + "2. 用任务名称说话，不要只报编号。例如「云端采集 agent 接入」比「S-252940」好得多。\n"
+            + "1. 直接回答用户的问题，问哪件事在等回复时，先说任务名称和正在等用户决定的具体问题，再说一句下一步。简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
+            + "2. 用任务名称说话。提到具体任务时，在名称后附一次资料里的编号，例如「登录回跳（S-12）」。界面会显示打开任务的按钮；编号必须来自资料，不能编造。\n"
             + "3. 给出可操作的建议时说清楚：做什么、为什么、怎么判断做好了。\n"
             + "4. 待输入的任务最紧急（AI 在等用户回复），放在最前面提醒。\n"
             + "5. 像同事发消息，句子短，具体说事。不写客套开场、口号、排比、‘首先其次最后’或‘综上所述’，少用‘基于、赋能、推进、闭环、优先级’等词。别自夸或反复介绍自己的功能。\n"
-            + "6. 没有数据就直说，不要编造。\n"
+            + "6. 具体待确认问题必须来自 requiredInput 或最近输出。资料只标了待输入却没写原因时，直说还要打开任务看；不能猜测业务规则、改动方案或用户需要确认什么。\n"
             + "7. 你只能查询，不能派发指令、确认部署或执行任务。用户要求操作时，说清楚当前能力，并引导打开对应员工卡片回复；不能声称已经执行。\n"
             + "8. 不输出 JSON，不使用 Markdown 符号（**、#、表格）。\n"
             + "9. 你可以调用工具获取实时数据（list_tasks、check_machines、get_task_output）。"
@@ -764,6 +767,13 @@ final class PhoneBridge {
         .append(" [").append(task.optString("agentType")).append("，M-")
         .append(task.optString("machineId")).append("，记录时间：")
         .append(task.optString("updatedAt", "未知")).append("]\n");
+    for (String key : new String[] { "requiredInput", "workSummary", "lastOutput" }) {
+      String detail = task.optString(key);
+      if (detail.isEmpty() || "true".equals(detail) || "false".equals(detail)) continue;
+      text.append("  ").append(key).append(": ")
+          .append(boundedText(detail, "lastOutput".equals(key) ? 1200 : 400, "…"))
+          .append("\n");
+    }
   }
 
   private String directModelReply(JSONObject model, JSONArray messages) throws Exception {
@@ -1068,7 +1078,9 @@ final class PhoneBridge {
                     .put("fresh", fresh)
                     .put("updatedAt", task.optString("updatedAt"))
                     .put("agentType", task.optString("agentType"))
-                    .put("needsInput", !task.optString("requiredInput").isEmpty()));
+                    .put("needsInput", !task.optString("requiredInput").isEmpty())
+                    .put("requiredInput", shortTaskRecord(task.optString("requiredInput"), 320))
+                    .put("workSummary", shortTaskRecord(task.optString("workSummary"), 400)));
               }
             } catch (Exception sshError) {
               checks.put(new JSONObject().put("id", m.opt("id"))
@@ -1134,6 +1146,11 @@ final class PhoneBridge {
     } catch (Exception ignored) {
       return "{\"error\":\"tool failed\"}";
     }
+  }
+
+  private String shortTaskRecord(String value, int limit) {
+    String clean = Work.clean(sanitize(value));
+    return clean.length() <= limit ? clean : clean.substring(0, limit) + "…";
   }
 
   private JSONObject generateDirectReport(JSONObject model, JSONObject snapshot) throws Exception {
