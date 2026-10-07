@@ -55,7 +55,7 @@ html[lang='en'] h1 { font-size: clamp(40px, 4.8vw, 60px); line-height: 1.12; }
 .stage { display: flex; justify-content: center; padding: 28px 32px; background: var(--stage); border-radius: var(--radius); }
 .phone { width: 288px; max-width: 100%; margin: 0; padding: 7px; border-radius: 25px; background: var(--green); box-shadow: 0 18px 35px rgba(41, 72, 54, .14); }
 .phone img { display: block; width: 100%; height: auto; aspect-ratio: 390 / 844; border-radius: 18px; background: var(--paper); }
-.preview-tabs { display: flex; justify-content: center; gap: 12px; margin-top: 14px; }
+.preview-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 14px; }
 .preview-tabs button { min-height: 44px; padding: 8px 8px 9px; border: 0; border-bottom: 2px solid transparent; background: transparent; font-size: 14px; color: var(--sub); transition: color .18s ease, border-color .18s ease; }
 .preview-tabs button[aria-pressed='true'] { color: var(--green); border-color: var(--green); font-weight: 700; }
 .preview-tabs button:hover { color: var(--accent); }
