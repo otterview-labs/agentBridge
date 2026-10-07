@@ -607,6 +607,7 @@
     const container = $('replySuggestionChoices');
     container.replaceChildren();
     const entry = task ? state.replySuggestions.get(task.id) : null;
+    document.querySelector('.replySuggestions').dataset.expanded = entry ? 'true' : 'false';
     const busy = Boolean(task && (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)));
     button.disabled = !task || Boolean(entry?.running) || busy;
     button.textContent = entry?.running ? t("正在写…") : entry?.result ? t("换一组") : t("帮我写回复");
@@ -2828,7 +2829,12 @@
     stage.append(bubble);
     card.appendChild(stage);
     info.appendChild(element('span', 'employeeName', displayName));
-    info.appendChild(element('span', 'employeeSub', taskCardSummary(task)));
+    const preview = element('span', 'employeePreview');
+    const previewLabel = task.requiredInput ? (isRecordedTask(task) ? t("上次待确认") : t("需要你确认"))
+      : task.lastOutput ? t("最近回复") : t("最新进展");
+    preview.append(element('span', 'employeePreviewLabel', previewLabel),
+      element('span', 'employeeSub', taskCardSummary(task)));
+    info.appendChild(preview);
     info.appendChild(element('span', `stateChip ${currentState}`, `${agentNames[task.agentType] || task.agentType} · ${taskStatusText(task)}`));
     card.appendChild(info);
     card.addEventListener('click', () => openTask(task.id));
@@ -2853,11 +2859,21 @@
   }
 
   function taskCardSummary(task) {
-    const source = String(task.workSummary || task.lastOutput || task.workspacePath || task.paneId || '');
-    if (/\[Image:|!\[[^\]]*\]\([^)]*\)/u.test(`${task.title || ''}\n${source}`)) {
+    const record = String(task.workSummary || task.lastOutput || '');
+    const source = String(task.requiredInput || conversationLabeled(record, ['最近输出', '最近回复', '最近结果', '本次输出', 'Latest output']) || record);
+    if (!task.requiredInput && /\[Image:|!\[[^\]]*\]\([^)]*\)/u.test(`${task.title || ''}\n${source}`)) {
       return t("收到一张图片输入，点击查看上下文。");
     }
-    return source.trim() || t("暂无工作摘要");
+    // Only simplify the preview. The original text stays in the conversation
+    // and raw record, and the preview never infers completion from prose.
+    return source.slice(0, 6000)
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+      .replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '')
+      .replace(/\[([^\]\n]+)\]\([^\s)]+\)/g, '$1')
+      .replace(/^(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果|本次输出|Latest output)\s*[:：]\s*/gm, '')
+      .replace(/^\s*#{1,6}\s+/gm, '')
+      .replace(/\*\*|`/g, '')
+      .replace(/\s+/g, ' ').trim() || t("暂无工作摘要");
   }
 
   function taskBubbleText(task, currentState) {

@@ -433,14 +433,14 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .employeeName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; font-weight: 650; line-height: 1.5; }
 
-.employee .employeeStage { width: 100%; height: 104px; transform: none; }
-.employee .employeeStage:before { top: 29px; border-color: #43544b; background: #718894; box-shadow: inset 0 0 0 4px #b3c6c3, 0 4px 0 #43544b; }
+.employee .employeeStage { width: 100%; height: 88px; transform: none; }
+.employee .employeeStage:before { top: 22px; border-color: #43544b; background: #718894; box-shadow: inset 0 0 0 4px #b3c6c3, 0 4px 0 #43544b; }
 .employee .employeeStage:after { bottom: 9px; width: 76px; height: 10px; border-color: #726449; background: #d3bd91; box-shadow: none; }
-.employee .pixelAvatar { bottom: 12px; width: 51px; height: 62px; }
+.employee .pixelAvatar { bottom: 12px; width: 44px; height: 54px; }
 .employee .employeeBubble { top: 0; padding: 3px 7px; max-width: calc(100% - 8px); border: 1px solid #bbc7b0; border-radius: 5px; font-size: 11px; font-weight: 600; box-shadow: none; }
 .employeeInfo { display: flex; flex-direction: column; gap: 5px; }
 .employeeInfo .employeeName { order: 0; }
-.employeeInfo .employeeSub { order: 2; margin-top: 0; }
+.employeeInfo .employeePreview { order: 2; }
 .employee .employeeInfo .stateChip { order: 1; align-items: flex-start; gap: 5px; margin-top: 0; padding: 0; border-radius: 0; background: transparent; color: var(--muted); line-height: 1.5; white-space: normal; }
 .employeeInfo .stateChip:before { content: ''; flex: 0 0 5px; width: 5px; height: 5px; margin-top: 6px; border-radius: 50%; background: currentColor; }
 .employee .employeeInfo .stateChip.running { color: var(--primary); }
@@ -534,15 +534,15 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .conversationMeta { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin-bottom: 0; }
 
-.conversationMeta .turnAvatar { display: grid; place-items: center; width: 30px; height: 30px; padding: 5px; border-radius: 7px; color: var(--primary); background: var(--primary-soft); }
+.conversationMeta .turnAvatar { display: grid; place-items: center; width: 24px; height: 24px; padding: 4px; border-radius: 7px; color: var(--primary); background: var(--primary-soft); }
 
-.turnMetaText { display: grid; gap: 2px; text-align: left; }
+.turnMetaText { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; text-align: left; }
 
 .conversationMeta .turnMetaText span { padding: 0; background: transparent; color: var(--muted); font-size: 11px; font-weight: 500; }
 
 .conversationMeta strong { font-size: 13px; font-weight: 650; }
 
-.conversationBody { min-width: 0; color: var(--ink); font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; }
+.conversationBody { min-width: 0; color: var(--ink); font-size: 16px; line-height: 1.65; overflow-wrap: anywhere; }
 
 .conversationFooter { color: var(--muted); font-size: 11px; line-height: 1.5; }
 
@@ -685,3 +685,15 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .chatTaskLink small { color: var(--muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
 .chatTaskLink .uiIcon { color: var(--primary); }
 @media (max-height: 550px) { .taskSheet > header { padding: 8px 12px; } .taskAvatarWrap { width: 38px; height: 44px; } .taskActions { padding: 8px 12px; gap: 4px; } .taskActions #replyText { min-height: 48px; max-height: 80px; } .taskSheet .taskBody { padding: 12px; } }
+
+/* A task preview answers what needs attention before opening the conversation. */
+.employeePreview { display: grid; gap: 4px; margin-top: 4px; min-width: 0; }
+.employeePreviewLabel { color: var(--ink); font-size: 11px; font-weight: 650; line-height: 1.5; }
+.employeePreview .employeeSub { margin: 0; -webkit-line-clamp: 3; font-size: 13px; line-height: 1.6; }
+.employee[data-state="attention"] .employeePreviewLabel { color: var(--attention); }
+.taskMetaLine { margin: 6px 0 0; }
+.conversationMeta .turnAvatar .uiIcon { width: 16px; height: 16px; }
+.replySuggestions { padding-top: 4px; }
+.replySuggestionsHeader { justify-content: flex-start; }
+.replySuggestionsHeader .ghostAction { padding-left: 0; border: 0; background: transparent; }
+.replySuggestions[data-expanded="false"] #replySuggestionStatus { display: none; }

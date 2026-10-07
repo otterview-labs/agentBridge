@@ -64,6 +64,7 @@ async function openPhone(t, options = {}) {
         requiredInput: 'May I run the deployment script?', workSummary: 'Checks finished. Waiting for your decision.' });
       data.tasks[2].workSummary = 'Last record: session idle';
     }
+    if (options.taskPreviewRecords) Object.assign(data.tasks[0], options.taskPreviewRecords);
     if (options.empty) { data.machines = []; data.tasks = []; }
     if (options.frpStatus) {
       data.frpServer = { machineId: 2, publicAddress: 'public.example.test',
@@ -1387,4 +1388,21 @@ test('butler task references open only existing tasks and never send messages', 
   assert.equal(await page.locator('#taskTitle').textContent(), '检查部署配置与远程连接');
   assert.equal(await page.locator('#replyText').inputValue(), '');
   assert.equal(await page.evaluate(() => window.sendCount), 0);
+});
+
+
+test('task previews show the pending decision, clean only display markup, and retain raw records', async t => {
+  const output = '最近指令：先检查。\n最近输出：已修改 [training-jobs.js](/private/tmp/demo/training-jobs.js)。\n\n**6 项通过，0 项失败。**';
+  const page = await openPhone(t, { taskPreviewRecords: { status: 'idle', requiredInput: '是否只在训练中显示进度？', workSummary: output, lastOutput: output } });
+  const card = page.locator('.employee[data-task-id="1"]');
+  assert.equal(await card.locator('.employeePreviewLabel').textContent(), '需要你确认');
+  assert.equal(await card.locator('.employeeSub').textContent(), '是否只在训练中显示进度？');
+  await card.click();
+  assert.equal(await page.locator('#taskOutput').textContent(), output);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  const result = await openPhone(t, { taskPreviewRecords: { status: 'idle', requiredInput: '', workSummary: output, lastOutput: output } });
+  const preview = result.locator('.employee[data-task-id="1"] .employeeSub');
+  assert.match(await preview.textContent(), /已修改 training-jobs\.js.*6 项通过，0 项失败/);
+  assert.doesNotMatch(await preview.textContent(), /最近指令|private\/tmp|\*\*/);
+  assert.match(await result.locator('.employee[data-task-id="1"] .stateChip').textContent(), /会话空闲/);
 });
