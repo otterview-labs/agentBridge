@@ -2960,13 +2960,16 @@ final class PhoneBridge {
   }
 
   private List<JSONObject> listTmuxTasks(Session session, int machineId, Set<Integer> shellPids) throws Exception {
-    String list = run(session, "tmux list-panes -a -F "
-        + "'#{pane_id}\\t#{session_name}\\t#{window_index}\\t#{window_name}\\t#{pane_current_command}\\t"
-        + "#{pane_current_path}\\t#{pane_dead}\\t#{pane_pid}' 2>/dev/null || true");
+    // tmux leaves "\t" literal and changes actual control characters to "_".
+    // A fresh printable separator also avoids ambiguity in names containing "|".
+    String separator = "__ASB_FIELD_" + java.util.UUID.randomUUID() + "__";
+    String format = String.join(separator, "#{pane_id}", "#{session_name}", "#{window_index}",
+        "#{window_name}", "#{pane_current_command}", "#{pane_current_path}", "#{pane_dead}", "#{pane_pid}");
+    String list = run(session, "tmux list-panes -a -F " + shellQuote(format) + " 2>/dev/null || true");
     List<JSONObject> result = new ArrayList<>();
     for (String line : list.split("\\n")) {
       if (line.trim().isEmpty()) continue;
-      String[] fields = line.split("\\t", -1);
+      String[] fields = line.split(Pattern.quote(separator), -1);
       if (fields.length < 8 || !fields[0].matches("%[0-9]+")) continue;
       String paneId = fields[0];
       String sessionName = fields[1];
@@ -2989,7 +2992,7 @@ final class PhoneBridge {
           .put("windowName", windowName)
           .put("windowIndex", Integer.parseInt(windowIndex))
           .put("workspacePath", workspace)
-          .put("status", dead ? "stopped" : "running")
+          .put("status", dead ? "stopped" : work.status)
           .put("title", displayName(agentType, deriveTitle(work.latestUser, work.latestAssistant, windowName, sessionName)))
           .put("workSummary", work.summary())
           .put("lastOutput", output)
@@ -3791,7 +3794,7 @@ final class PhoneBridge {
     Work work = Work.fromTerminal(output);
     return new JSONObject().put("lastOutput", output).put("workSummary", work.summary())
         .put("requiredInput", stopped ? "" : requiredInput(work.latestAssistant))
-        .put("suggestedReply", "").put("status", stopped ? "stopped" : "running")
+        .put("suggestedReply", "").put("status", stopped ? "stopped" : work.status)
         .put("updatedAt", now());
   }
 
@@ -3799,11 +3802,28 @@ final class PhoneBridge {
   private static String latestTerminalOutput(String value) {
     if (value == null) return "";
     String[] lines = value.split("\\r?\\n", -1);
+    int end = lines.length;
+    for (int index = lines.length - 1; index >= 0; index -= 1) {
+      if (!lines[index].matches("^\\s*[›❯](?:\\s.*)?$")) continue;
+      boolean inputArea = true;
+      for (int tail = index + 1; tail < lines.length; tail += 1) {
+        String line = lines[tail].trim();
+        if (!line.isEmpty() && !line.matches("^[A-Za-z0-9_./:-]+(?:\\s+(?:low|medium|high|xhigh|max|ultra))?\\s*·\\s*[/~].*$")
+            && !line.matches("^\\d+% context left.*$")) {
+          inputArea = false;
+          break;
+        }
+      }
+      if (inputArea) {
+        end = index;
+        break;
+      }
+    }
     int start = 0;
-    for (int index = 0; index < lines.length; index += 1) {
+    for (int index = 0; index < end; index += 1) {
       if (lines[index].matches("^\\s*[›❯]\\s+\\S.*$")) start = index + 1;
     }
-    return String.join("\n", Arrays.copyOfRange(lines, start, lines.length)).trim();
+    return String.join("\n", Arrays.copyOfRange(lines, start, end)).trim();
   }
 
   private static String requiredInput(String value) {
@@ -3909,7 +3929,10 @@ final class PhoneBridge {
     }
 
     private static Work fromTerminal(String value) {
-      return new Work(null, latestTerminalOutput(value), "running");
+      String output = latestTerminalOutput(value);
+      boolean disconnected = Pattern.compile("(?im)^\\s*■\\s*stream disconnected before completion:")
+          .matcher(output).find();
+      return new Work(null, output, disconnected ? "error" : "running");
     }
 
     private static Work fromClaudeTranscript(String value) {
