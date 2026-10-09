@@ -26,7 +26,7 @@
       if (!asset) return;
       var version = String(release.tag_name || '').replace(/^android-v/, '');
       if (version) document.getElementById('release-version').textContent = 'v' + version;
-      if (asset.size) document.getElementById('release-size').textContent = (asset.size / 1024 / 1024).toFixed(1) + ' MB';
+      if (asset.size) document.getElementById('release-size').textContent = (asset.size / 1000 / 1000).toFixed(1) + ' MB';
     })
     .catch(function () { /* Keep the published version when GitHub is unavailable. */ });
 })();
