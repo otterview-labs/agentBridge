@@ -6,8 +6,8 @@ Notable changes to agentBridge are documented here.
 
 - Mark Codex HTTP 4xx and 5xx terminal failures as errors, including rejected
   API keys, while retaining the original error details and terminal output.
-- Ask the butler to answer greetings and thanks directly instead of launching
-  into a task summary or continuing an older question.
+- Send standalone greetings and thanks to the model without old task reports,
+  conversation history or query tools; task questions retain their context.
 - Clear the old recognition error after a successful reconnect, and reset
   the consecutive-error counter once listening resumes.
 
