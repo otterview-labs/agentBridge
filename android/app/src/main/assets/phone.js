@@ -2867,7 +2867,7 @@
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
     stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3,
-      isRecordedTask(task) ? '' : currentState));
+      isRecordedTask(task) ? '' : currentState, true));
     const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
     bubble.setAttribute('aria-hidden', 'true');
     stage.append(bubble);
@@ -3010,7 +3010,7 @@
     svg.append(item);
   }
 
-  function employeeSprite(agentType, variant, pose = '') {
+  function employeeSprite(agentType, variant, pose = '', atDesk = false) {
     const palettes = {
       codex: { shirt: '#7488bc', trim: '#5a6c9b' },
       'claude-code': { shirt: '#cc8250', trim: '#a96940' },
@@ -3050,10 +3050,12 @@
     rect(svg, 2, 11, 2, 4, palette.trim);
     rect(svg, 2, 15, 2, 1, skin);
     if (pose === 'attention') {
-      rect(svg, 14, 9, 2, 5, palette.trim);
-      rect(svg, 14, 5, 2, 4, skin);
-      rect(svg, 14, 4, 1, 1, skin);
-      rect(svg, 15.5, 6, .5, 3, '#e9bc98');
+      svg.setAttribute('overflow', 'visible');
+      rect(svg, 14, 10, 2, 4, palette.trim);
+      rect(svg, 16, 8, 2, 3, palette.trim);
+      rect(svg, 17, 3, 2, 5, skin);
+      rect(svg, 17, 2, 1, 1, skin);
+      rect(svg, 18.5, 4, .5, 3, '#e9bc98');
     } else {
       rect(svg, 14, 11, 2, 4, palette.trim);
       rect(svg, 14, 15, 2, 1, skin);
@@ -3070,7 +3072,49 @@
     rect(svg, 11, 10.5, 2, .5, shirtLight[agentType] || '#91a2b3');
     rect(svg, 3, 15.5, 12, .5, palette.trim);
     rect(svg, 5.5, 20, 2, .5, '#46516a'); rect(svg, 10.5, 20, 2, .5, '#46516a');
-    return svg;
+    return atDesk ? employeeDeskScene(svg, pose) : svg;
+  }
+
+  function employeeDeskScene(character, pose) {
+    const scene = svgPixelNode();
+    scene.setAttribute('viewBox', '0 0 40 40');
+    scene.setAttribute('shape-rendering', 'crispEdges');
+    scene.setAttribute('aria-hidden', 'true');
+    scene.setAttribute('focusable', 'false');
+    scene.classList.add('pixelAvatar', 'employeeDesk');
+    const draw = (x, y, width, height, color) => rect(scene, x, y, width, height, color);
+    // The original colleague stays intact; the workstation now has separate layers.
+    draw(5, 35, 30, 1, '#d2d9c9');
+    draw(3, 19, 13, 11, '#86998c');
+    draw(4, 20, 11, 8, '#a8b8a7');
+    draw(4, 28, 14, 2, '#728b7c');
+    draw(6, 30, 2, 5, '#728b7c');
+    character.classList.remove('pixelAvatar');
+    character.classList.add('employeeCharacter');
+    character.setAttribute('x', '2'); character.setAttribute('y', '9');
+    character.setAttribute('width', '18'); character.setAttribute('height', '22');
+    scene.appendChild(character);
+    // A visible monitor, stand and keyboard sit beside the colleague, above the desk.
+    draw(23, 16, 13, 9, '#566f6b');
+    draw(24, 17, 11, 7, pose === 'running' ? '#c9ded1' : '#dce5dc');
+    if (pose === 'running') {
+      draw(25, 18, 5, 1, '#668f80'); draw(25, 20, 8, 1, '#7a9d8d');
+      draw(25, 22, 6, 1, '#668f80');
+    } else {
+      draw(25, 19, 7, 1, '#b0c4b5');
+    }
+    draw(28, 25, 2, 1, '#566f6b'); draw(26, 26, 6, 1, '#566f6b');
+    draw(17, 26, 8, 1, '#71867e'); draw(18, 25, 6, 1, '#b8c8ba');
+    draw(2, 27, 36, 1, '#e0c59b'); draw(2, 28, 36, 2, '#b99b73');
+    draw(4, 30, 2, 6, '#a28766'); draw(34, 30, 2, 6, '#a28766');
+    if (pose === 'running') {
+      const hands = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      hands.classList.add('typingHands');
+      rect(hands, 16, 24, 4, 2, '#f6d1ae');
+      rect(hands, 19, 25, 2, 1, '#e9bc98');
+      scene.appendChild(hands);
+    }
+    return scene;
   }
 
   function machineSubtitle(machine) {

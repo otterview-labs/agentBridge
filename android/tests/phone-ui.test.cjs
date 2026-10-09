@@ -560,9 +560,9 @@ test('offline employees show historical status with no work animation', async t 
       connected: Boolean(node && node.isConnected),
       state: node ? node.closest('[data-task-id]')?.getAttribute('data-state') : null };
   }, selector);
-  const idle = await animation('[data-task-id="3"] .pixelAvatar');
+  const idle = await animation('[data-task-id="3"] .employeeCharacter');
   assert.equal(idle.name, 'none', JSON.stringify(idle));
-  const running = await animation('[data-task-id="1"] .pixelAvatar');
+  const running = await animation('[data-task-id="1"] .employeeCharacter');
   assert.notEqual(running.name, 'none', JSON.stringify(running));
 });
 
