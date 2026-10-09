@@ -1274,6 +1274,19 @@ test('latest task output replaces a stale summary and displays file labels safel
   assert.ok(layout.send.bottom <= layout.viewport && layout.send.top >= 0, JSON.stringify(layout));
 });
 
+test('employee model failures are visible instead of appearing to continue running', async t => {
+  const error = 'stream disconnected before completion: request frequency has been limited.';
+  for (const language of ['zh-CN', 'en']) {
+    const page = await openPhone(t, { language, taskPreviewRecords: {
+      status: 'error', requiredInput: '', workSummary: '最近输出：' + error, lastOutput: error
+    } });
+    await page.locator('[data-task-id="1"]').click();
+    assert.match(await page.locator('#taskStatusCard').textContent(), /会话异常|Session error/);
+    assert.match(await page.locator('#conversationTimeline').textContent(), /request frequency has been limited/);
+    assert.doesNotMatch(await page.locator('#conversationTimeline').textContent(), /会话仍在执行|Session still executing/);
+  }
+});
+
 test('latest butler reply stays above the composer at compact height', async t => {
   const page = await openPhone(t, { modelReady: true });
   await page.setViewportSize({ width: 363, height: 620 });

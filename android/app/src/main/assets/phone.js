@@ -744,6 +744,7 @@
     const statusMap = {
       running: { label: t("执行中"), tone: 'running', icon: '▶', desc: t("正在工作，查看最新输出了解进展") },
       idle: { label: t("空闲"), tone: 'idle', icon: '⏸', desc: task.requiredInput ? t("在等你的回复") : t("已完成或暂停，需要人工核实") },
+      error: { label: t("会话异常"), tone: 'attention', icon: '!', desc: t("查看错误详情后再重试") },
     };
     const info = statusMap[task.status] || { label: task.status || t("未知"), tone: 'other', icon: '•', desc: '' };
     if (task.requiredInput) {
@@ -853,7 +854,7 @@
       turns.push({
         role: 'assistant',
         title: agentNames[task.agentType] || t("员工"),
-        label: task.status === 'running' ? t("最新进展") : t("最近回复"),
+        label: task.status === 'error' ? t("会话错误") : task.status === 'running' ? t("最新进展") : t("最近回复"),
         text: assistant,
         footer: task.status === 'running' ? t("会话仍在执行，内容可能继续变化") : ''
       });
@@ -2945,6 +2946,7 @@
 
   function employeeState(task) {
     if (task.requiredInput) return 'attention';
+    if (task.status === 'error') return 'attention';
     if (task.status === 'running') return 'running';
     if (task.status === 'idle') return 'idle';
     return 'finished';
@@ -3035,6 +3037,7 @@
     if (task.requiredInput) return t("等待你输入");
     if (task.status === 'running') return t("正在工作");
     if (task.status === 'idle') return t("会话空闲");
+    if (task.status === 'error') return t("会话异常");
     if (task.status === 'stopped') return t("已停止");
     if (task.status === 'missing') return t("已消失");
     return task.status || t("未知");

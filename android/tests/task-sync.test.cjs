@@ -18,7 +18,7 @@ test('tmux discovery survives control-character normalization and names containi
  harness(t, 'TmuxDiscoveryHarness', `
  static class Session {}
  static class Work {
-  String latestUser="",latestAssistant="Should I add tests?";
+  String latestUser="",latestAssistant="Should I add tests?",status="running";
   static Work fromTerminal(String output){return new Work();}
   String summary(){return latestAssistant;}
  }
@@ -121,7 +121,7 @@ test('tmux refresh clears answered questions and stopped panes but retains new d
  const terminal = methods('PhoneBridge.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
  harness(t, 'TmuxDecisionHarness', `
  static String now(){return "now";}
- static class Work{String latestAssistant;Work(String user,String answer,String status){latestAssistant=answer;}String summary(){return latestAssistant;}${terminal}}
+ static class Work{String latestAssistant,status;Work(String user,String answer,String status){latestAssistant=answer;this.status=status;}String summary(){return latestAssistant;}${terminal}}
  ${fields}
  public static void main(String[] args)throws Exception {
  String answered="是否补上测试？\\n› 请补测试并运行\\n测试完成，全部通过。\\n› ";
@@ -132,6 +132,32 @@ test('tmux refresh clears answered questions and stopped panes but retains new d
  }`);
 });
 
+
+test('terminal input suggestions do not hide provider errors or replace the latest reply', t => {
+ const fields = methods('PhoneBridge.java', '  private static JSONObject tmuxTaskFields(', '  private static String suggestedReply(');
+ const terminal = methods('PhoneBridge.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
+ harness(t, 'TerminalFooterHarness', String.raw`
+ static String now(){return "now";}
+ static class Work{String latestAssistant,status;Work(String user,String answer,String status){latestAssistant=answer;this.status=status;}String summary(){return latestAssistant;}
+ ` + terminal + String.raw`}
+ ` + fields + String.raw`
+ public static void main(String[] args)throws Exception{
+  String failed="› Run the check\n\n■ stream disconnected before completion: request frequency has been limited.\n\n› Summarize recent commits\n\n glm-5.3 high · /private/tmp/test\n";
+  JSONObject result=tmuxTaskFields(failed,false);
+  check(result.optString("status").equals("error"));
+  check(result.optString("workSummary").contains("request frequency has been limited"));
+  check(!result.optString("workSummary").contains("Summarize recent commits"));
+  check(!result.optString("workSummary").contains("glm-5.3"));
+  check(result.optString("lastOutput").equals(failed));
+  String answered=failed+"› Try again with the fixed settings\n• Tests passed. Should I deploy now?\n\n› Implement the feature\n\n glm-5.3 high · /private/tmp/test\n";
+  result=tmuxTaskFields(answered,false);
+  check(result.optString("status").equals("running"));
+  check(!result.optString("workSummary").contains("stream disconnected"));
+  check(result.optString("requiredInput").contains("Should I deploy now?"));
+  result=tmuxTaskFields(failed,true);check(result.optString("status").equals("stopped"));
+  System.out.println("ok");
+ }`);
+});
 
 test('a newer reply keeps all progress fields coherent even when some values equal the baseline', t => {
  harness(t, 'ReplyProgressHarness', `${taskFactory}${fakeStore}${storage}${identity}${patch}
