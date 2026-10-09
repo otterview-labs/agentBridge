@@ -3064,9 +3064,9 @@
       arm.classList.add('employeeRaisedArm');
       rect(arm, 14, 10, 2, 4, palette.trim);
       rect(arm, 16, 8, 2, 3, palette.trim);
-      rect(arm, 16, 2, 4, 7, '#a76c43');
+      rect(arm, 16.5, 2.5, 3, 6, '#a76c43');
       rect(arm, 17, 3, 2, 5, skin);
-      rect(arm, 17, 1, 1, 1, '#a76c43');
+      rect(arm, 17, 1.5, 1, .5, '#a76c43');
       rect(arm, 17, 2, 1, 1, skin);
       rect(arm, 18.5, 4, .5, 3, '#e9bc98');
       svg.appendChild(arm);
