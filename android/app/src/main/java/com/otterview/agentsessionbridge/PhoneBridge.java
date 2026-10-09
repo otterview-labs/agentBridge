@@ -168,9 +168,13 @@ final class PhoneBridge {
     String answer = directModelReplyWithTools(model, studioChatMessages(history, value, snapshot), greeting ? 1 : 3,
         progress -> {
           if (operationId == null) return;
-          try { updateOperation(operationId, "model", progress, ""); }
+          try { markOperation(operationId, "partialReply", ""); updateOperation(operationId, "model", progress, ""); }
           catch (Exception ignored) { /* Clearing a progress view does not cancel a submitted turn. */ }
-        }, !greeting);
+        }, !greeting, partial -> {
+          if (operationId == null) return;
+          try { markOperation(operationId, "partialReply", partial); }
+          catch (Exception ignored) { /* A cleared view does not cancel the turn. */ }
+        });
     String turnId = operationId == null ? java.util.UUID.randomUUID().toString() : "studio-" + operationId;
     JSONObject reply = store.appendStudioTurn(value, answer, now(), turnId);
     snapshot.put("messages", store.studioMessages()).put("reply", reply);
@@ -850,13 +854,21 @@ final class PhoneBridge {
 
   private String directModelReplyWithTools(JSONObject model, JSONArray messages, int maxRounds,
       java.util.function.Consumer<String> onProgress, boolean allowTools) throws Exception {
+    return directModelReplyWithTools(model, messages, maxRounds, onProgress, allowTools, partial -> { });
+  }
+
+  private String directModelReplyWithTools(JSONObject model, JSONArray messages, int maxRounds,
+      java.util.function.Consumer<String> onProgress, boolean allowTools,
+      java.util.function.Consumer<String> onPartial) throws Exception {
     JSONArray tools = allowTools ? buildButlerTools() : null;
+    Map<String, String> queried = new HashMap<>();
     for (int round = 0; round < maxRounds; round++) {
       // The last round must answer in text, or every tool call so far is wasted.
       String raw;
       onProgress.accept(round == 0 ? UiText.text("管家正在思考…") : "正在整理查询结果…");
       try {
-        raw = chatCompletion(model, messages, tools, round == maxRounds - 1 ? "none" : null);
+        raw = chatCompletionStream(model, messages,
+            round == maxRounds - 1 ? null : tools, onPartial);
       } catch (IllegalStateException error) {
         String detail = String.valueOf(error.getMessage()).toLowerCase(java.util.Locale.ROOT);
         // Some compatible endpoints support text chat but reject function calling.
@@ -891,7 +903,12 @@ final class PhoneBridge {
         onProgress.accept("list_tasks".equals(fnName) ? UiText.text("正在刷新机器上的任务…")
             : "check_machines".equals(fnName) ? UiText.text("正在检查机器连接…")
             : "get_task_output".equals(fnName) ? "正在读取任务最新输出…" : "正在处理查询…");
-        String result = executeButlerTool(fnName, fnArgs);
+        String queryKey = fnName + ":" + fnArgs.trim();
+        String result = queried.get(queryKey);
+        if (result == null) {
+          result = executeButlerTool(fnName, fnArgs);
+          queried.put(queryKey, result);
+        }
         messages.put(new JSONObject()
             .put("role", "tool")
             .put("tool_call_id", callId)
@@ -965,11 +982,7 @@ final class PhoneBridge {
     }
   }
 
-  /**
-   * Streaming chat completion using SSE. Returns the full response text but
-   * calls onPartial as chunks arrive, enabling real-time UI updates and
-   * early TTS. Falls back to non-streaming if SSE fails.
-   */
+  /** Stream text and reconstruct fragmented tool calls before executing queries. */
   private String chatCompletionStream(JSONObject model, JSONArray messages, JSONArray tools,
       java.util.function.Consumer<String> onPartial) throws Exception {
     HttpURLConnection connection = null;
@@ -983,58 +996,103 @@ final class PhoneBridge {
       connection.setRequestProperty("Authorization", "Bearer " + model.getString("apiKey"));
       connection.setRequestProperty("Content-Type", "application/json");
       connection.setRequestProperty("Accept", "text/event-stream");
-      JSONObject request = new JSONObject()
-          .put("model", model.getString("modelId"))
-          .put("messages", messages)
-          .put("max_tokens", 1800)
-          .put("temperature", 0.2)
-          .put("stream", true);
+      JSONObject request = new JSONObject().put("model", model.getString("modelId"))
+          .put("messages", messages).put("max_tokens", 1800).put("temperature", 0.2).put("stream", true);
       if (tools != null && tools.length() > 0) request.put("tools", tools);
-      if (model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) {
-        request.put("enable_thinking", false);
-      }
+      if (model.optString("baseUrl", "").contains("dashscope.aliyuncs.com")) request.put("enable_thinking", false);
       byte[] payload = request.toString().getBytes(StandardCharsets.UTF_8);
       connection.setFixedLengthStreamingMode(payload.length);
-      try (java.io.OutputStream output = connection.getOutputStream()) { output.write(payload); }
+      try (OutputStream output = connection.getOutputStream()) { output.write(payload); }
       int status = connection.getResponseCode();
       if (status >= 400) {
         String body = readStream(connection.getErrorStream(), 100_000);
-        throw new IllegalStateException(UiText.text("模型返回 HTTP ") + status);
-      }
-      // Read SSE stream
-      InputStream stream = connection.getInputStream();
-      java.io.BufferedReader reader = new java.io.BufferedReader(
-          new java.io.InputStreamReader(stream, StandardCharsets.UTF_8));
-      StringBuilder full = new StringBuilder();
-      String line;
-      while ((line = reader.readLine()) != null) {
-        if (!line.startsWith("data: ")) continue;
-        String data = line.substring(6).trim();
-        if (data.equals("[DONE]")) break;
-        try {
-          JSONObject chunk = new JSONObject(data);
-          JSONArray choices = chunk.optJSONArray("choices");
-          if (choices == null || choices.length() == 0) continue;
-          JSONObject delta = choices.getJSONObject(0).optJSONObject("delta");
-          if (delta == null) continue;
-          String content = delta.optString("content", "");
-          if (!content.isEmpty()) {
-            full.append(content);
-            if (onPartial != null) onPartial.accept(full.toString());
-          }
-        } catch (Exception ignored) {
-          // Skip malformed chunks
+        // An explicit lack of streaming support can fall back before any answer arrived.
+        if ((status == 400 || status == 422) && body.toLowerCase(java.util.Locale.ROOT).contains("stream")) {
+          return chatCompletion(model, messages, tools);
         }
+        String detail = body.replace(model.getString("apiKey"), "[密钥已隐藏]").replaceAll("\\s+", " ").trim();
+        throw new IllegalStateException(UiText.text("模型返回 HTTP ") + status
+            + (detail.isEmpty() ? "" : "：" + detail.substring(0, Math.min(detail.length(), 200))));
       }
-      if (full.length() == 0) throw new IllegalStateException(UiText.text("模型流式返回为空"));
-      return full.toString();
-    } catch (java.io.IOException error) {
+      String type = connection.getContentType();
+      if (type != null && type.toLowerCase(java.util.Locale.ROOT).contains("application/json")) {
+        String body = readStream(connection.getInputStream(), 2_000_000);
+        JSONObject message = new JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message");
+        String answer = modelMessageText(message);
+        if (!answer.isEmpty()) onPartial.accept(answer);
+        return body;
+      }
+      return readModelAnswerStream(connection.getInputStream(), onPartial);
+    } catch (IOException error) {
       if (error instanceof java.net.UnknownHostException) activity.noteNetworkDeath();
-      // Fall back to non-streaming on network errors
-      return chatCompletion(model, messages, tools);
+      // Do not silently submit a second request after a partial answer or timeout.
+      throw new IllegalStateException(UiText.text("模型连接失败：") + error.getMessage());
     } finally {
       if (connection != null) connection.disconnect();
     }
+  }
+
+  private String readModelAnswerStream(InputStream stream, java.util.function.Consumer<String> onPartial) throws Exception {
+    StringBuilder full = new StringBuilder();
+    boolean finished = false;
+    Map<Integer, JSONObject> calls = new java.util.TreeMap<>();
+    try (java.io.BufferedReader reader = new java.io.BufferedReader(
+        new java.io.InputStreamReader(stream, StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (!line.startsWith("data:")) continue;
+        String data = line.substring(5).trim();
+        if (data.isEmpty()) continue;
+        if (data.equals("[DONE]")) { finished = true; break; }
+        JSONObject chunk = new JSONObject(data);
+        if (chunk.optJSONObject("error") != null) throw new IllegalStateException(UiText.text("管家回复失败，请重试"));
+        JSONArray choices = chunk.optJSONArray("choices");
+        if (choices == null || choices.length() == 0) continue;
+        JSONObject choice = choices.getJSONObject(0);
+        JSONObject delta = choice.optJSONObject("delta");
+        if (delta != null) {
+          JSONArray fragments = delta.optJSONArray("tool_calls");
+          if (fragments != null) for (int i = 0; i < fragments.length(); i++) {
+            JSONObject fragment = fragments.getJSONObject(i);
+            if (!fragment.has("index")) throw new IllegalStateException("模型工具回复缺少编号");
+            int index = fragment.getInt("index");
+            JSONObject call = calls.get(index);
+            if (call == null) {
+              call = new JSONObject().put("type", "function").put("function", new JSONObject().put("name", "").put("arguments", ""));
+              calls.put(index, call);
+            }
+            if (!fragment.optString("id").isEmpty()) call.put("id", fragment.optString("id"));
+            JSONObject function = fragment.optJSONObject("function");
+            if (function != null) for (String key : new String[]{"name", "arguments"}) {
+              JSONObject target = call.getJSONObject("function");
+              target.put(key, target.optString(key) + function.optString(key));
+            }
+          }
+          String content = delta.optString("content", "");
+          if (!content.isEmpty() && !"null".equals(content)) {
+            full.append(content);
+            if (full.length() > 100_000) throw new IllegalStateException("模型回复过长");
+            onPartial.accept(full.toString());
+          }
+        }
+        String reason = choice.optString("finish_reason", "");
+        if ("stop".equals(reason) || "tool_calls".equals(reason)) finished = true;
+        else if (!reason.isEmpty() && !"null".equals(reason)) throw new IllegalStateException("模型回复未完成，请重试");
+      }
+    }
+    if (!finished) throw new IllegalStateException("模型回复中断，请重试");
+    JSONObject message = new JSONObject().put("role", "assistant").put("content", full.toString().trim());
+    if (!calls.isEmpty()) {
+      JSONArray toolCalls = new JSONArray();
+      for (JSONObject call : calls.values()) {
+        if (call.optString("id").isEmpty() || call.getJSONObject("function").optString("name").isEmpty()) {
+          throw new IllegalStateException("模型工具回复不完整");
+        }
+        toolCalls.put(call);
+      }
+      message.put("tool_calls", toolCalls);
+    } else if (full.toString().trim().isEmpty()) throw new IllegalStateException(UiText.text("管家模型没有返回有效文本"));
+    return new JSONObject().put("choices", new JSONArray().put(new JSONObject().put("message", message))).toString();
   }
 
   private JSONArray buildButlerTools() throws Exception {
@@ -1071,10 +1129,11 @@ final class PhoneBridge {
           JSONArray result = new JSONArray();
           JSONArray checks = new JSONArray();
           JSONArray machines = store.machines();
+          List<JSONObject> refreshed = queryButlerMachines(machines, false);
           for (int i = 0; i < machines.length(); i++) {
             JSONObject m = machines.getJSONObject(i);
             try {
-              JSONObject parsed = new JSONObject(discoverTasks(m.getInt("id")));
+              JSONObject parsed = refreshed.get(i);
               boolean fresh = parsed.optBoolean("ok");
               JSONObject check = new JSONObject().put("id", m.opt("id"))
                   .put("name", m.optString("name")).put("fresh", fresh).put("checkedAt", now());
@@ -1107,9 +1166,10 @@ final class PhoneBridge {
         case "check_machines": {
           JSONArray machines = store.machines();
           JSONArray result = new JSONArray();
+          List<JSONObject> refreshed = queryButlerMachines(machines, true);
           for (int i = 0; i < machines.length(); i++) {
             JSONObject m = machines.getJSONObject(i);
-            JSONObject parsed = new JSONObject(probeMachine(m.getInt("id")));
+            JSONObject parsed = refreshed.get(i);
             JSONObject probed = parsed.optBoolean("ok") ? parsed.getJSONObject("data").getJSONObject("machine") : null;
             JSONObject check = new JSONObject()
                 .put("id", m.opt("id"))
@@ -1152,6 +1212,28 @@ final class PhoneBridge {
       }
     } catch (Exception error) {
       return toolError(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+    }
+  }
+
+  private List<JSONObject> queryButlerMachines(JSONArray machines, boolean probeOnly) throws Exception {
+    List<JSONObject> result = new ArrayList<>();
+    if (machines.length() == 0) return result;
+    ExecutorService pool = Executors.newFixedThreadPool(Math.min(4, machines.length()));
+    List<Future<String>> pending = new ArrayList<>();
+    try {
+      for (int i = 0; i < machines.length(); i++) {
+        int id = machines.getJSONObject(i).getInt("id");
+        pending.add(pool.submit(() -> probeOnly ? probeMachine(id) : discoverTasks(id)));
+      }
+      for (Future<String> task : pending) {
+        try { result.add(new JSONObject(task.get())); }
+        catch (java.util.concurrent.ExecutionException error) {
+          result.add(new JSONObject().put("ok", false).put("error", "读取或刷新失败"));
+        }
+      }
+      return result;
+    } finally {
+      pool.shutdownNow();
     }
   }
 
@@ -2387,6 +2469,23 @@ final class PhoneBridge {
       JSONObject task = store.task(id);
       JSONObject machine = store.machine(task.getInt("machineId"));
       if ("process".equals(task.optString("controlMode"))) {
+        if ("codex".equals(task.optString("agentType")) && task.optString("paneId").startsWith("codex:")) {
+          Session session = null;
+          try {
+            session = connect(machine);
+            List<JSONObject> records = listCodexDesktopTasks(session, machine.getInt("id"), task.optString("externalSessionId"));
+            if (records.isEmpty()) throw new IllegalArgumentException(UiText.text("没有找到该员工的会话记录，请刷新办公室后重试。"));
+            JSONObject fresh = records.get(0);
+            JSONObject fields = new JSONObject();
+            for (String key : Arrays.asList("status", "workSummary", "lastOutput", "requiredInput", "suggestedReply", "updatedAt")) {
+              fields.put(key, fresh.opt(key));
+            }
+            JSONObject updated = store.patchTask(id, fields);
+            return success(new JSONObject().put("task", updated == null ? task : updated));
+          } finally {
+            disconnect(session);
+          }
+        }
         return discoverTasks(machine.getInt("id"));
       }
       Session session = null;
@@ -3214,6 +3313,13 @@ final class PhoneBridge {
   }
 
   private List<JSONObject> listCodexDesktopTasks(Session session, int machineId) throws Exception {
+    return listCodexDesktopTasks(session, machineId, null);
+  }
+
+  private List<JSONObject> listCodexDesktopTasks(Session session, int machineId, String onlyThread) throws Exception {
+    if (onlyThread != null && !onlyThread.matches(CODEX_THREAD_ID)) {
+      throw new IllegalArgumentException(UiText.text("没有找到有效的会话 ID。"));
+    }
     // Read the session index first — it has all sessions with human-readable names
     Map<String, String> titleByThread = new HashMap<>();
     for (String line : run(session, "cat \"$HOME/.codex/session_index.jsonl\" 2>/dev/null || true").split("\\n")) {
@@ -3226,8 +3332,8 @@ final class PhoneBridge {
     }
 
     // Detect active threads via lock files
-    String lockValue = run(session, "find \"$HOME/.codex/thread-writer-locks\" -maxdepth 1 -type f "
-        + "-name '*.lock' ! -name '.coordination.lock' -exec basename {} .lock \\; 2>/dev/null || true");
+    String lockValue = onlyThread == null ? run(session, "find \"$HOME/.codex/thread-writer-locks\" -maxdepth 1 -type f "
+        + "-name '*.lock' ! -name '.coordination.lock' -exec basename {} .lock \\; 2>/dev/null || true") : "";
     Set<String> activeThreadIds = new HashSet<>();
     for (String value : lockValue.split("\\n")) {
       String threadId = value.trim().toLowerCase();
@@ -3239,6 +3345,7 @@ final class PhoneBridge {
     for (String id : titleByThread.keySet()) {
       if (!activeThreadIds.contains(id) && threadIds.size() < 30) threadIds.add(id);
     }
+    if (onlyThread != null) threadIds = new ArrayList<>(Collections.singletonList(onlyThread));
     if (threadIds.isEmpty()) return Collections.emptyList();
 
     // Find transcript files
@@ -3257,8 +3364,10 @@ final class PhoneBridge {
         if (clean.toLowerCase().endsWith(threadId + ".jsonl")) transcriptByThread.put(threadId, clean);
       }
     }
+    if (onlyThread != null && !transcriptByThread.containsKey(onlyThread)) return Collections.emptyList();
 
-    StringBuilder script = new StringBuilder();
+    StringBuilder script = new StringBuilder("asb_codex_reader=")
+        .append(shellQuote(codexTranscriptReader())).append('\n');
     for (String threadId : threadIds) {
       String transcriptPath = transcriptByThread.getOrDefault(threadId, "");
       script.append("printf '__ASB_THREAD__\\t%s\\t%s\\n' ")
@@ -3267,7 +3376,7 @@ final class PhoneBridge {
         String quoted = shellQuote(transcriptPath);
         script.append("head -c 4096 ").append(quoted).append(" 2>/dev/null || true\n")
             .append("printf '\\n__ASB_TAIL__\\n'\n")
-            .append("tail -c 32768 ").append(quoted).append(" 2>/dev/null || true\n");
+            .append(codexTranscriptCommand(transcriptPath)).append('\n');
       }
       script.append("printf '\\n__ASB_END__\\n'\n");
     }
@@ -3318,7 +3427,7 @@ final class PhoneBridge {
             ? threadTitle
             : assistantTitle != null ? assistantTitle : userTitle != null ? userTitle : threadTitle;
       if (workTitle == null || workTitle.trim().isEmpty()) workTitle = workspaceName;
-      String status = work != null && "running".equals(work.status) ? "running" : "idle";
+      String status = work == null ? "idle" : work.status;
       String summary = work == null || work.summary().trim().isEmpty()
           ? (threadTitle.isEmpty() ? "已发现 Codex Desktop 线程，暂未读取到文本记录。" : "Codex 线程：" + threadTitle)
           : work.summary();
@@ -3346,6 +3455,23 @@ final class PhoneBridge {
     }
     Log.d("AgentBridgeNative", "codex desktop threads=" + threadIds.size() + " tasks=" + result.size());
     return result;
+  }
+
+  private String codexTranscriptReader() throws IOException {
+    try (InputStream input = activity.getAssets().open("codex-transcript.py")) {
+      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+      byte[] buffer = new byte[4096];
+      int count;
+      while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+      return bytes.toString(StandardCharsets.UTF_8.name());
+    }
+  }
+
+  private String codexTranscriptCommand(String path) {
+    // Python is optional on remote machines. Preserve the old bounded reader
+    // when unavailable; never download or install a dependency over SSH.
+    return "{ python3 -c \"$asb_codex_reader\" " + shellQuote(path)
+        + " 2>/dev/null || tail -c 32768 " + shellQuote(path) + " 2>/dev/null; } || true";
   }
 
   private void preserveCustomTitles(int machineId, JSONArray discovered) throws Exception {
@@ -3851,12 +3977,13 @@ final class PhoneBridge {
     for (String line : readable.split("\\r?\\n")) {
       String clean = line.replaceFirst("^#{1,6}\\s*", "").replaceAll("\\s+", " ").trim();
       if (clean.isEmpty() || clean.matches("^(?:[-*]\\s|>\\s*).*")) continue;
-      Collections.addAll(candidates, clean.split("(?<=[。！？!?])\\s*"));
+      Collections.addAll(candidates, clean.split("(?<=[。！？!?])\\s*|(?<=\\.)\\s+"));
     }
     Pattern cue = Pattern.compile("(需要你|你需要|你要|请确认|确认一下|你确认|等你|告诉我|要不要|是否|你选|你决定|手动|装好后|说一声|最后一步|你只需要|你拍板|发给我|提供|输入|可以授权我|验收)");
+    Pattern question = Pattern.compile("(?i)(should\\s+(?:i|we)\\b|may\\s+(?:i|we)\\b|can\\s+(?:i|we|you)\\b|could\\s+you\\b|would\\s+you\\b|do\\s+you\\b|which\\b|confirm\\b|choose\\b|approve\\b|allow\\b|permission\\b|能否|可否|允许|可以|哪个|哪种|吗)");
     for (int index = candidates.size() - 1; index >= 0; index -= 1) {
       String sentence = candidates.get(index).trim();
-      if (cue.matcher(sentence).find() || sentence.matches(".*[?？]$")) {
+      if (cue.matcher(sentence).find() || (sentence.matches(".*[?？]$") && question.matcher(sentence).find())) {
         String selected = sentence.replaceFirst("^[*-]\\s*", "").replaceFirst("^[:：,，。]\\s*", "").trim();
         if (selected.length() >= 6) return selected.substring(0, Math.min(320, selected.length()));
       }
@@ -3962,6 +4089,7 @@ final class PhoneBridge {
       String latestUser = null;
       String latestAssistant = null;
       String status = null;
+      boolean passedLatestUser = false;
       String[] lines = value.split("\\n");
       for (int index = lines.length - 1; index >= 0; index -= 1) {
         String line = lines[index].trim();
@@ -3975,19 +4103,29 @@ final class PhoneBridge {
         if ("codex".equals(kind) && "event_msg".equals(entry.optString("type"))) {
           JSONObject payload = entry.optJSONObject("payload");
           String eventType = payload == null ? "" : payload.optString("type");
-          if (status == null && ("task_complete".equals(eventType) || "task_failed".equals(eventType) || "task_cancelled".equals(eventType))) status = "idle";
+          if (status == null && "task_failed".equals(eventType)) status = "error";
+          if (status == null && ("task_complete".equals(eventType) || "task_cancelled".equals(eventType))) status = "idle";
           if (status == null && "task_started".equals(eventType)) status = "running";
         }
         JSONObject payload = "codex".equals(kind) ? entry.optJSONObject("payload") : entry.optJSONObject("message");
         if (payload == null) continue;
         String role = payload.optString("role");
         String text = "codex".equals(kind) ? codexText(payload.optJSONArray("content")) : claudeText(payload.opt("content"));
+        if ("codex".equals(kind) && "event_msg".equals(entry.optString("type"))) {
+          String event = payload.optString("type");
+          if ("user_message".equals(event) || "agent_message".equals(event)) {
+            role = "user_message".equals(event) ? "user" : "assistant";
+            text = payload.optString("message");
+          }
+        }
         if (text == null || text.trim().isEmpty()) continue;
-        if ("user".equals(role) && latestUser == null && !text.startsWith("<")) latestUser = truncate(clean(text), 2400);
-        if ("assistant".equals(role) && latestAssistant == null) latestAssistant = truncate(clean(text), 2400);
+        if ("user".equals(role) && latestUser == null && !text.startsWith("<")) {
+          latestUser = truncate(clean(text), 2400);
+          passedLatestUser = true;
+        }
+        if ("assistant".equals(role) && latestAssistant == null && !passedLatestUser) latestAssistant = truncate(clean(text), 2400);
         if (latestUser != null && latestAssistant != null && status != null) break;
       }
-      if (latestUser == null && latestAssistant == null) return new Work(null, null, "running");
       return new Work(latestUser, latestAssistant, status == null ? "running" : status);
     }
 

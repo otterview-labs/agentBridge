@@ -44,7 +44,7 @@ h2 { margin: 0; font-size: 21px; line-height: 1.22; letter-spacing: -.02em; }
 .smallAction:active { transform: translateY(2px); box-shadow: none; }
 .smallAction.dark { color: #fffdf8; background: #3f6b44; }
 .smallAction.warn { color: #fffdf8; background: #b3653f; }
-.employees { padding: 16px 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); gap: 20px 12px; background: #edf0e5; border-radius: 0 0 14px 14px; }
+.employees { padding: 0 16px; display: grid; grid-template-columns: minmax(0,1fr); gap: 0; background: var(--surface); border-radius: 0 0 14px 14px; }
 .officeEmpty { grid-column: 1 / -1; padding: 14px 9px 16px; color: var(--muted); font-size: 13px; line-height: 1.6; text-align: center; }
 .officeCollapsedSummary { padding: 14px; color: var(--muted); background: #edf0e5; border-radius: 0 0 14px 14px; font-size: 13px; text-align: center; }
 .deletedEmployees { margin: 0 8px 10px; padding: 9px; border: 2px dashed #b8ab87; border-radius: 14px; background: #f7f2e6; }
@@ -275,7 +275,7 @@ body.voice-listening #voiceStateText { display: none; }
 @keyframes callBreath { from { transform: translateY(0) scale(1); } to { transform: translateY(-4px) scale(1.025); } }
 @keyframes callWave { from { height: 10px; } to { height: 38px; } }
 .chatNotice { padding: 8px 10px; border: 2px solid #d9b7a4; border-radius: 11px; background: #fff0e8; color: #7d4a33; font-size: 11px; line-height: 1.6; }
-.piMessage.typing span { color: var(--muted); }
+.piMessage.typing:not(.streaming) .butlerRich { color: var(--muted); }
 body[data-view="butler"] .summary { display: none; }
 /* Quiet surfaces keep the little pixel office as the visual signature. */
 .butlerHeroHeader .eyebrow { color: #c7d6bb; font-size: 11px; }
@@ -427,13 +427,22 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .officeStatus.offline { color: var(--attention); background: var(--attention-soft); }
 
-.employee { display: flex; flex-direction: column; align-items: stretch; min-width: 0; gap: 10px; padding: 0 6px 8px; border: 0; border-radius: 10px; background: transparent; text-align: left; transition: background 160ms ease; }
+.employee { display: grid; grid-template-columns: 56px minmax(0,1fr) 16px; align-items: start; min-width: 0; gap: 12px; padding: 18px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; transition: background 160ms ease; }
+.employee:last-child { border-bottom: 0; }
+.employee > .employeeStage { width: 56px; height: 64px; margin-top: 2px; border-radius: 12px; background: var(--primary-soft); }
+.employee > .employeeStage:before, .employee > .employeeStage:after { display: none; }
+.employee > .employeeStage .pixelAvatar { width: 38px; height: 47px; bottom: 8px; }
+.employee > .employeeStage .employeeBubble { display: none; }
+.employeeOpen { padding-top: 4px; color: var(--muted); }
+.employeeOpen .uiIcon { width: 16px; height: 16px; }
+.employee:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 8px; }
 
-.employee[data-state="attention"] { background: var(--attention-soft); box-shadow: none; }
+.employee[data-state="attention"] { background: transparent; box-shadow: none; }
+.employee[data-state="attention"] > .employeeStage { background: var(--attention-soft); }
 
-.employeeName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; font-weight: 650; line-height: 1.5; }
+.employeeName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; max-width: 100%; overflow: hidden; overflow-wrap: anywhere; font-size: 15px; font-weight: 650; line-height: 1.5; }
 
-.employee .employeeStage { width: 100%; height: 88px; transform: none; }
+.employee .employeeStage { transform: none; }
 .employee .employeeStage:before { top: 22px; border-color: #43544b; background: #718894; box-shadow: inset 0 0 0 4px #b3c6c3, 0 4px 0 #43544b; }
 .employee .employeeStage:after { bottom: 9px; width: 76px; height: 10px; border-color: #726449; background: #d3bd91; box-shadow: none; }
 .employee .pixelAvatar { bottom: 12px; width: 44px; height: 54px; }
@@ -455,7 +464,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 .townButlerText > span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .townButler > .uiIcon { width: 20px; height: 20px; color: var(--primary); }
 .townButler:active { background: var(--primary-soft); }
-@media (hover: hover) { .employee:hover { background: #e1e8d8; } .employee[data-state="attention"]:hover { background: #f3e3cf; } .townButler:hover .townButlerText strong { text-decoration: underline; text-underline-offset: 3px; } }
+@media (hover: hover) { .employee:hover { background: var(--surface-muted); } .employee[data-state="attention"]:hover { background: var(--attention-soft); } .townButler:hover .townButlerText strong { text-decoration: underline; text-underline-offset: 3px; } }
 
 .employeeSub { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -520,7 +529,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .taskStatusCard .tscDesc { flex: 1; color: var(--muted); font-size: 12px; line-height: 1.5; }
 
-.taskStatusCard[data-tone="attention"] { display: none; }
+.taskStatusCard[data-tone="attention"] { border-color: #e5ceb4; background: var(--attention-soft); color: var(--attention); }
 
 .taskNeed { margin: 0; padding: 12px; border: 1px solid #e5ceb4; border-radius: 10px; background: var(--attention-soft); color: var(--attention); font-size: 14px; font-weight: 600; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 
@@ -528,7 +537,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .conversationTurn.user { justify-self: end; width: min(90%, 100%); background: var(--primary-soft); border-radius: 12px 12px 3px 12px; }
 
-.conversationTurn.assistant { background: transparent; padding: 12px 0; }
+.conversationTurn.assistant { background: transparent; padding: 16px 0; }
 
 .conversationTurn.system { border-color: var(--line); background: var(--surface-muted); }
 
@@ -663,7 +672,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .taskSheet .eyebrow { font-size: 11px; letter-spacing: 0; text-transform: none; }
 button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .smallAction { box-shadow: none; }
-@media (max-width: 390px) { .employee { grid-template-columns: 58px minmax(0,1fr); gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
+@media (max-width: 390px) { .employee { grid-template-columns: 56px minmax(0,1fr) 16px; gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
 @media (max-width: 350px) { h1 { font-size: 18px; } .cloudState { max-width: 60px; font-size: 11px; } .officeHeader { grid-template-columns: 1fr; } }
 @media (min-width: 700px) { .sheet { border: 0; border-radius: 20px; } }
 @media (max-height: 700px) { body[data-view="butler"] .butlerHeroBody, body[data-view="butler"] .connectionHint { display: none; } .butlerHeroHeader { padding-bottom: 12px; } }
@@ -697,3 +706,51 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .replySuggestionsHeader { justify-content: flex-start; }
 .replySuggestionsHeader .ghostAction { padding-left: 0; border: 0; background: transparent; }
 .replySuggestions[data-expanded="false"] #replySuggestionStatus { display: none; }
+
+.piMessage.typing.streaming .butlerRich { color: var(--ink); }
+.replyProgress { margin-left: auto; color: var(--muted); font-size: 11px; font-weight: 400; }
+
+/* Employee records share a quiet reading surface; pixel colleagues carry the town identity. */
+.employeeInfo { gap: 6px; }
+.employeeInfo .employeePreview { margin-top: 4px; gap: 3px; }
+.employeeInfo .employeeSub { margin-top: 0; font-size: 13px; line-height: 1.65; }
+.employee .employeeInfo .stateChip { font-size: 11px; }
+.employeePreviewLabel { color: var(--muted); font-size: 11px; font-weight: 500; }
+.employee[data-state="attention"] .employeePreviewLabel { color: var(--attention); }
+.employee[data-state="attention"] .employeeInfo .employeeSub { color: var(--ink); }
+.taskSheet > header { gap: 12px; padding: 18px 16px; }
+.taskSheet .employeeHeader { min-width: 0; gap: 12px; }
+.taskSheet .employeeHeader > div:last-child { min-width: 0; }
+.taskSheet #taskTitle { font-size: 18px; line-height: 1.4; overflow-wrap: anywhere; }
+.taskAvatarWrap { width: 48px; height: 56px; border-radius: 12px; background: var(--primary-soft); }
+.taskMetaLine { margin-top: 4px; margin-bottom: 0; }
+.taskSheet .taskBody { gap: 16px; padding: 16px; }
+.taskNeed { padding: 16px; border: 0; border-radius: 12px; font-weight: 400; }
+.taskNeedLabel { display: block; margin-bottom: 6px; color: var(--attention); font-size: 12px; font-weight: 650; }
+.taskNeedQuestion { display: block; color: var(--ink); font-size: 16px; line-height: 1.7; }
+.conversationTimeline { gap: 16px; }
+.conversationHeader { padding-top: 4px; }
+.conversationTurn.user { gap: 8px; padding: 12px 14px; }
+.conversationTurn.system { padding: 14px; border-radius: 12px; }
+.conversationMeta .turnAvatar { width: 28px; height: 28px; border-radius: 8px; }
+.conversationBody { line-height: 1.8; }
+.rawRecord { border: 0; border-top: 1px solid var(--line); border-radius: 0; }
+.rawRecord > summary { padding: 12px 0; }
+.taskContext { border-top: 0; }
+.taskContext > summary { padding: 0; }
+.replySuggestions { padding-top: 4px; }
+.replySuggestionChoice { padding: 14px; border: 1px solid var(--line); background: var(--surface); }
+.replySuggestionChoice:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.taskActions { gap: 8px 12px; padding-top: 14px; }
+.taskActions #replyText { min-height: 56px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-muted); caret-color: var(--primary); }
+.taskActions #replyText:focus { border-color: var(--primary); outline: 2px solid var(--primary-soft); }
+@media (max-width: 340px) {
+  .employees { padding: 0 12px; }
+  .employee { grid-template-columns: 44px minmax(0,1fr) 14px; gap: 10px; }
+  .employee > .employeeStage { width: 44px; height: 56px; }
+  .employee > .employeeStage .pixelAvatar { width: 32px; height: 40px; }
+}
+
+.conversationEmpty { padding: 16px; border: 0; border-radius: 12px; background: var(--surface-muted); text-align: left; }
+.conversationEmpty strong { font-size: 14px; font-weight: 600; }
+.conversationEmpty span { color: var(--muted); font-size: 13px; line-height: 1.65; }

@@ -1450,3 +1450,92 @@ test('task previews show the pending decision, clean only display markup, and re
   assert.doesNotMatch(await preview.textContent(), /最近指令|private\/tmp|\*\*/);
   assert.match(await result.locator('.employee[data-task-id="1"] .stateChip').textContent(), /会话空闲/);
 });
+
+test('butler shows streamed text before completion without committing a partial reply', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.evaluate(() => {
+    window.chatDone = false;
+    window.AgentBridge.beginStudioMessage = () => JSON.stringify({ ok: true, data: {
+      operation: { id: 321, state: 'running' }
+    } });
+    window.AgentBridge.operationState = () => JSON.stringify({ ok: true, data: {
+      operation: window.chatDone
+        ? { id: 321, state: 'succeeded', studio: { messages: [
+            { role: 'user', content: '现在谁等我回复' },
+            { role: 'assistant', content: '登录任务正在等你确认测试范围。' }
+          ] } }
+        : { id: 321, state: 'running', message: '整理中', partialReply: '登录任务正在等你' }
+    } });
+  });
+  await page.locator('#piInput').fill('现在谁等我回复');
+  await page.locator('#sendPi').click();
+  await page.locator('#chatTyping').filter({ hasText: '登录任务正在等你' }).waitFor();
+  assert.equal(await page.locator('#sendPi').isDisabled(), true);
+  await page.evaluate(() => { window.chatDone = true; });
+  await page.waitForFunction(() => !document.getElementById('chatTyping'));
+  assert.equal(await page.locator('#piMessages').getByText('登录任务正在等你确认测试范围。', { exact: true }).count(), 1);
+});
+
+test('stream updates preserve the reader position and unchanged text nodes', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.evaluate(() => {
+    window.streamText = '逐步返回的文字。\n'.repeat(80);
+    window.AgentBridge.beginStudioMessage = () => JSON.stringify({ ok: true, data: { operation: { id: 322, state: 'running' } } });
+    window.AgentBridge.operationState = () => JSON.stringify({ ok: true, data: { operation: {
+      id: 322, state: 'running', message: '整理中', partialReply: window.streamText
+    } } });
+  });
+  await page.locator('#piInput').fill('说说进展');
+  await page.locator('#sendPi').click();
+  await page.locator('#chatTyping.streaming').waitFor();
+  assert.match(await page.locator('#chatTyping .replyProgress').textContent(), /正在回复/);
+  await page.evaluate(() => {
+    window.streamNode = document.querySelector('#chatTyping .butlerRich');
+    document.getElementById('piMessages').scrollTop = 0;
+  });
+  await page.waitForTimeout(650);
+  assert.equal(await page.evaluate(() => window.streamNode === document.querySelector('#chatTyping .butlerRich')), true);
+  await page.evaluate(() => { window.streamText += '最后新增的一句。'; });
+  await page.locator('#chatTyping').filter({ hasText: '最后新增的一句。' }).waitFor();
+  assert.equal(await page.locator('#piMessages').evaluate(el => el.scrollTop), 0);
+});
+
+test('call transcript streams before TTS and switches to playback only after completion', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.evaluate(() => {
+    window.finishStream = false;
+    window.AgentBridge.beginStudioMessage = () => JSON.stringify({ ok: true, data: { operation: { id: 323, state: 'running' } } });
+    window.AgentBridge.operationState = () => JSON.stringify({ ok: true, data: { operation: window.finishStream
+      ? { id: 323, state: 'succeeded', studio: { messages: [
+        { role: 'user', content: '看看进展' }, { role: 'assistant', content: '完整回复到了。' }
+      ] } }
+      : { id: 323, state: 'running', partialReply: '刚生成的半句', message: '整理中' }
+    } });
+  });
+  await page.locator('#startCall').click();
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '看看进展', autoSend: true }));
+  await page.waitForFunction(() => document.getElementById('callTranscript').textContent.includes('刚生成的半句'));
+  assert.match(await page.locator('#callStatus').textContent(), /正在回复/);
+  assert.equal(await page.evaluate(() => window.speechTexts.length), 0);
+  await page.evaluate(() => { window.finishStream = true; });
+  await page.waitForFunction(() => window.speechTexts.includes('完整回复到了。'));
+  assert.match(await page.locator('#callStatus').textContent(), /播报/);
+  await page.locator('#callEnd').click();
+});
+
+test('adapter IDs and record paths stay in raw records while readable progress remains visible', async t => {
+  const envelope = 'Codex 线程：thread-123\n状态：task_started\n来源：Codex Desktop\n记录：/private/project/record.jsonl\n\n';
+  for (const [summary, readable] of [['Codex 线程：训练平台2', false], ['最近输出：登录测试已通过。', true]]) {
+    const page = await openPhone(t, { taskPreviewRecords: { workSummary: summary, lastOutput: envelope + summary } });
+    await page.locator('[data-task-id="1"]').click();
+    const timeline = await page.locator('#conversationTimeline').textContent();
+    assert.doesNotMatch(timeline, /thread-123|record\.jsonl|task_started/);
+    if (readable) assert.match(timeline, /登录测试已通过/);
+    else assert.match(timeline, /还没有可读的问答/);
+    await page.locator('#rawRecord > summary').click();
+    assert.equal(await page.locator('#taskOutput').textContent(), envelope + summary);
+  }
+});
