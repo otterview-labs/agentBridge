@@ -2,6 +2,19 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.47 — 2026-10-09
+
+- Restored tmux session discovery on computers where tmux rewrites tab
+  separators. Task fields now use a distinct printable separator.
+- Calls show “connecting” while speech recognition starts, and invite the
+  caller to speak only after the recognizer reports that it is ready.
+- Codex connection errors remain visible above the input suggestions. Failed
+  sessions show an error state instead of appearing to continue working.
+- Validated the changes on a vivo S15 with Android 14, including phone-to-Mac
+  message delivery, real butler text replies and call controls. Full spoken
+  conversation still needs a caller test; delivery alone does not establish
+  that a rate-limited employee model produced a reply.
+
 ## Android 0.5.39 — 2026-10-01
 
 ### Office UI and butler chat/call fixes
