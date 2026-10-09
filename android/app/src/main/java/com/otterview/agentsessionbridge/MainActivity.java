@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -164,6 +165,7 @@ public final class MainActivity extends Activity {
   void startConversationAudio(boolean speakerOn) {
     conversationAudioActive = true;
     runOnUiThread(() -> {
+      getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
       if (audioManager == null) audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
       if (audioManager == null) return;
       audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
@@ -206,6 +208,7 @@ public final class MainActivity extends Activity {
   void stopConversationAudio() {
     conversationAudioActive = false;
     runOnUiThread(() -> {
+      getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
       cancelCloudSynthesis();
       if (textToSpeech != null) textToSpeech.stop();
       stopCloudSpeechPlayback();
