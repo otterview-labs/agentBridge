@@ -37,7 +37,7 @@
 
 ### 1. 下载 App
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 2.9 MB。
+[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 1.6 MB。
 
 ### 2. 连接电脑
 

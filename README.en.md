@@ -37,7 +37,7 @@ You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, wi
 
 ### 1. Download the app
 
-[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 2.9 MB.
+[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 1.6 MB.
 
 ### 2. Connect your computer
 
