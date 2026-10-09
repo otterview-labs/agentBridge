@@ -1849,9 +1849,9 @@
     callSessionToken += 1;
     state.callMuted = false;
     state.callStartedAt = Date.now();
-    state.callTranscript = t("通话已接通。你说话，管家回复后会继续聆听。");
+    state.callTranscript = t("正在准备麦克风和语音识别，准备好后再说话。");
     callErrorCount = 0;
-    setCallStatus('listening');
+    setCallStatus('connecting');
     // A call always sends what it hears and speaks the reply, without
     // overwriting the press-to-talk preferences the user saved.
     $('callBackdrop').classList.remove('hidden');
@@ -1909,7 +1909,7 @@
       setCallStatus('muted');
     } else {
       callErrorCount = 0;
-      setCallStatus('listening');
+      setCallStatus('connecting');
       scheduleCallListening(120);
     }
     renderCallMode();
@@ -1922,8 +1922,8 @@
     $('callMute').classList.remove('active');
     $('callMute').setAttribute('aria-pressed', 'false');
     $('callMuteLabel').textContent = t("静音");
-    state.callTranscript = t("再说一次，我在听。");
-    setCallStatus('listening');
+    state.callTranscript = t("正在准备麦克风和语音识别，准备好后再说话。");
+    setCallStatus('connecting');
     scheduleCallListening(120);
   }
 
@@ -1975,6 +1975,7 @@
       if (!state.callMode || state.callMuted || state.sending || state.voiceRecording) return;
       if (token !== callListenToken) return;
       state.acceptVoiceEvents = true;
+      setCallStatus('connecting');
       let parsed;
       try {
         parsed = JSON.parse(AgentBridge.startVoiceInput(true));
@@ -1983,7 +1984,6 @@
       }
       if (parsed.ok) {
         state.voiceRecording = true;
-        setCallStatus('listening');
       } else {
         state.callTranscript = parsed.error || t("麦克风启动失败，可点“取消静音”重试。");
         setCallStatus('error');
@@ -2131,7 +2131,7 @@
       // A new call may have started while the previous call's model request
       // was still pending. Its initial listen attempt was held by sending.
       if (state.callMode && callSession !== callSessionToken
-        && state.callStatus === 'listening' && !state.voiceRecording) {
+        && ['connecting', 'listening'].includes(state.callStatus) && !state.voiceRecording) {
         scheduleCallListening(350);
       }
     }
@@ -2513,6 +2513,9 @@
       }
       if (state.callMode) {
         if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
+          if (state.callTranscript === t("正在准备麦克风和语音识别，准备好后再说话。")) {
+            state.callTranscript = t("通话已接通。你说话，管家回复后会继续聆听。");
+          }
           setCallStatus('listening');
         }
         if (event.type === 'cloud-processing' || event.type === 'processing') {
@@ -2520,7 +2523,7 @@
         }
         if (event.type === 'speaking') setCallStatus('speaking');
         if (event.type === 'speak-ended') {
-          setCallStatus('listening');
+          setCallStatus('connecting');
           scheduleCallListening(260);
         }
         if (event.type === 'speak-error') {
@@ -2551,7 +2554,7 @@
           scheduleCallListening(1000 * callErrorCount);
         }
         if (event.type === 'stopped' && !state.sending) {
-          setCallStatus('listening');
+          setCallStatus('connecting');
           scheduleCallListening(500);
         }
       }

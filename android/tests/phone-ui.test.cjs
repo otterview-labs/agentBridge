@@ -787,6 +787,25 @@ test('butler puts chat above collapsed planning without horizontal overflow', as
   assert.ok(layout.chatBottom <= layout.dockTop, JSON.stringify(layout));
 });
 
+test('call mode waits for microphone readiness before inviting the user to speak', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#startCall').click();
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start'));
+  assert.match(await page.locator('#callStatus').textContent(), /接通/);
+  assert.match(await page.locator('#callTranscript').textContent(), /准备好后再说话/);
+  assert.doesNotMatch(await page.locator('#callTranscript').textContent(), /通话已接通/);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'cloud-recording' }));
+  assert.match(await page.locator('#callStatus').textContent(), /聆听/);
+  assert.match(await page.locator('#callTranscript').textContent(), /通话已接通/);
+  await page.locator('#callMute').click();
+  await page.locator('#callMute').click();
+  assert.match(await page.locator('#callStatus').textContent(), /接通/);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'ready' }));
+  assert.match(await page.locator('#callStatus').textContent(), /聆听/);
+  await page.locator('#callEnd').click();
+});
+
 test('call mode supports voice in, TTS out, and continuous listening', async t => {
   const page = await openPhone(t, { modelReady: true });
   await page.locator('[data-view="butler"]').click();
@@ -982,7 +1001,7 @@ test('a new call resumes listening without playing the previous call reply', asy
   await page.evaluate(() => { window.releaseChat = true; });
   await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length === 2);
   assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'speak')), false);
-  assert.match(await page.locator('#callTranscript').textContent(), /通话已接通/);
+  assert.match(await page.locator('#callTranscript').textContent(), /准备好后再说话/);
   await page.locator('#callEnd').click();
 });
 

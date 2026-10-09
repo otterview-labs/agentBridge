@@ -2960,13 +2960,16 @@ final class PhoneBridge {
   }
 
   private List<JSONObject> listTmuxTasks(Session session, int machineId, Set<Integer> shellPids) throws Exception {
-    String list = run(session, "tmux list-panes -a -F "
-        + "'#{pane_id}\\t#{session_name}\\t#{window_index}\\t#{window_name}\\t#{pane_current_command}\\t"
-        + "#{pane_current_path}\\t#{pane_dead}\\t#{pane_pid}' 2>/dev/null || true");
+    // tmux leaves "\t" literal and changes actual control characters to "_".
+    // A fresh printable separator also avoids ambiguity in names containing "|".
+    String separator = "__ASB_FIELD_" + java.util.UUID.randomUUID() + "__";
+    String format = String.join(separator, "#{pane_id}", "#{session_name}", "#{window_index}",
+        "#{window_name}", "#{pane_current_command}", "#{pane_current_path}", "#{pane_dead}", "#{pane_pid}");
+    String list = run(session, "tmux list-panes -a -F " + shellQuote(format) + " 2>/dev/null || true");
     List<JSONObject> result = new ArrayList<>();
     for (String line : list.split("\\n")) {
       if (line.trim().isEmpty()) continue;
-      String[] fields = line.split("\\t", -1);
+      String[] fields = line.split(Pattern.quote(separator), -1);
       if (fields.length < 8 || !fields[0].matches("%[0-9]+")) continue;
       String paneId = fields[0];
       String sessionName = fields[1];

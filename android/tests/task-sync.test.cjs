@@ -13,6 +13,48 @@ static JSONArray copy(JSONArray records) {
 }
 `;
 
+test('tmux discovery survives control-character normalization and names containing spaces or pipes', t => {
+ const discovery = methods('PhoneBridge.java', '  private List<JSONObject> listTmuxTasks(', '  private List<JSONObject> listProcessTasks(');
+ harness(t, 'TmuxDiscoveryHarness', `
+ static class Session {}
+ static class Work {
+  String latestUser="",latestAssistant="Should I add tests?";
+  static Work fromTerminal(String output){return new Work();}
+  String summary(){return latestAssistant;}
+ }
+ String run(Session session,String command){
+  if(command.startsWith("tmux list-panes")){
+   Matcher match=Pattern.compile(Pattern.quote("#{pane_id}")+"(.*?)"+Pattern.quote("#{session_name}")).matcher(command);
+   check(match.find());
+   // Real tmux normalizes control characters in -F output to underscores.
+   String renderedSeparator=match.group(1).replace('\\t','_');
+   return String.join(renderedSeparator,"%4","codex test","0","Code","codex","/workspace/a | project","0","42")+"\\n"
+    +String.join(renderedSeparator,"%5","claude test","1","Writing","claude","/workspace/drafts","1","43")+"\\n";
+  }
+  return command.contains("%4")?"Codex: Should I add tests?":"Claude: Draft ready.";
+ }
+ static String shellQuote(String value){return "'"+value+"'";}
+ static String sanitize(String value){return value;}
+ static String detectAgent(String value){return value.contains("codex")?"codex":"claude-code";}
+ static String machineTaskKey(String pane){return pane;}
+ static JSONObject baseTask(int machine,String key,String pane,String agent,String mode){return new JSONObject().put("machineId",machine).put("paneId",pane).put("agentType",agent).put("controlMode",mode);}
+ static String displayName(String agent,String title){return title;}
+ static String deriveTitle(String user,String assistant,String window,String session){return window;}
+ static String requiredInput(String value){return value;}
+ static String now(){return "now";}
+ ${discovery}
+ public static void main(String[] args)throws Exception{
+  Set<Integer> pids=new HashSet<>();List<JSONObject> tasks=new TmuxDiscoveryHarness().listTmuxTasks(new Session(),2,pids);
+  check(tasks.size()==2&&pids.contains(42)&&pids.contains(43));
+  check(tasks.get(0).getString("paneId").equals("%4"));
+  check(tasks.get(0).getString("workspacePath").equals("/workspace/a | project"));
+  check(tasks.get(0).getString("controlMode").equals("tmux"));
+  check(tasks.get(0).getString("status").equals("running"));
+  check(tasks.get(1).getString("status").equals("stopped"));
+  check(tasks.get(1).getString("requiredInput").isEmpty());System.out.println("ok");
+ }`);
+});
+
 test('discovery preserves independent sessions and panes while collapsing duplicate observations', t => {
  const dedupe = methods('PhoneBridge.java', '  private JSONArray dedupeSemanticTasks(', '  @JavascriptInterface\n  public String beginTailTask(');
  harness(t, 'TaskIdentityHarness', `${taskFactory}${dedupe}
