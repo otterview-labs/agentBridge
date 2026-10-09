@@ -427,11 +427,11 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .officeStatus.offline { color: var(--attention); background: var(--attention-soft); }
 
-.employee { display: grid; grid-template-columns: 72px minmax(0,1fr) 16px; align-items: start; min-width: 0; gap: 12px; padding: 18px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; transition: background 160ms ease; }
+.employee { display: grid; grid-template-columns: 64px minmax(0,1fr) 16px; align-items: start; min-width: 0; gap: 12px; padding: 18px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; transition: background 160ms ease; }
 .employee:last-child { border-bottom: 0; }
-.employee > .employeeStage { width: 72px; height: 78px; margin-top: 2px; border-radius: 12px; background: var(--primary-soft); }
+.employee > .employeeStage { width: 64px; height: 76px; margin-top: 2px; border-radius: 12px; background: var(--primary-soft); }
 .employee > .employeeStage:before, .employee > .employeeStage:after { display: none; }
-.employee > .employeeStage .pixelAvatar { width: 64px; height: 68px; bottom: 4px; }
+.employee > .employeeStage .pixelAvatar { width: 54px; height: 66px; bottom: 5px; }
 .employee > .employeeStage .employeeBubble { display: none; }
 .employeeOpen { padding-top: 4px; color: var(--muted); }
 .employeeOpen .uiIcon { width: 16px; height: 16px; }
@@ -458,7 +458,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .townButler { display: grid; grid-template-columns: 44px minmax(0,1fr) 24px; align-items: center; gap: 12px; width: 100%; padding: 4px 0 16px; border-bottom: 1px solid var(--line); text-align: left; }
 .townButlerAvatar { position: relative; width: 44px; height: 52px; border-radius: 10px; background: var(--primary-soft); }
-.townButlerAvatar .pixelAvatar { width: 32px; height: 40px; bottom: 4px; animation: none; }
+.townButlerAvatar .pixelAvatar { width: 36px; height: 44px; bottom: 4px; animation: none; }
 .townButlerText { display: grid; gap: 3px; min-width: 0; }
 .townButlerText strong { font-size: 15px; font-weight: 650; }
 .townButlerText > span { color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -491,7 +491,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .taskAvatarWrap { position: relative; width: 48px; height: 58px; flex: 0 0 auto; border: 0; border-radius: 8px; background: var(--surface-muted); }
 
-.taskAvatarWrap .pixelAvatar { width: 34px; height: 42px; bottom: 4px; }
+.taskAvatarWrap .pixelAvatar { width: 36px; height: 44px; bottom: 4px; }
 
 .taskStatusLine { margin: 0; padding: 4px 0 12px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 
@@ -610,7 +610,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 .piMessage .piMessageAuthor { font-size: 13px; font-weight: 650; }
 .messageMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .messageAvatar { position: relative; flex-shrink: 0; width: 28px; height: 32px; background: var(--primary-soft); border-radius: 7px; }
-.messageAvatar .pixelAvatar { bottom: 2px; width: 24px; height: 28px; }
+.messageAvatar .pixelAvatar { bottom: 2px; width: 21px; height: 26px; }
 .messageUserText { white-space: pre-wrap; }
 .messageRich { display: grid; min-width: 0; gap: 12px; white-space: normal; }
 .messageRich .butlerPara { margin: 0; white-space: pre-wrap; }
@@ -672,7 +672,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .taskSheet .eyebrow { font-size: 11px; letter-spacing: 0; text-transform: none; }
 button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .smallAction { box-shadow: none; }
-@media (max-width: 390px) { .employee { grid-template-columns: 72px minmax(0,1fr) 16px; gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
+@media (max-width: 390px) { .employee { grid-template-columns: 64px minmax(0,1fr) 16px; gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
 @media (max-width: 350px) { h1 { font-size: 18px; } .cloudState { max-width: 60px; font-size: 11px; } .officeHeader { grid-template-columns: 1fr; } }
 @media (min-width: 700px) { .sheet { border: 0; border-radius: 20px; } }
 @media (max-height: 700px) { body[data-view="butler"] .butlerHeroBody, body[data-view="butler"] .connectionHint { display: none; } .butlerHeroHeader { padding-bottom: 12px; } }
@@ -746,19 +746,11 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .taskActions #replyText:focus { border-color: var(--primary); outline: 2px solid var(--primary-soft); }
 @media (max-width: 340px) {
   .employees { padding: 0 12px; }
-  .employee { grid-template-columns: 60px minmax(0,1fr) 14px; gap: 10px; }
-  .employee > .employeeStage { width: 60px; height: 68px; }
-  .employee > .employeeStage .pixelAvatar { width: 54px; height: 57px; }
+  .employee { grid-template-columns: 48px minmax(0,1fr) 14px; gap: 10px; }
+  .employee > .employeeStage { width: 48px; height: 60px; }
+  .employee > .employeeStage .pixelAvatar { width: 36px; height: 44px; }
 }
 
 .conversationEmpty { padding: 16px; border: 0; border-radius: 12px; background: var(--surface-muted); text-align: left; }
 .conversationEmpty strong { font-size: 14px; font-weight: 600; }
 .conversationEmpty span { color: var(--muted); font-size: 13px; line-height: 1.65; }
-
-/* Working poses keep the desk anchored and animate only a live colleague's hands. */
-.employee .pixelAvatar.employeeActivity { animation: none; }
-.employee[data-state="running"] .workerHands { animation: employeeHands 700ms steps(2, end) infinite; }
-.employee[data-state="attention"] .workerHands { animation: employeeHands 1200ms steps(2, end) infinite; }
-.employee[data-record="true"] .workerHands { animation: none; }
-@keyframes employeeHands { to { transform: translateY(-1px); } }
-@media (prefers-reduced-motion: reduce) { .workerHands { animation: none !important; } }
