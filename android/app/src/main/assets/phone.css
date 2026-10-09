@@ -610,7 +610,7 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 .piMessage .piMessageAuthor { font-size: 13px; font-weight: 650; }
 .messageMeta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .messageAvatar { position: relative; flex-shrink: 0; width: 28px; height: 32px; background: var(--primary-soft); border-radius: 7px; }
-.messageAvatar .pixelAvatar { bottom: 2px; width: 21px; height: 26px; }
+.messageAvatar .pixelAvatar { bottom: 2px; width: 24px; height: 28px; }
 .messageUserText { white-space: pre-wrap; }
 .messageRich { display: grid; min-width: 0; gap: 12px; white-space: normal; }
 .messageRich .butlerPara { margin: 0; white-space: pre-wrap; }

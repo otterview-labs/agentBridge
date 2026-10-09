@@ -1437,7 +1437,7 @@
     butler.type = 'button';
     const avatar = element('span', 'townButlerAvatar');
     avatar.setAttribute('aria-hidden', 'true');
-    avatar.appendChild(employeeSprite('pi', 2));
+    avatar.appendChild(employeeSprite('pi', 2, true));
     const advice = element('span', 'townButlerText');
     advice.appendChild(element('strong', '', t("找管家聊聊")));
     advice.appendChild(element('span', '', t("问进度，找待回复的任务")));
@@ -2175,7 +2175,7 @@
     if (!user) {
       const avatar = element('span', 'messageAvatar');
       avatar.setAttribute('aria-hidden', 'true');
-      avatar.appendChild(employeeSprite('pi', 2));
+      avatar.appendChild(employeeSprite('pi', 2, true));
       meta.appendChild(avatar);
     }
     meta.appendChild(element('strong', 'piMessageAuthor', user ? t("我") : t("管家")));
@@ -3009,45 +3009,90 @@
     svg.append(item);
   }
 
-  function employeeSprite(agentType, variant) {
+  function employeeSprite(agentType, variant, portrait = false) {
     const palettes = {
-      codex: { shirt: '#7488bc', trim: '#5a6c9b' },
-      'claude-code': { shirt: '#cc8250', trim: '#a96940' },
-      gemini: { shirt: '#8b7fc0', trim: '#6d64a1' },
-      pi: { shirt: '#3f6b44', trim: '#315737' }
+      codex: { shirt: '#809bb5', trim: '#4e6f8a', light: '#adc1d0' },
+      'claude-code': { shirt: '#c58965', trim: '#965f43', light: '#e0b698' },
+      gemini: { shirt: '#9b92b8', trim: '#71658f', light: '#bfb7d3' },
+      pi: { shirt: '#52765e', trim: '#304f40', light: '#83a28a' }
     };
-    const palette = palettes[agentType] || { shirt: '#6d7f94', trim: '#546374' };
-    const skin = '#f6d1ae';
-    const outline = '#2f2a41';
-    const hair = '#3b3348';
+    const palette = palettes[agentType] || { shirt: '#879a96', trim: '#5c7470', light: '#b6c5bf' };
+    const butler = agentType === 'pi';
+    const style = butler ? 0 : ((Number(variant) || 0) % 3 + 3) % 3;
+    const hair = butler ? '#64675f' : ['#493e39', '#685044', '#343f49'][style];
+    const hairLight = butler ? '#a5a79a' : ['#756150', '#99745b', '#63717a'][style];
+    const ink = '#353e3b';
+    const skin = '#f0cba8';
+    const skinShade = '#dcae8a';
     const svg = svgPixelNode();
-    svg.setAttribute('viewBox', '0 0 18 22');
+    // One shared character, cropped for tiny chat avatars instead of shrinking its face away.
+    svg.setAttribute('viewBox', portrait ? '3 0 18 20' : '0 0 24 30');
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    svg.setAttribute('focusable', 'false');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('pixelAvatar');
+    if (portrait) svg.classList.add('pixelPortrait');
+    const draw = (x, y, width, height, color) => rect(svg, x, y, width, height, color);
 
-    if (variant === 0) {
-      rect(svg, 4, 1, 1, 1, hair); rect(svg, 5, 0, 1, 2, hair); rect(svg, 6, 1, 1, 1, hair);
-      rect(svg, 11, 1, 1, 1, hair); rect(svg, 12, 0, 1, 2, hair); rect(svg, 13, 1, 1, 1, hair);
-    } else if (variant === 1) {
-      rect(svg, 4, 0, 2, 4, hair); rect(svg, 12, 0, 2, 4, hair);
-      rect(svg, 4, 0, 2, 1, '#f4a7b8'); rect(svg, 12, 0, 2, 1, '#f4a7b8');
+    // A compact silhouette with stepped shoulders, cuffs and separate shoes.
+    draw(7, 22, 10, 5, '#56646a');
+    draw(11, 24, 2, 4, '#35454a');
+    draw(6, 27, 5, 2, '#34434a'); draw(13, 27, 5, 2, '#34434a');
+    draw(6, 27, 2, 1, '#839391'); draw(13, 27, 2, 1, '#839391');
+    draw(6, 15, 12, 8, palette.shirt);
+    draw(4, 16, 3, 6, palette.trim); draw(17, 16, 3, 6, palette.trim);
+    draw(6, 15, 2, 2, palette.light); draw(16, 15, 2, 2, palette.light);
+    draw(4, 21, 3, 1, '#f5efe0'); draw(17, 21, 3, 1, '#f5efe0');
+    draw(4, 22, 3, 2, skin); draw(17, 22, 3, 2, skin);
+    draw(10, 13, 4, 3, skinShade);
+    draw(9, 15, 3, 2, '#f7f1e4'); draw(12, 15, 3, 2, '#f7f1e4');
+    if (butler) {
+      draw(8, 17, 8, 6, palette.trim);
+      draw(10, 17, 4, 1, '#f7f1e4');
+      draw(9, 16, 2, 2, '#bc9260'); draw(13, 16, 2, 2, '#bc9260');
+      draw(11, 16, 2, 1, '#806446');
+      draw(11, 19, 2, 1, '#d1b385'); draw(11, 21, 2, 1, '#d1b385');
+      draw(15, 19, 1, 2, '#d1b385');
     } else {
-      rect(svg, 2, 1, 3, 3, hair); rect(svg, 13, 1, 3, 3, hair);
+      draw(11, 17, 1, 5, palette.trim);
+      draw(14, 18, 2, 1, palette.light);
+      draw(12, 19, 1, 1, '#f5efe0');
     }
 
-    rect(svg, 3, 10, 12, 6, palette.shirt);
-    rect(svg, 8, 10, 2, 1, '#fffaf0');
-    rect(svg, 4, 3, 10, 7, skin);
-    rect(svg, 4, 2, 10, 2, hair);
-    rect(svg, 3, 3, 1, 3, hair); rect(svg, 14, 3, 1, 3, hair);
-    rect(svg, 6, 6, 2, 2, outline); rect(svg, 10, 6, 2, 2, outline);
-    rect(svg, 7, 8, 1, 1, '#c26060'); rect(svg, 10, 8, 1, 1, '#c26060');
-    rect(svg, 8, 8, 2, 1, '#a95050');
-    rect(svg, 5, 8, 1, 1, '#f5a8a8'); rect(svg, 12, 8, 1, 1, '#f5a8a8');
-    rect(svg, 2, 11, 2, 4, palette.trim); rect(svg, 14, 11, 2, 4, palette.trim);
-    rect(svg, 2, 15, 2, 1, skin); rect(svg, 14, 15, 2, 1, skin);
-    rect(svg, 6, 16, 2, 4, '#39415d'); rect(svg, 10, 16, 2, 4, '#39415d');
-    rect(svg, 5, 20, 3, 2, '#28304b'); rect(svg, 10, 20, 3, 2, '#28304b');
+    // Three ordinary hairstyles; the butler has a silver side part and glasses.
+    draw(7, 1, 10, 1, hair); draw(5, 2, 14, 3, hair);
+    draw(4, 4, 16, 5, hair);
+    if (style === 1 && !butler) {
+      draw(4, 7, 2, 6, hair); draw(18, 7, 2, 6, hair);
+      draw(5, 12, 2, 2, hair); draw(17, 12, 2, 2, hair);
+    }
+    draw(6, 5, 12, 7, skin);
+    draw(7, 12, 10, 1, skin); draw(9, 13, 6, 1, skinShade);
+    draw(5, 8, 1, 3, skinShade); draw(18, 8, 1, 3, skinShade);
+    draw(6, 5, 12, 1, '#f7dbb9');
+    if (style === 0) {
+      draw(6, 3, 7, 3, hair); draw(6, 6, 2, 1, hair);
+      draw(7, 2, 6, 1, hairLight); draw(13, 3, 4, 1, hairLight);
+      draw(17, 4, 1, 3, hair);
+    } else if (style === 1) {
+      draw(6, 4, 10, 2, hair); draw(6, 6, 3, 1, hair);
+      draw(7, 3, 7, 1, hairLight); draw(17, 5, 1, 3, hair);
+    } else {
+      draw(6, 3, 12, 2, hair); draw(7, 5, 3, 1, hair);
+      draw(11, 5, 3, 1, hair); draw(16, 5, 2, 1, hair);
+      draw(8, 2, 7, 1, hairLight);
+    }
+    draw(8, 8, 2, 2, ink); draw(14, 8, 2, 2, ink);
+    draw(8, 8, 1, 1, '#fff8ec'); draw(14, 8, 1, 1, '#fff8ec');
+    draw(7, 10, 2, 1, '#e1a78e'); draw(15, 10, 2, 1, '#e1a78e');
+    draw(11, 11, 2, 1, '#9b6655');
+    if (butler) {
+      draw(7, 7, 4, 1, ink); draw(13, 7, 4, 1, ink);
+      draw(7, 8, 1, 2, ink); draw(10, 8, 1, 2, ink);
+      draw(13, 8, 1, 2, ink); draw(16, 8, 1, 2, ink);
+      draw(7, 10, 4, 1, ink); draw(13, 10, 4, 1, ink);
+      draw(11, 8, 2, 1, ink);
+    }
     return svg;
   }
 
