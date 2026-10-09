@@ -403,6 +403,18 @@ final class BridgeStore {
   }
 
   private void preserveChangedFields(JSONObject incoming, JSONObject current, JSONObject before) throws Exception {
+    // A reply is one record: unchanged status/decision fields still belong to
+    // the new output and must not be mixed with an older scan's progress.
+    String[] progressFields = { "lastOutput", "workSummary", "status", "requiredInput", "suggestedReply" };
+    boolean progressChanged = before == null;
+    for (String key : progressFields) {
+      if (before == null || !String.valueOf(current.opt(key)).equals(String.valueOf(before.opt(key)))) {
+        progressChanged = true;
+      }
+    }
+    if (progressChanged) {
+      for (String key : progressFields) incoming.put(key, current.opt(key));
+    }
     Iterator<String> keys = current.keys();
     while (keys.hasNext()) {
       String key = keys.next();
