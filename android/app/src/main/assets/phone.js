@@ -24,6 +24,7 @@
     backgroundNotices: [],
     sending: false,
     pendingChat: null,
+    chatProgress: null,
     failedChat: null,
     chatNotices: [],
     modelChecking: false,
@@ -1690,7 +1691,7 @@
     }
     if (state.pendingChat) {
       appendChatMessage('user', state.pendingChat);
-      setChatTyping(true);
+      setChatTyping(true, state.chatProgress?.text, state.chatProgress?.streaming);
     }
     if (state.failedChat) {
       appendChatMessage('user', state.failedChat.value);
@@ -1952,6 +1953,7 @@
       connecting: t("正在接通…"),
       listening: t("正在聆听"),
       thinking: t("管家思考中"),
+      replying: t("正在回复…"),
       speaking: t("管家播报中"),
       muted: t("麦克风已静音"),
       error: t("通话异常")
@@ -2014,6 +2016,7 @@
       && state.callMode && callSession === callSessionToken;
     state.sending = true;
     state.pendingChat = value;
+    state.chatProgress = null;
     state.followChat = true;
     state.failedChat = null;
     state.chatNotices = [];
@@ -2067,7 +2070,11 @@
         }
         pollingFailures = 0;
         const current = currentResult.data.operation;
-        setChatTyping(true, current.partialReply || current.message);
+        setChatTyping(true, current.partialReply || current.message, Boolean(current.partialReply));
+        if (stillInCall() && current.partialReply) {
+          state.callTranscript = `${t("我：")}${value}${t("\n管家：")}${current.partialReply}`;
+          setCallStatus('replying');
+        }
         if (current.state !== 'running') {
           if (!['failed', 'succeeded'].includes(current.state)) throw new Error(t("暂时无法确认回复状态，请继续查看"));
           terminal = true;
@@ -2327,23 +2334,36 @@
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
   }
 
-  function setChatTyping(typing, message) {
-    const existing = document.getElementById('chatTyping');
+  function setChatTyping(typing, message, streaming = false) {
+    let row = document.getElementById('chatTyping');
     if (!typing) {
-      existing?.remove();
+      row?.remove();
+      state.chatProgress = null;
       return;
     }
-    if (!existing) {
-      const row = createChatMessage('assistant', message || t("正在思考…"));
+    const text = message || t("正在思考…");
+    state.chatProgress = { text, streaming };
+    // Polling an unchanged operation should not rebuild the message or move the reader.
+    if (row?.dataset.replyText === text && row.classList.contains('streaming') === streaming) return;
+    const chat = $('piMessages');
+    const scrollPosition = chat.scrollTop;
+    const followLatest = state.followChat || chat.scrollHeight - chat.clientHeight - scrollPosition < 32;
+    if (!row) {
+      row = createChatMessage('assistant', text);
       row.classList.add('typing');
       row.id = 'chatTyping';
-      row.setAttribute('role', 'status');
-      $('piMessages').appendChild(row);
+      row.querySelector('.messageMeta').appendChild(element('span', 'replyProgress'));
+      chat.appendChild(row);
     } else {
-      const content = existing.querySelector('.butlerRich');
-      content.replaceWith(renderButlerText(message || t("正在思考…")));
+      row.querySelector('.butlerRich').replaceWith(renderButlerText(text));
     }
-    $('piMessages').scrollTop = $('piMessages').scrollHeight;
+    row.dataset.replyText = text;
+    row.classList.toggle('streaming', streaming);
+    row.setAttribute('aria-busy', 'true');
+    const progress = row.querySelector('.replyProgress');
+    progress.setAttribute('role', 'status');
+    progress.textContent = streaming ? t("正在回复…") : t("正在处理…");
+    chat.scrollTop = followLatest ? chat.scrollHeight : scrollPosition;
   }
 
   function autoResizeChatInput() {

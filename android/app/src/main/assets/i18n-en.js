@@ -402,6 +402,8 @@ window.AGENTBRIDGE_EN = {
   "正在工作，查看最新输出了解进展": "Working. Check latest output for progress.",
   "正在录音…松手转文字，上滑取消": "Recording... Release to transcribe, swipe up to cancel",
   "正在思考…": "Thinking...",
+  "正在回复…": "Replying…",
+  "正在处理…": "Working…",
   "正在执行远程任务": "Executing remote task",
   "正在扫描局域网端口…": "Scanning LAN ports...",
   "正在探查 ": "Probing ",

@@ -275,7 +275,7 @@ body.voice-listening #voiceStateText { display: none; }
 @keyframes callBreath { from { transform: translateY(0) scale(1); } to { transform: translateY(-4px) scale(1.025); } }
 @keyframes callWave { from { height: 10px; } to { height: 38px; } }
 .chatNotice { padding: 8px 10px; border: 2px solid #d9b7a4; border-radius: 11px; background: #fff0e8; color: #7d4a33; font-size: 11px; line-height: 1.6; }
-.piMessage.typing span { color: var(--muted); }
+.piMessage.typing:not(.streaming) .butlerRich { color: var(--muted); }
 body[data-view="butler"] .summary { display: none; }
 /* Quiet surfaces keep the little pixel office as the visual signature. */
 .butlerHeroHeader .eyebrow { color: #c7d6bb; font-size: 11px; }
@@ -697,3 +697,6 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .replySuggestionsHeader { justify-content: flex-start; }
 .replySuggestionsHeader .ghostAction { padding-left: 0; border: 0; background: transparent; }
 .replySuggestions[data-expanded="false"] #replySuggestionStatus { display: none; }
+
+.piMessage.typing.streaming .butlerRich { color: var(--ink); }
+.replyProgress { margin-left: auto; color: var(--muted); font-size: 11px; font-weight: 400; }
