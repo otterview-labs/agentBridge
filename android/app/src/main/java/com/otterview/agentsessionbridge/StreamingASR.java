@@ -128,7 +128,6 @@ public final class StreamingASR {
                 return;
               }
               startCapture();
-              mainHandler.post(() -> { if (running.get() && !settled.get()) listener.onReady(); });
               break;
             case "result-generated":
               handleResult(json.optJSONObject("payload"));
@@ -196,6 +195,7 @@ public final class StreamingASR {
     Thread capture = new Thread(() -> {
       AudioRecord record = null;
       try {
+        if (!running.get() || settled.get()) return;
         int minBuffer = AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
         // VOICE_COMMUNICATION enables the platform echo canceller, so a reply
         // playing on the speaker is not transcribed as the user's next turn.
@@ -210,6 +210,11 @@ public final class StreamingASR {
           return;
         }
         record.startRecording();
+        if (record.getRecordingState() != AudioRecord.RECORDSTATE_RECORDING) {
+          fail(UiText.text("录音失败，请重试"));
+          return;
+        }
+        mainHandler.post(() -> { if (running.get() && !settled.get()) listener.onReady(); });
         byte[] buffer = new byte[CHUNK_SIZE];
         while (running.get()) {
           int read = record.read(buffer, 0, buffer.length);

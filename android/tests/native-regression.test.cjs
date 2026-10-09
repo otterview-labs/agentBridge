@@ -229,3 +229,62 @@ public class AsrSettlementHarness {
 }`);
   assert.equal(result.trim(), 'ok');
 });
+
+test('streaming microphone readiness follows recording startup and failures never report ready', t => {
+  const capture = methods('StreamingASR.java', '  private void startCapture() {', '  /** Stops listening');
+  const result = runHarness(t, 'AsrCaptureHarness', `
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.*;
+public class AsrCaptureHarness {
+  static final int SAMPLE_RATE=16000, CHUNK_SIZE=3200;
+  static final String TAG="test";
+  final AtomicBoolean running=new AtomicBoolean(true), settled=new AtomicBoolean(false);
+  final CountDownLatch released=new CountDownLatch(1);
+  final AtomicInteger ready=new AtomicInteger(), errors=new AtomicInteger();
+  final Handler mainHandler=new Handler();
+  final Listener listener=new Listener();
+  volatile WebSocket ws;
+  volatile AudioRecord recorder;
+  int mode;
+  class Handler { void post(Runnable callback) { callback.run(); } }
+  class Listener { void onReady() {
+    check(recorder != null && recorder.getRecordingState()==AudioRecord.RECORDSTATE_RECORDING);
+    ready.incrementAndGet();
+  } }
+  static class UiText { static String text(String value) { return value; } }
+  static class AudioFormat { static final int CHANNEL_IN_MONO=1, ENCODING_PCM_16BIT=2; }
+  static class MediaRecorder { static class AudioSource { static final int VOICE_COMMUNICATION=7; } }
+  static class Log { static void w(String tag,String message,Exception error) {} }
+  static class ByteString { static byte[] of(byte[] value,int offset,int length) { return value; } }
+  static class WebSocket { void send(byte[] value) {} }
+  class AudioRecord {
+    static final int STATE_INITIALIZED=1, RECORDSTATE_RECORDING=3;
+    boolean recording;
+    static int getMinBufferSize(int rate,int channel,int encoding) { return 3200; }
+    AudioRecord(int source,int rate,int channel,int encoding,int buffer) { recorder=this; }
+    int getState() { return mode==1 ? 0 : STATE_INITIALIZED; }
+    void startRecording() {
+      if(mode==2) throw new IllegalStateException("microphone busy");
+      recording=mode!=3;
+    }
+    int getRecordingState() { return recording ? RECORDSTATE_RECORDING : 1; }
+    int read(byte[] value,int offset,int length) { running.set(false); return length; }
+    void stop() { recording=false; }
+    void release() { released.countDown(); }
+  }
+  void fail(String message) { running.set(false); settled.set(true); errors.incrementAndGet(); }
+  ${capture}
+  static void check(boolean value) { if(!value) throw new AssertionError(); }
+  public static void main(String[] args) throws Exception {
+    for(int mode=0;mode<=3;mode++) {
+      AsrCaptureHarness h=new AsrCaptureHarness();h.mode=mode;h.startCapture();
+      check(h.released.await(3,TimeUnit.SECONDS));
+      check(h.ready.get()==(mode==0 ? 1 : 0));
+      check(h.errors.get()==(mode==0 ? 0 : 1));
+      check(!h.recorder.recording);
+    }
+    System.out.println("ok");
+  }
+}`);
+  assert.equal(result.trim(), 'ok');
+});

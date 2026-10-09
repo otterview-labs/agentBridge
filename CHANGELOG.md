@@ -2,6 +2,13 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.48 — 2026-10-09
+
+- Keep the screen awake during an in-app call, then restore normal screen
+  timeout when the call ends. No device-wide timeout setting is changed.
+- Wait for the microphone to start recording before reporting that cloud
+  recognition is ready. Microphone startup failures no longer invite speech.
+
 ## Android 0.5.47 — 2026-10-09
 
 - Restored tmux session discovery on computers where tmux rewrites tab
