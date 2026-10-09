@@ -829,6 +829,10 @@ test('call mode supports voice in, TTS out, and continuous listening', async t =
   assert.equal(avatarLayout, true);
   assert.equal(await page.locator('.app').getAttribute('inert'), '');
   assert.equal(await page.evaluate(() => window.callCalls.some(call => call[0] === 'start' && call[1] === true)), true);
+  // Recognition can only finish after capture starts. Otherwise the initial
+  // listening timer can race the synthetic reply and replace its speaking state.
+  await page.waitForFunction(() => window.voiceCalls.some(call => call[0] === 'start' && call[1] === true));
+  await page.evaluate(() => window.phoneVoice.update({ type: 'ready' }));
   await page.evaluate(() => window.phoneVoice.update({
     type: 'final', text: '今天最应该先处理什么？', autoSend: true
   }));
