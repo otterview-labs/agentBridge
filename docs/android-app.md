@@ -8,8 +8,8 @@ Linux machines over SSH directly from the phone.
 Current debug version:
 
 ```text
-versionName: 0.5.44
-versionCode: 60
+versionName: 0.5.51
+versionCode: 67
 minSdk: 24
 targetSdk: 35
 package (Chinese): com.otterview.agentsessionbridge.debug
