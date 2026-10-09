@@ -2,6 +2,15 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.49 — 2026-10-09
+
+- Mark Codex HTTP 4xx and 5xx terminal failures as errors, including rejected
+  API keys, while retaining the original error details and terminal output.
+- Send standalone greetings and thanks to the model without old task reports,
+  conversation history or query tools; task questions retain their context.
+- Clear the old recognition error after a successful reconnect, and reset
+  the consecutive-error counter once listening resumes.
+
 ## Android 0.5.48 — 2026-10-09
 
 - Keep the screen awake during an in-app call, then restore normal screen

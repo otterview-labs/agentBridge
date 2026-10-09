@@ -852,6 +852,18 @@ test('call mode keeps listening after a recognizer error and shows live partials
   assert.match(await page.locator('#callStatus').textContent(), /异常/);
   await page.waitForFunction(() => window.voiceCalls.filter(call => call[0] === 'start').length
     > window.__startCountBeforeError);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'cloud-recording' }));
+  assert.match(await page.locator('#callStatus').textContent(), /聆听/);
+  assert.doesNotMatch(await page.locator('#callTranscript').textContent(), /没有听到内容/);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const starts = await page.evaluate(() => window.voiceCalls.filter(call => call[0] === 'start').length);
+    await page.evaluate(() => window.phoneVoice.update({ type: 'error', text: '临时断线' }));
+    await page.waitForFunction(before => window.voiceCalls.filter(call => call[0] === 'start').length > before, starts);
+    await page.evaluate(() => window.phoneVoice.update({ type: 'cloud-recording' }));
+    assert.match(await page.locator('#callStatus').textContent(), /聆听/);
+    assert.doesNotMatch(await page.locator('#callTranscript').textContent(), /临时断线|连续失败/);
+    assert.equal(await page.locator('#callMute').getAttribute('aria-pressed'), 'false');
+  }
   await page.locator('#callEnd').click();
 });
 

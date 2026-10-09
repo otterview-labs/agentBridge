@@ -149,6 +149,16 @@ test('terminal input suggestions do not hide provider errors or replace the late
   check(!result.optString("workSummary").contains("Summarize recent commits"));
   check(!result.optString("workSummary").contains("glm-5.3"));
   check(result.optString("lastOutput").equals(failed));
+  String forbidden="› Run the check\n\n■ unexpected status 403 Forbidden: API Key group deleted\n\n› Use /skills to list available skills\n\n gpt-5.4 high · /private/tmp/test\n";
+  result=tmuxTaskFields(forbidden,false);
+  check(result.optString("status").equals("error"));
+  check(result.optString("workSummary").contains("API Key group deleted"));
+  check(!result.optString("workSummary").contains("Use /skills"));
+  check(result.optString("lastOutput").equals(forbidden));
+  result=tmuxTaskFields(forbidden.replace("403 Forbidden","503 Service Unavailable"),false);
+  check(result.optString("status").equals("error"));
+  result=tmuxTaskFields("› Read the deployment notes\n• Documentation says: unexpected status 403 Forbidden.\n",false);
+  check(result.optString("status").equals("running"));
   String answered=failed+"› Try again with the fixed settings\n• Tests passed. Should I deploy now?\n\n› Implement the feature\n\n glm-5.3 high · /private/tmp/test\n";
   result=tmuxTaskFields(answered,false);
   check(result.optString("status").equals("running"));
