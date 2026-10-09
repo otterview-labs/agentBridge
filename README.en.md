@@ -19,15 +19,15 @@ Each computer becomes an office; each task gets a pixel employee.
 
 [Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en.png" width="760" alt="The fix is done. Why is it still waiting?"></a>
+<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en.png" width="760" alt="Office Town app demo: training platform development and Xiaohongshu editing"></a>
 
-**[Watch the 46-second app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Find a task needing a reply, read its history, and choose a draft.
+**[Watch the 1-minute 53-second app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, then reply to Codex from your phone.
 
-| Office | Butler chat | Voice chat |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-en-0.5.44.png" width="240" alt="Office with pixel employees and tasks awaiting input"> | <img src="docs/screenshots/butler-en-0.5.44.png" width="240" alt="Butler chat with task questions and message input"> | <img src="docs/screenshots/call-en-0.5.44.png" width="240" alt="Voice chat with listening, microphone, speaker and end-call controls"> |
+| Office | Task replies | Butler chat | Voice chat |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/office-en-0.5.45.png" width="180" alt="Training platform and Xiaohongshu editing tasks with pending decisions"> | <img src="docs/screenshots/task-en-0.5.45.png" width="180" alt="Reply to the training platform task and read the returned test results"> | <img src="docs/screenshots/butler-en-0.5.45.png" width="180" alt="Butler reads task records and lists pending decisions"> | <img src="docs/screenshots/call-en-0.5.44.png" width="180" alt="Voice chat with microphone, speaker and end-call controls"> |
 
-<sub>Screenshots use sample records.</sub>
+<sub>Office, task reply and butler screenshots come from demo projects. The call screenshot uses sample records.</sub>
 
 </div>
 
@@ -37,7 +37,7 @@ You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, wi
 
 ### 1. Download the app
 
-[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 1.5 MB.
+[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 2.9 MB.
 
 ### 2. Connect your computer
 

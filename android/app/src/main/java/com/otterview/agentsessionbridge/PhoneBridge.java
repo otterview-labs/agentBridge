@@ -2178,6 +2178,7 @@ final class PhoneBridge {
   @JavascriptInterface
   public String discoverTasks(int machineId) {
     try {
+      JSONArray baseline = store.tasks();
       JSONObject machine = store.machine(machineId);
       Session session = null;
       try {
@@ -2211,7 +2212,7 @@ final class PhoneBridge {
             + " total=" + discovered.length());
         preserveCustomTitles(machineId, discovered);
         discovered = dedupeSemanticTasks(discovered);
-        store.replaceTasksForMachine(machineId, discovered);
+        discovered = store.replaceTasksForMachine(machineId, discovered, baseline);
         return success(new JSONObject().put("machine", publicMachine(machine)).put("tasks", discovered));
       } finally {
         disconnect(session);
@@ -2275,10 +2276,12 @@ final class PhoneBridge {
     JSONArray result = new JSONArray();
     for (int index = 0; index < discovered.length(); index += 1) {
       JSONObject task = discovered.getJSONObject(index);
-      String title = task.optString("title", "").trim().replaceAll("\\s+", " ");
-      String workspace = task.optString("workspacePath", "").trim();
-      String key = task.getInt("machineId") + "|" + task.optString("agentType", "")
-          + "|" + title.toLowerCase(java.util.Locale.ROOT) + "|" + workspace;
+      String sessionId = task.optString("externalSessionId", "").trim();
+      String stableKey = task.optString("stableKey", "").trim();
+      // Titles describe work; only a session or pane identity can identify it.
+      String identity = !sessionId.isEmpty() ? "session:" + sessionId
+          : !stableKey.isEmpty() ? "stable:" + stableKey : "unidentified:" + index;
+      String key = task.getInt("machineId") + "|" + task.optString("agentType", "") + "|" + identity;
       JSONObject old = bestByKey.get(key);
       if (old == null || preferSemanticTask(task, old)) {
         if (old != null) {
@@ -2375,8 +2378,9 @@ final class PhoneBridge {
       try {
         session = connect(machine);
         String output = sanitize(run(session, "tmux capture-pane -p -S -180 -t " + shellQuote(task.getString("paneId"))));
-        JSONObject fields = new JSONObject().put("lastOutput", output).put("updatedAt", now());
-        if ("missing".equals(task.optString("status"))) fields.put("status", "running");
+        boolean stopped = "1".equals(run(session, "tmux display-message -p -t "
+            + shellQuote(task.getString("paneId")) + " '#{pane_dead}'").trim());
+        JSONObject fields = tmuxTaskFields(output, stopped);
         JSONObject updated = store.patchTask(id, fields);
         return success(new JSONObject().put("task", updated == null ? task : updated));
       } finally {
@@ -2989,8 +2993,8 @@ final class PhoneBridge {
           .put("title", displayName(agentType, deriveTitle(work.latestUser, work.latestAssistant, windowName, sessionName)))
           .put("workSummary", work.summary())
           .put("lastOutput", output)
-          .put("requiredInput", dead ? "" : requiredInput(work.latestAssistant != null ? work.latestAssistant : output))
-          .put("suggestedReply", dead ? "" : suggestedReply(requiredInput(work.latestAssistant != null ? work.latestAssistant : output)))
+          .put("requiredInput", dead ? "" : requiredInput(work.latestAssistant))
+          .put("suggestedReply", "")
           .put("updatedAt", now());
       result.add(task);
     }
@@ -3783,6 +3787,25 @@ final class PhoneBridge {
     return result.toString();
   }
 
+  private static JSONObject tmuxTaskFields(String output, boolean stopped) throws Exception {
+    Work work = Work.fromTerminal(output);
+    return new JSONObject().put("lastOutput", output).put("workSummary", work.summary())
+        .put("requiredInput", stopped ? "" : requiredInput(work.latestAssistant))
+        .put("suggestedReply", "").put("status", stopped ? "stopped" : "running")
+        .put("updatedAt", now());
+  }
+
+  /** Ignore questions in older terminal turns after the user has already replied. */
+  private static String latestTerminalOutput(String value) {
+    if (value == null) return "";
+    String[] lines = value.split("\\r?\\n", -1);
+    int start = 0;
+    for (int index = 0; index < lines.length; index += 1) {
+      if (lines[index].matches("^\\s*[›❯]\\s+\\S.*$")) start = index + 1;
+    }
+    return String.join("\n", Arrays.copyOfRange(lines, start, lines.length)).trim();
+  }
+
   private static String requiredInput(String value) {
     if (value == null || value.trim().isEmpty()) return "";
     String readable = value
@@ -3886,7 +3909,7 @@ final class PhoneBridge {
     }
 
     private static Work fromTerminal(String value) {
-      return new Work(null, value, "running");
+      return new Work(null, latestTerminalOutput(value), "running");
     }
 
     private static Work fromClaudeTranscript(String value) {
