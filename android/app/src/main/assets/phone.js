@@ -3064,10 +3064,16 @@
       arm.classList.add('employeeRaisedArm');
       rect(arm, 14, 10, 2, 4, palette.trim);
       rect(arm, 16, 8, 2, 3, palette.trim);
-      rect(arm, 16.5, 2.5, 3, 6, '#a76c43');
-      rect(arm, 17, 3, 2, 5, skin);
-      rect(arm, 17, 1.5, 1, .5, '#a76c43');
-      rect(arm, 17, 2, 1, 1, skin);
+      rect(arm, 17, 4, 2, 4, '#a76c43');
+      rect(arm, 17, 4, 1.5, 4, skin);
+      rect(arm, 16.5, 2.5, 3, 2.5, '#a76c43');
+      rect(arm, 17, 3, 2, 2, skin);
+      rect(arm, 16, 3.5, 1, 1.5, '#a76c43');
+      rect(arm, 16.5, 3.5, .5, 1, skin);
+      rect(arm, 17, 1.5, .5, 1.5, '#a76c43');
+      rect(arm, 17, 2, .5, 1, skin);
+      rect(arm, 18, 2, .5, 1, '#a76c43');
+      rect(arm, 18, 2.5, .5, .5, skin);
       rect(arm, 18.5, 4, .5, 3, '#e9bc98');
       svg.appendChild(arm);
     } else {
@@ -3121,8 +3127,9 @@
       draw(36, 25, 6, 1, '#a4b9aa');
     }
     draw(39, 33, 2, 1, '#3e5752'); draw(37, 34, 6, 1, '#3e5752');
-    draw(25, 33, 9, 2, '#4b6459');
-    [26, 28, 30, 32].forEach(x => draw(x, 33, 1, 1, '#d3dfcf'));
+    draw(25, 32, 9, 3, '#4b6459');
+    [26, 28, 30, 32].forEach(x => draw(x, 32, 1, 1, '#edf1e6'));
+    draw(26, 34, 5, .5, '#c5d1c0');
     draw(2, 35, 44, 1, '#e0c59b'); draw(2, 36, 44, 2, '#b99b73');
     draw(2, 37, 44, 1, '#987347');
     draw(4, 38, 2, 8, '#987347'); draw(42, 38, 2, 8, '#987347');
