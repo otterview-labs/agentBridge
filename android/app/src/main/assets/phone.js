@@ -2866,7 +2866,8 @@
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
-    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
+    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3, false,
+      isRecordedTask(task) ? 'idle' : task.status === 'error' && !task.requiredInput ? 'error' : currentState));
     const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
     bubble.setAttribute('aria-hidden', 'true');
     stage.append(bubble);
@@ -3009,7 +3010,7 @@
     svg.append(item);
   }
 
-  function employeeSprite(agentType, variant, portrait = false) {
+  function employeeSprite(agentType, variant, portrait = false, activity = '') {
     const palettes = {
       codex: { shirt: '#809bb5', trim: '#4e6f8a', light: '#adc1d0' },
       'claude-code': { shirt: '#c58965', trim: '#965f43', light: '#e0b698' },
@@ -3026,15 +3027,20 @@
     const skinShade = '#dcae8a';
     const svg = svgPixelNode();
     // One shared character, cropped for tiny chat avatars instead of shrinking its face away.
-    svg.setAttribute('viewBox', portrait ? '3 0 18 20' : '0 0 24 30');
+    svg.setAttribute('viewBox', portrait ? '3 0 18 20' : activity ? '0 0 32 34' : '0 0 24 30');
     svg.setAttribute('shape-rendering', 'crispEdges');
     svg.setAttribute('focusable', 'false');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('pixelAvatar');
     if (portrait) svg.classList.add('pixelPortrait');
+    if (activity) svg.classList.add('employeeActivity');
     const draw = (x, y, width, height, color) => rect(svg, x, y, width, height, color);
 
     // A compact silhouette with stepped shoulders, cuffs and separate shoes.
+    if (activity) {
+      draw(3, 16, 3, 13, '#87948b');
+      draw(4, 27, 15, 2, '#6b7c72');
+    }
     draw(7, 22, 10, 5, '#56646a');
     draw(11, 24, 2, 4, '#35454a');
     draw(6, 27, 5, 2, '#34434a'); draw(13, 27, 5, 2, '#34434a');
@@ -3092,6 +3098,34 @@
       draw(13, 8, 1, 2, ink); draw(16, 8, 1, 2, ink);
       draw(7, 10, 4, 1, ink); draw(13, 10, 4, 1, ink);
       draw(11, 8, 2, 1, ink);
+    }
+    if (activity) {
+      // The furniture stays still; only hands move for live work/attention.
+      draw(1, 26, 30, 2, '#b5a17e');
+      draw(3, 28, 2, 5, '#8f8067'); draw(27, 28, 2, 5, '#8f8067');
+      draw(17, 17, 13, 8, '#4e676b');
+      draw(18, 18, 11, 6, activity === 'running' ? '#bdd4c5' : '#d0d7ce');
+      if (activity === 'running') {
+        draw(19, 19, 5, 1, '#5b8174'); draw(19, 21, 8, 1, '#5b8174');
+      }
+      draw(15, 25, 16, 1, '#6f8783');
+      const hands = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      hands.classList.add('workerHands');
+      if (activity === 'attention' || activity === 'error') {
+        rect(hands, 18, 14, 3, 7, palette.trim);
+        rect(hands, 19, 11, 3, 3, skin);
+        rect(hands, 19, 10, 1, 1, skin);
+        draw(24, 3, 7, 9, activity === 'error' ? '#e1a78e' : '#ead2a2');
+        draw(26, 5, 2, 3, '#8b6141'); draw(26, 9, 2, 1, '#8b6141');
+      } else if (activity === 'running') {
+        rect(hands, 10, 22, 4, 2, palette.trim);
+        rect(hands, 13, 23, 4, 2, skin);
+        rect(hands, 13, 25, 4, 1, '#6f8783');
+      } else {
+        draw(7, 23, 4, 2, skin);
+        draw(10, 22, 3, 3, '#f7f1e4'); draw(13, 23, 1, 1, '#f7f1e4');
+      }
+      svg.appendChild(hands);
     }
     return svg;
   }
