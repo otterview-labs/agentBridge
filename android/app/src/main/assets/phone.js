@@ -17,6 +17,7 @@
     drafts: new Map(),
     replySuggestions: new Map(),
     backgroundSends: new Map(),
+    taskReceipts: new Map(),
     backgroundDiscovers: new Map(),
     backgroundTails: new Map(),
     backgroundReports: new Map(),
@@ -49,6 +50,7 @@
   };
   const showDeletedOffices = new Set();
   const voicePointer = { id: null, x: 0, y: 0, startedAt: 0, cancelArmed: false };
+  let chatLayoutFrame = null;
   const agentNames = { codex: 'Codex', 'claude-code': 'Claude', gemini: 'Gemini' };
   const $ = (id) => document.getElementById(id);
   console.log('phone-controller bootstrap');
@@ -227,7 +229,13 @@
     if (!sheet) return;
     const controls = Array.from(sheet.querySelectorAll(
       'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), summary'
-    )).filter((node) => node.getClientRects().length > 0);
+    )).filter((node) => {
+      if (!node.getClientRects().length) return false;
+      for (let parent = node.parentElement; parent && parent !== sheet; parent = parent.parentElement) {
+        if (parent.matches('details:not([open])') && node !== parent.querySelector(':scope > summary')) return false;
+      }
+      return true;
+    });
     const first = controls[0];
     const last = controls[controls.length - 1];
     if (!first) return;
@@ -539,7 +547,10 @@
     state.currentTaskId = id;
     renderTaskDetail();
     $('replyText').value = state.drafts.get(id) || '';
+    $('rawRecord').open = false;
+    document.querySelector('.taskTools').open = false;
     openSheet('taskBackdrop');
+    document.querySelector('.taskBody').scrollTop = 0;
   }
 
   function renderTaskDetail() {
@@ -547,6 +558,12 @@
     const background = task ? state.backgroundSends.get(task.id) : null;
     const tailing = task ? state.backgroundTails.get(task.id) : null;
     $('sendTask').disabled = !task || Boolean(background) || Boolean(tailing);
+    $('sendTask').textContent = background ? t("处理中…") : t("发送 →");
+    const receipt = task ? state.taskReceipts.get(task.id) : null;
+    const delivery = $('taskDelivery');
+    delivery.textContent = background ? background.message : receipt?.message || '';
+    delivery.classList.toggle('hidden', !delivery.textContent);
+    delivery.dataset.state = background ? 'pending' : receipt?.succeeded ? 'success' : 'error';
     $('tailTask').disabled = !task || Boolean(tailing);
     $('renameTask').disabled = !task;
     $('deleteTask').disabled = !task || Boolean(background) || Boolean(tailing);
@@ -590,6 +607,7 @@
     const container = $('replySuggestionChoices');
     container.replaceChildren();
     const entry = task ? state.replySuggestions.get(task.id) : null;
+    document.querySelector('.replySuggestions').dataset.expanded = entry ? 'true' : 'false';
     const busy = Boolean(task && (state.backgroundSends.has(task.id) || state.backgroundTails.has(task.id)));
     button.disabled = !task || Boolean(entry?.running) || busy;
     button.textContent = entry?.running ? t("正在写…") : entry?.result ? t("换一组") : t("帮我写回复");
@@ -695,6 +713,31 @@
     }
   }
 
+  function uiIcon(name) {
+    const paths = {
+      user: 'M20 21v-2a7 7 0 0 0-14 0v2 M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+      terminal: 'M4 5h16v14H4z M7 9l3 3-3 3 M13 15h4',
+      attention: 'M12 3 2 21h20L12 3z M12 9v5 M12 17h.01',
+      running: 'M8 5v14l12-7L8 5z',
+      idle: 'M8 5v14 M16 5v14',
+      arrow: 'M5 12h14 M13 6l6 6-6 6',
+      other: 'M12 8v4 M12 16h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0'
+    };
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'uiIcon');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', paths[name] || paths.other);
+    svg.appendChild(path);
+    return svg;
+  }
+
   function renderTaskStatusCard(task) {
     const card = $('taskStatusCard');
     card.replaceChildren();
@@ -710,10 +753,10 @@
       info.desc = t("需要你回复才能继续");
     }
     card.dataset.tone = info.tone;
-    const iconSpan = element('span', 'tscIcon', info.icon);
+    const iconSpan = element('span', 'tscIcon');
+    iconSpan.appendChild(uiIcon(info.tone));
     const labelSpan = element('strong', 'tscLabel', info.label);
-    const machine = state.machines.find((item) => item.id === task.machineId);
-    const descSpan = element('span', 'tscDesc', [info.desc, machine ? machine.name : '', task.workspacePath ? task.workspacePath.split('/').pop() : ''].filter(Boolean).join(' · '));
+    const descSpan = element('span', 'tscDesc', info.desc);
     card.append(iconSpan, labelSpan, descSpan);
   }
 
@@ -744,6 +787,10 @@
     const container = $('conversationTimeline');
     container.replaceChildren();
     const turns = conversationTurns(task);
+    const background = state.backgroundSends.get(task.id);
+    const receipt = state.taskReceipts.get(task.id);
+    const pending = background || (receipt?.succeeded && !receipt.hasReply && receipt.output === String(task.lastOutput || '') ? receipt : null);
+    if (pending) turns.push({ role: 'user', title: t("我"), label: t("本次消息"), text: pending.prompt });
     const header = element('div', 'conversationHeader');
     header.appendChild(element('strong', '', turns.length > 1 ? t("最近问答") : t("最新记录")));
     header.appendChild(element('small', '', isRecordedTask(task) ? t("上次同步记录") : t("来自当前会话")));
@@ -757,11 +804,11 @@
       return;
     }
 
-    turns.forEach((turn, index) => {
+    turns.forEach((turn) => {
       const row = element('article', `conversationTurn ${turn.role}`);
       const meta = element('div', 'conversationMeta');
       const avatar = element('span', `turnAvatar ${turn.role}`);
-      avatar.textContent = turn.role === 'user' ? '👤' : turn.role === 'assistant' ? '🤖' : '📋';
+      avatar.appendChild(uiIcon(turn.role === 'user' ? 'user' : 'terminal'));
       meta.appendChild(avatar);
       const metaText = element('div', 'turnMetaText');
       metaText.appendChild(element('strong', '', turn.title));
@@ -773,25 +820,33 @@
       row.appendChild(body);
       if (turn.footer) row.appendChild(element('small', 'conversationFooter', turn.footer));
       container.appendChild(row);
-      if (index === turns.length - 1) return;
     });
+    if (pending) {
+      const waiting = element('p', 'taskReplyPending', pending.message || t("后台执行中…"));
+      container.appendChild(waiting);
+    }
   }
 
   function conversationTurns(task) {
     const summary = String(task.workSummary || '');
     const output = String(task.lastOutput || '');
-    const user = conversationLabeled(output, ['最近指令', '最近用户', '最近提问'])
+    const receipt = state.taskReceipts.get(task.id);
+    const hasReply = receipt?.succeeded && receipt.hasReply && receipt.output === output;
+    const user = (hasReply ? receipt.prompt : '')
+      || conversationLabeled(output, ['最近指令', '最近用户', '最近提问'])
       || conversationLabeled(summary, ['最近指令', '最近用户', '最近提问']);
-    const assistant = conversationLabeled(output, ['最近输出', '最近回复', '最近结果'])
-      || conversationLabeled(summary, ['最近输出', '最近回复', '最近结果']);
+    const assistant = conversationLabeled(output, ['本次输出', 'Latest output'])
+      || conversationLabeled(output, ['最近输出', '最近回复', '最近结果'])
+      || conversationLabeled(summary, ['最近输出', '最近回复', '最近结果'])
+      || (hasReply ? output : '');
     const turns = [];
     if (user) {
       turns.push({
         role: 'user',
-        title: t("我问"),
+        title: t("我"),
         label: t("最近指令"),
         text: user,
-        footer: t("发送后会进入同一个会话")
+        footer: ''
       });
     }
     if (assistant) {
@@ -828,7 +883,7 @@
     const text = String(source || '');
     for (const label of labels) {
       const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const match = new RegExp(`${escaped}${t("\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果)\\s*[:：]|$)")}`, 'u').exec(text);
+      const match = new RegExp(`${escaped}${t("\\s*[:：]\\s*([\\s\\S]*?)(?=\\n(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果|本次输出|Latest output)\\s*[:：]|$)")}`, 'u').exec(text);
       if (match?.[1]?.trim()) return match[1].trim();
     }
     return '';
@@ -848,19 +903,7 @@
   }
 
   function appendFormattedConversationText(container, value) {
-    const parts = String(value || '').split(/```/u);
-    parts.forEach((part, index) => {
-      if (!part.trim()) return;
-      if (index % 2 === 1) {
-        const newline = part.indexOf('\n');
-        const body = newline >= 0 ? part.slice(newline + 1) : part;
-        const node = element('pre', 'conversationCode');
-        node.textContent = body.trim();
-        container.appendChild(node);
-      } else {
-        container.appendChild(element('span', '', part.trim()));
-      }
-    });
+    container.appendChild(renderButlerText(value));
     if (!container.childElementCount) container.appendChild(element('span', '', t("（空内容）")));
   }
 
@@ -1002,11 +1045,16 @@
       parsed = { ok: false, error: t("无法提交后台任务") };
     }
     if (!parsed.ok) {
-      toast(parsed.error || t("无法提交后台任务"));
+      const message = parsed.error || t("无法提交后台任务");
+      state.drafts.set(task.id, value);
+      state.taskReceipts.set(task.id, { succeeded: false, message });
+      renderTaskDetail();
+      toast(message);
       return;
     }
 
     const operation = parsed.data.operation;
+    state.taskReceipts.delete(task.id);
     state.backgroundSends.set(task.id, {
       operation,
       message: t("已提交，正在检查网络…"),
@@ -1068,6 +1116,10 @@
     const entry = state.backgroundSends.get(taskId);
     const operation = entry ? entry.operation : null;
     state.backgroundSends.delete(taskId);
+    if (entry) {
+      const task = state.tasks.find(item => item.id === taskId);
+      state.taskReceipts.set(taskId, { succeeded, message, prompt: entry.prompt, output: String(task?.lastOutput || ''), hasReply: Boolean(operation?.task && !operation.stillRunning) });
+    }
     if (operation) {
       try { AgentBridge.clearOperation(operation.id); } catch (error) { /* already cleared */ }
     }
@@ -1082,6 +1134,12 @@
     }
     render();
     renderBackgroundState();
+    if (succeeded && state.currentTaskId === taskId && !$('taskBackdrop').classList.contains('hidden')) {
+      requestAnimationFrame(() => {
+        const latest = $('conversationTimeline').querySelector('.conversationTurn.assistant:last-child');
+        (latest || $('conversationTimeline')).scrollIntoView({ block: 'start' });
+      });
+    }
   }
 
   function addBackgroundNotice(kind, message) {
@@ -1355,6 +1413,20 @@
   function renderOffices() {
     const container = $('offices');
     container.textContent = '';
+    const butler = element('button', 'townButler');
+    butler.type = 'button';
+    const avatar = element('span', 'townButlerAvatar');
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.appendChild(employeeSprite('pi', 2));
+    const advice = element('span', 'townButlerText');
+    advice.appendChild(element('strong', '', t("找管家聊聊")));
+    advice.appendChild(element('span', '', t("问进度，找待回复的任务")));
+    butler.append(avatar, advice, uiIcon('arrow'));
+    butler.addEventListener('click', () => {
+      selectView('butler');
+      $('piInput').focus({ preventScroll: true });
+    });
+    container.appendChild(butler);
     if (!state.machines.length) {
       const empty = element('div', 'empty');
       empty.innerHTML = t("<div class=\"emptyAvatar\"></div><h3>小镇还空着</h3><p>添加一台支持 SSH 的 Mac / Linux，<br>手机会直接去那里找 Claude 和 Codex 员工。</p>");
@@ -1396,9 +1468,11 @@
       }
       actions.appendChild(actionButton(t("编辑"), () => editMachine(machine.id), 'advancedAction'));
       actions.appendChild(actionButton(t("删除"), () => deleteMachine(machine.id), 'warn advancedAction'));
-      actions.appendChild(actionButton(t("更多"), () => {
-        office.classList.toggle('showAdvanced');
-      }));
+      const more = actionButton(t("更多"), () => {
+        more.setAttribute('aria-expanded', String(office.classList.toggle('showAdvanced')));
+      });
+      more.setAttribute('aria-expanded', 'false');
+      actions.appendChild(more);
       header.appendChild(title);
       header.appendChild(actions);
       office.appendChild(header);
@@ -1468,6 +1542,9 @@
   }
 
   function renderPiDetail() {
+    const chat = $('piMessages');
+    const scrollPosition = chat.scrollTop;
+    const followLatest = state.followChat || !chat.children.length || chat.scrollHeight - chat.clientHeight - chat.scrollTop < 32;
     const studio = state.studio || {};
     const model = studio.model || { ready: false, label: '' };
     const report = studio.report || {};
@@ -1596,6 +1673,7 @@
 
     $('piMessages').replaceChildren();
     const messages = Array.isArray(studio.messages) ? studio.messages.slice(-20) : [];
+    $('butler').classList.toggle('hasConversation', Boolean(messages.length || state.pendingChat || state.failedChat));
     if (!messages.length && !state.pendingChat && !state.failedChat) {
       const welcome = element('div', 'chatWelcome');
       welcome.appendChild(element('span', 'welcomeMark', '···'));
@@ -1606,14 +1684,7 @@
       $('piMessages').appendChild(welcome);
     } else {
       messages.forEach(message => {
-        const row = element('div', `piMessage${message.role === 'user' ? ' user' : ''}`);
-        row.appendChild(element('strong', '', message.role === 'user' ? t("我") : t("管家")));
-        if (message.role === 'user') {
-          row.appendChild(element('span', '', message.content));
-        } else {
-          row.appendChild(renderButlerText(message.content));
-        }
-        $('piMessages').appendChild(row);
+        $('piMessages').appendChild(createChatMessage(message.role, message.content));
       });
     }
     if (state.pendingChat) {
@@ -1631,7 +1702,9 @@
     $('generateReport').textContent = reportRunning ? t("规划生成中…") : t("整理任务");
     requestAnimationFrame(() => {
       const messages = $('piMessages');
-      if (messages) messages.scrollTop = messages.scrollHeight;
+      updateChatLayout();
+      if (messages) messages.scrollTop = followLatest ? messages.scrollHeight : scrollPosition;
+      state.followChat = false;
     });
   }
 
@@ -1657,6 +1730,7 @@
     const model = studio.model || {};
     const ready = Boolean(model.ready);
     $('cloudState').textContent = state.modelCheckError ? t("连接异常") : model.verifiedAt ? t("模型已验证") : ready ? t("模型待验证") : t("配置模型");
+    $('cloudState').setAttribute('title', $('cloudState').textContent);
     $('cloudState').classList.toggle('connected', Boolean(model.verifiedAt) && !state.modelCheckError);
   }
 
@@ -1939,6 +2013,7 @@
       && state.callMode && callSession === callSessionToken;
     state.sending = true;
     state.pendingChat = value;
+    state.followChat = true;
     state.failedChat = null;
     state.chatNotices = [];
     $('sendPi').disabled = true;
@@ -2063,58 +2138,145 @@
   }
 
   function appendChatMessage(role, content) {
-    const row = element('div', `piMessage ${role === 'user' ? 'user' : ''}`);
-    row.appendChild(element('strong', '', role === 'user' ? t("我") : t("管家")));
-    if (role === 'user') {
-      row.appendChild(element('span', '', content));
-    } else {
-      row.appendChild(renderButlerText(content));
-    }
-    $('piMessages').appendChild(row);
+    $('piMessages').appendChild(createChatMessage(role, content));
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
   }
 
+  function createChatMessage(role, content) {
+    const user = role === 'user';
+    const row = element('article', `piMessage ${user ? 'user' : 'assistant'}`);
+    const meta = element('div', 'messageMeta');
+    if (!user) {
+      const avatar = element('span', 'messageAvatar');
+      avatar.setAttribute('aria-hidden', 'true');
+      avatar.appendChild(employeeSprite('pi', 2));
+      meta.appendChild(avatar);
+    }
+    meta.appendChild(element('strong', 'piMessageAuthor', user ? t("我") : t("管家")));
+    row.appendChild(meta);
+    row.appendChild(user ? element('div', 'messageUserText', content) : renderButlerText(content));
+    if (!user) appendChatTaskLinks(row, content);
+    return row;
+  }
+
+  function appendChatTaskLinks(row, content) {
+    // Ignore fenced code and URLs: remote text can reference an existing task,
+    // but it cannot construct a destination or a command.
+    const prose = String(content || '').replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '')
+      .replace(/https?:\/\/\S+/g, '');
+    const ids = new Set(Array.from(prose.matchAll(/\bS-(\d+)\b/g), match => match[1]));
+    const tasks = state.tasks.filter(task => ids.has(String(task.id)));
+    if (!tasks.length) return;
+    const links = element('div', 'chatTaskLinks');
+    for (const task of tasks.slice(0, 3)) {
+      const link = element('button', 'chatTaskLink');
+      link.type = 'button';
+      link.dataset.taskId = task.id;
+      const text = element('span');
+      text.append(element('strong', '', task.title), element('small', '',
+        `${agentNames[task.agentType] || task.agentType} · ${taskStatusText(task)}`));
+      link.append(text, uiIcon('arrow'));
+      link.addEventListener('click', () => {
+        if (!state.tasks.some(item => item.id === task.id)) {
+          toast(t("找不到这条记录了，请重新选择员工。")); return;
+        }
+        openTask(task.id);
+      });
+      links.appendChild(link);
+    }
+    row.appendChild(links);
+  }
+
+  // Render a small, shared Markdown subset with DOM text nodes only. Remote
+  // output is untrusted: HTML, links and code are never executed.
   function renderButlerText(content) {
-    const holder = document.createElement('span');
-    holder.className = 'butlerRich';
-    const lines = String(content || '').replace(/\r\n/g, '\n').split('\n');
-    let list = null;
-    for (const rawLine of lines) {
-      const line = rawLine.trimEnd();
-      if (!line.trim()) {
-        list = null;
+    const holder = element('div', 'butlerRich messageRich');
+    const lines = String(content || '').replace(/\r\n?/g, '\n').split('\n');
+    const cells = line => line.trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/u).map(cell => cell.trim().replace(/\\\|/g, '|'));
+    const tableRule = line => line && line.includes('|') && cells(line).every(cell => /^:?-{3,}:?$/.test(cell));
+    const listMatch = line => /^\s*(?:([-*+•])\s+|(\d+)[.、)]\s+)(.+)$/.exec(line);
+    const fenceMatch = line => /^\s*(`{3,}|~{3,})([^\s]*)\s*$/.exec(line);
+    const blockStart = index => !lines[index]?.trim() || fenceMatch(lines[index])
+      || /^#{1,6}\s+|^>\s?/u.test(lines[index]) || listMatch(lines[index])
+      || tableRule(lines[index + 1]);
+    const inline = (node, value) => { node.appendChild(renderInlineMarkup(value)); return node; };
+    for (let index = 0; index < lines.length;) {
+      const line = lines[index];
+      if (!line.trim()) { index += 1; continue; }
+      const fence = fenceMatch(line);
+      if (fence) {
+        const code = [];
+        index += 1;
+        while (index < lines.length) {
+          const closing = fenceMatch(lines[index]);
+          if (closing && closing[1][0] === fence[1][0] && closing[1].length >= fence[1].length && !closing[2]) { index += 1; break; }
+          code.push(lines[index++]);
+        }
+        const block = element('div', 'messageCode');
+        block.appendChild(element('div', 'messageCodeLanguage', fence[2] || 'text'));
+        const pre = element('pre', 'conversationCode');
+        pre.appendChild(element('code', '', code.join('\n')));
+        block.appendChild(pre);
+        holder.appendChild(block);
         continue;
       }
-      const heading = line.match(/^#{1,4}\s*(.+)$/);
-      const bullet = line.match(/^[-*•]\s+(.+)$/);
-      const numbered = line.match(/^(\d+)[.、)]\s*(.+)$/);
-      if (heading) {
-        list = null;
-        holder.appendChild(element('strong', 'butlerHeading', heading[1].replace(/\*\*/g, '')));
-      } else if (bullet || numbered) {
-        const text = bullet ? bullet[1] : `${numbered[1]}. ${numbered[2]}`;
-        if (!list) {
-          list = document.createElement('span');
-          list.className = 'butlerList';
-          holder.appendChild(list);
+      if (line.includes('|') && tableRule(lines[index + 1])) {
+        const wrap = element('div', 'messageTableWrap');
+        wrap.tabIndex = 0;
+        wrap.setAttribute('role', 'region');
+        wrap.setAttribute('aria-label', t("表格"));
+        const table = element('table', 'messageTable');
+        const head = element('thead'), heading = element('tr');
+        cells(line).forEach(cell => {
+          const th = inline(element('th'), cell); th.scope = 'col'; heading.appendChild(th);
+        });
+        head.appendChild(heading); table.appendChild(head);
+        const body = element('tbody');
+        index += 2;
+        while (index < lines.length && lines[index].trim() && lines[index].includes('|') && !fenceMatch(lines[index])) {
+          const row = element('tr');
+          cells(lines[index++]).forEach(cell => row.appendChild(inline(element('td'), cell)));
+          body.appendChild(row);
         }
-        list.appendChild(element('span', 'butlerListItem', ''));
-        list.lastChild.appendChild(renderInlineMarkup(text));
-      } else {
-        list = null;
-        holder.appendChild(element('span', 'butlerPara', ''));
-        holder.lastChild.appendChild(renderInlineMarkup(line));
+        table.appendChild(body); wrap.appendChild(table); holder.appendChild(wrap);
+        continue;
       }
+      const heading = /^#{1,6}\s+(.+)$/u.exec(line);
+      if (heading) { holder.appendChild(inline(element('h4', 'butlerHeading'), heading[1])); index += 1; continue; }
+      const item = listMatch(line);
+      if (item) {
+        const ordered = Boolean(item[2]);
+        const list = element(ordered ? 'ol' : 'ul', 'butlerList');
+        if (ordered) list.start = Number(item[2]);
+        while (index < lines.length) {
+          const next = listMatch(lines[index]);
+          if (!next || Boolean(next[2]) !== ordered) break;
+          list.appendChild(inline(element('li', 'butlerListItem'), next[3])); index += 1;
+        }
+        holder.appendChild(list); continue;
+      }
+      if (/^>\s?/u.test(line)) {
+        const quote = [];
+        while (index < lines.length && /^>\s?/u.test(lines[index])) quote.push(lines[index++].replace(/^>\s?/u, ''));
+        holder.appendChild(inline(element('blockquote', 'messageQuote'), quote.join('\n'))); continue;
+      }
+      const paragraph = [line]; index += 1;
+      while (index < lines.length && !blockStart(index)) paragraph.push(lines[index++]);
+      holder.appendChild(inline(element('p', 'butlerPara'), paragraph.join('\n')));
     }
-    if (!holder.childNodes.length) holder.textContent = String(content || '');
     return holder;
   }
 
   function renderInlineMarkup(text) {
     const fragment = document.createDocumentFragment();
-    const parts = String(text).split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    const parts = String(text).split(/(\[[^\]\n]+\]\([^\s)]+\)|\*\*[^*]+\*\*|`[^`]+`)/g);
     for (const part of parts) {
-      if (/^\*\*[^*]+\*\*$/.test(part)) {
+      const file = /^\[([^\]\n]+)\]\(([^\s)]+)\)$/.exec(part);
+      if (file) {
+        const reference = element('span', 'fileReference', file[1]);
+        reference.title = file[2];
+        fragment.appendChild(reference);
+      } else if (/^\*\*[^*]+\*\*$/.test(part)) {
         fragment.appendChild(element('b', '', part.slice(2, -2)));
       } else if (/^`[^`]+`$/.test(part)) {
         fragment.appendChild(element('code', '', part.slice(1, -1)));
@@ -2140,6 +2302,7 @@
 
   function appendChatNotice(content, retry = false) {
     const row = element('div', 'chatNotice');
+    if (retry) { row.classList.add('error'); row.setAttribute('role', 'alert'); }
     row.textContent = content;
     if (retry) {
       const button = element('button', '', state.failedChat?.operation ? t("继续查看回复") : t("重试这条消息"));
@@ -2170,13 +2333,14 @@
       return;
     }
     if (!existing) {
-      const row = element('div', 'piMessage typing');
+      const row = createChatMessage('assistant', message || t("正在思考…"));
+      row.classList.add('typing');
       row.id = 'chatTyping';
-      row.appendChild(element('strong', '', t("管家")));
-      row.appendChild(element('span', '', t("正在思考…")));
+      row.setAttribute('role', 'status');
       $('piMessages').appendChild(row);
     } else {
-      existing.querySelector('span').textContent = message || t("正在思考…");
+      const content = existing.querySelector('.butlerRich');
+      content.replaceWith(renderButlerText(message || t("正在思考…")));
     }
     $('piMessages').scrollTop = $('piMessages').scrollHeight;
   }
@@ -2654,15 +2818,23 @@
     card.dataset.agent = task.agentType;
     card.dataset.taskId = String(task.id);
     card.dataset.record = isRecordedTask(task) ? 'true' : 'false';
+    card.type = 'button';
     const displayName = taskDisplayName(task);
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
     stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
-    stage.append(element('span', 'employeeBubble', taskBubbleText(task, currentState)));
+    const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
+    bubble.setAttribute('aria-hidden', 'true');
+    stage.append(bubble);
     card.appendChild(stage);
     info.appendChild(element('span', 'employeeName', displayName));
-    info.appendChild(element('span', 'employeeSub', taskCardSummary(task)));
+    const preview = element('span', 'employeePreview');
+    const previewLabel = task.requiredInput ? (isRecordedTask(task) ? t("上次待确认") : t("需要你确认"))
+      : task.lastOutput ? t("最近回复") : t("最新进展");
+    preview.append(element('span', 'employeePreviewLabel', previewLabel),
+      element('span', 'employeeSub', taskCardSummary(task)));
+    info.appendChild(preview);
     info.appendChild(element('span', `stateChip ${currentState}`, `${agentNames[task.agentType] || task.agentType} · ${taskStatusText(task)}`));
     card.appendChild(info);
     card.addEventListener('click', () => openTask(task.id));
@@ -2687,11 +2859,21 @@
   }
 
   function taskCardSummary(task) {
-    const source = String(task.workSummary || task.lastOutput || task.workspacePath || task.paneId || '');
-    if (/\[Image:|!\[[^\]]*\]\([^)]*\)/u.test(`${task.title || ''}\n${source}`)) {
+    const record = String(task.workSummary || task.lastOutput || '');
+    const source = String(task.requiredInput || conversationLabeled(record, ['最近输出', '最近回复', '最近结果', '本次输出', 'Latest output']) || record);
+    if (!task.requiredInput && /\[Image:|!\[[^\]]*\]\([^)]*\)/u.test(`${task.title || ''}\n${source}`)) {
       return t("收到一张图片输入，点击查看上下文。");
     }
-    return source.trim() || t("暂无工作摘要");
+    // Only simplify the preview. The original text stays in the conversation
+    // and raw record, and the preview never infers completion from prose.
+    return source.slice(0, 6000)
+      .replace(/\x1b\[[0-9;]*[A-Za-z]/g, '')
+      .replace(/```[\s\S]*?```|~~~[\s\S]*?~~~/g, '')
+      .replace(/\[([^\]\n]+)\]\([^\s)]+\)/g, '$1')
+      .replace(/^(?:最近指令|最近用户|最近提问|最近输出|最近回复|最近结果|本次输出|Latest output)\s*[:：]\s*/gm, '')
+      .replace(/^\s*#{1,6}\s+/gm, '')
+      .replace(/\*\*|`/g, '')
+      .replace(/\s+/g, ' ').trim() || t("暂无工作摘要");
   }
 
   function taskBubbleText(task, currentState) {
@@ -2892,6 +3074,35 @@
 
   function sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+
+  function updateChatLayout() {
+    chatLayoutFrame = null;
+    if (state.view !== 'butler') return;
+    const viewport = window.visualViewport;
+    const keyboardOffset = viewport ? Math.max(0, innerHeight - viewport.height - viewport.offsetTop) : 0;
+    document.documentElement.style.setProperty('--keyboard-offset', `${keyboardOffset}px`);
+    const dock = $('butlerChatDock').getBoundingClientRect();
+    const messages = $('piMessages').getBoundingClientRect();
+    document.documentElement.style.setProperty('--dock-height', `${dock.height + keyboardOffset}px`);
+    const followLatest = $('piMessages').scrollHeight - $('piMessages').clientHeight - $('piMessages').scrollTop < 32;
+    document.documentElement.style.setProperty('--chat-height', `${Math.max(0, dock.top - messages.top - 16)}px`);
+    if (followLatest) $('piMessages').scrollTop = $('piMessages').scrollHeight;
+  }
+
+  function scheduleChatLayout() {
+    if (chatLayoutFrame !== null) cancelAnimationFrame(chatLayoutFrame);
+    chatLayoutFrame = requestAnimationFrame(updateChatLayout);
+  }
+
+  window.addEventListener('resize', scheduleChatLayout);
+  window.visualViewport?.addEventListener('resize', scheduleChatLayout);
+  window.visualViewport?.addEventListener('scroll', scheduleChatLayout);
+  if (window.ResizeObserver) {
+    const observer = new ResizeObserver(scheduleChatLayout);
+    ['butlerChatDock', 'connectionHint'].forEach(id => observer.observe($(id)));
+    observer.observe(document.querySelector('.butlerHero'));
   }
 
   let toastTimer = null;

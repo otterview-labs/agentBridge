@@ -22,6 +22,7 @@ import android.os.SystemClock;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.widget.FrameLayout;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
@@ -257,6 +258,7 @@ public final class MainActivity extends Activity {
 
     @SuppressLint("SetJavaScriptEnabled")
     WebSettings settings = webView.getSettings();
+    settings.setTextZoom(Math.round(getResources().getConfiguration().fontScale * 100));
     settings.setJavaScriptEnabled(true);
     settings.setDomStorageEnabled(true);
     settings.setDatabaseEnabled(true);
@@ -297,9 +299,21 @@ public final class MainActivity extends Activity {
     webView.setLayoutParams(new FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT,
         ViewGroup.LayoutParams.MATCH_PARENT));
-    setContentView(webView, new ViewGroup.LayoutParams(
-        ViewGroup.LayoutParams.MATCH_PARENT,
-        ViewGroup.LayoutParams.MATCH_PARENT));
+    FrameLayout content = new FrameLayout(this);
+    content.addView(webView, new FrameLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      // Android 15 enforces edge-to-edge. Reserve IME and system bars in the
+      // native container so the WebView viewport actually resizes with them.
+      getWindow().setDecorFitsSystemWindows(false);
+      content.setOnApplyWindowInsetsListener((view, insets) -> {
+        android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+        android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+        view.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+        return insets;
+      });
+    }
+    setContentView(content);
     initializeConversationAudio();
     String ttsEngine = preferredTtsEnginePackage();
     textToSpeech = new TextToSpeech(this, status -> {

@@ -345,14 +345,78 @@ final class BridgeStore {
     editor.apply();
   }
 
-  synchronized void replaceTasksForMachine(int machineId, JSONArray replacement) throws Exception {
+  /** Commit a scan against the records it started with, under the same lock as edits. */
+  synchronized JSONArray replaceTasksForMachine(int machineId, JSONArray replacement, JSONArray baseline) throws Exception {
+    machine(machineId); // A late scan must not restore tasks belonging to a deleted machine.
     JSONArray all = tasks();
     JSONArray merged = new JSONArray();
+    JSONArray visible = new JSONArray();
     for (int index = 0; index < all.length(); index += 1) {
       if (all.getJSONObject(index).getInt("machineId") != machineId) merged.put(all.get(index));
     }
-    for (int index = 0; index < replacement.length(); index += 1) merged.put(replacement.get(index));
+    for (int index = 0; index < replacement.length(); index += 1) {
+      JSONObject incoming = replacement.getJSONObject(index);
+      if (isDeletedTask(incoming)) continue;
+      JSONObject current = matchingTask(all, incoming);
+      if (current != null) {
+        JSONObject before = matchingTask(baseline, current);
+        // A reply, rename or another refresh may have completed during SSH reads.
+        // Keep every field changed since this scan began; unchanged fields can refresh.
+        preserveChangedFields(incoming, current, before);
+        incoming.put("id", current.getInt("id"));
+        String customTitle = current.optString("customTitle", "");
+        if (!customTitle.isEmpty()) incoming.put("customTitle", customTitle).put("title", customTitle);
+      }
+      if (matchingTask(visible, incoming) == null) visible.put(incoming);
+    }
+    for (int index = 0; index < all.length(); index += 1) {
+      JSONObject current = all.getJSONObject(index);
+      if (current.getInt("machineId") != machineId || matchingTask(visible, current) != null) continue;
+      JSONObject before = matchingTask(baseline, current);
+      if (before == null || taskRecordChanged(current, before)) visible.put(current);
+    }
+    for (int index = 0; index < visible.length(); index += 1) merged.put(visible.get(index));
     saveTasks(merged);
+    return visible;
+  }
+
+  private JSONObject matchingTask(JSONArray records, JSONObject task) throws Exception {
+    for (int index = 0; index < records.length(); index += 1) {
+      JSONObject item = records.getJSONObject(index);
+      if (item.getInt("machineId") == task.getInt("machineId") && sameTaskIdentity(item, task)) return item;
+    }
+    return null;
+  }
+
+  private boolean taskRecordChanged(JSONObject current, JSONObject before) throws Exception {
+    Iterator<String> keys = current.keys();
+    while (keys.hasNext()) {
+      String key = keys.next();
+      if (!String.valueOf(current.opt(key)).equals(String.valueOf(before.opt(key)))) return true;
+    }
+    keys = before.keys();
+    while (keys.hasNext()) {
+      String key = keys.next();
+      if (!String.valueOf(current.opt(key)).equals(String.valueOf(before.opt(key)))) return true;
+    }
+    return false;
+  }
+
+  private void preserveChangedFields(JSONObject incoming, JSONObject current, JSONObject before) throws Exception {
+    Iterator<String> keys = current.keys();
+    while (keys.hasNext()) {
+      String key = keys.next();
+      if (before == null || !String.valueOf(current.opt(key)).equals(String.valueOf(before.opt(key)))) {
+        incoming.put(key, current.opt(key));
+      }
+    }
+    if (before != null) {
+      keys = before.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        if (current.opt(key) == null) incoming.remove(key);
+      }
+    }
   }
 
   synchronized void updateTask(JSONObject task) throws Exception {
@@ -447,8 +511,12 @@ final class BridgeStore {
   private boolean sameTaskIdentity(JSONObject left, JSONObject right) {
     String leftSession = left.optString("externalSessionId", "");
     String rightSession = right.optString("externalSessionId", "");
-    if (!leftSession.isEmpty() && leftSession.equals(rightSession)) return true;
-    return left.optString("stableKey", "").equals(right.optString("stableKey", ""));
+    String leftAgent = left.optString("agentType", "");
+    String rightAgent = right.optString("agentType", "");
+    if (!leftAgent.equals(rightAgent)) return false;
+    if (!leftSession.isEmpty() && !rightSession.isEmpty()) return leftSession.equals(rightSession);
+    String stableKey = left.optString("stableKey", "");
+    return !stableKey.isEmpty() && stableKey.equals(right.optString("stableKey", ""));
   }
 
   private String now() {

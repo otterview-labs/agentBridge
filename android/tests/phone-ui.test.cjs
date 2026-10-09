@@ -64,6 +64,7 @@ async function openPhone(t, options = {}) {
         requiredInput: 'May I run the deployment script?', workSummary: 'Checks finished. Waiting for your decision.' });
       data.tasks[2].workSummary = 'Last record: session idle';
     }
+    if (options.taskPreviewRecords) Object.assign(data.tasks[0], options.taskPreviewRecords);
     if (options.empty) { data.machines = []; data.tasks = []; }
     if (options.frpStatus) {
       data.frpServer = { machineId: 2, publicAddress: 'public.example.test',
@@ -184,6 +185,7 @@ async function openPhone(t, options = {}) {
       },
       beginSendPrompt: () => {
         window.sendCount += 1;
+        if (options.rejectSend) return fail('会话暂时无法连接，请稍后重试');
         operation = { kind: 'send', id: 'test-send', startedAt: Date.now(),
           task: structuredClone(data.tasks[0]) };
         return ok({ operation });
@@ -509,6 +511,40 @@ test('attention shortcut and employee ordering prioritize pending input', async 
   }
 });
 
+test('town butler shortcut opens chat without submitting a message', async t => {
+  for (const language of ['zh-CN', 'en']) {
+    const page = await openPhone(t, { language, modelReady: true });
+    const shortcut = page.locator('.townButler');
+    assert.match(await shortcut.textContent(), language === 'en'
+      ? /Talk to the butler.*Check progress and pending replies/
+      : /找管家聊聊.*问进度，找待回复的任务/);
+    await shortcut.click();
+    assert.equal(await page.locator('#butler').isVisible(), true);
+    assert.equal(await page.locator('.tab[data-view="butler"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.evaluate(() => window.chatCount), 0);
+    await page.locator('[data-view="offices"]').click();
+    await page.locator('[data-task-id="2"]').click();
+    assert.match(await page.locator('#taskNeed').textContent(), /是否允许执行部署脚本/);
+  }
+});
+
+test('office connection details stay available behind expanded controls', async t => {
+  const page = await openPhone(t);
+  const office = page.locator('.office').first();
+  const address = office.locator('.officeMeta > span').first();
+  const more = office.getByRole('button', { name: '更多', exact: true });
+  assert.equal(await address.isVisible(), false);
+  assert.equal(await more.getAttribute('aria-expanded'), 'false');
+  await more.click();
+  assert.equal(await more.getAttribute('aria-expanded'), 'true');
+  assert.equal(await address.isVisible(), true);
+  assert.match(await address.textContent(), /demo@192\.168\.1\.8:22/);
+  assert.equal(await office.locator('.officeCheck').isVisible(), true);
+  await more.click();
+  assert.equal(await address.isVisible(), false);
+  assert.equal(await more.getAttribute('aria-expanded'), 'false');
+});
+
 test('offline employees show historical status with no work animation', async t => {
   const page = await openPhone(t);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -557,7 +593,7 @@ test('modal contains focus, locks background and restores focus on close', async
   assert.equal(await page.evaluate(() => getComputedStyle(document.body).overflow), 'hidden');
   await page.locator('[data-close="taskBackdrop"]').focus();
   await page.keyboard.press('Shift+Tab');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'sendTask');
+  assert.equal(await page.evaluate(() => document.activeElement.matches('.taskTools summary')), true);
   await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(() => document.activeElement.dataset.close), 'taskBackdrop');
   await page.keyboard.press('Escape');
@@ -627,6 +663,7 @@ test('deleted employees move to a separate restorable list', async t => {
     dialog.accept();
   });
   await page.locator('[data-task-id="1"]').click();
+  await page.locator('.taskTools summary').click();
   await page.locator('#deleteTask').click();
   await page.waitForFunction(() => document.body.innerText.includes('删除列表'));
   assert.equal(await page.locator('.employee').count(), 2);
@@ -740,6 +777,7 @@ test('butler puts chat above collapsed planning without horizontal overflow', as
   const page = await openPhone(t, { modelReady: true });
   await page.locator('[data-view="butler"]').click();
   assert.equal(await page.locator('#butlerPlanDetails').getAttribute('open'), null);
+  await page.waitForFunction(() => document.getElementById('piMessages').getBoundingClientRect().bottom <= document.getElementById('butlerChatDock').getBoundingClientRect().top);
   const layout = await page.evaluate(() => ({
     chatBottom: document.getElementById('piMessages').getBoundingClientRect().bottom,
     dockTop: document.getElementById('butlerChatDock').getBoundingClientRect().top,
@@ -1188,4 +1226,183 @@ test('long reply suggestions wrap within a narrow task sheet', async t => {
   const dimensions = await page.locator('.taskSheet').evaluate(sheet => ({ client: sheet.clientWidth, scroll: sheet.scrollWidth }));
   assert.ok(dimensions.scroll <= dimensions.client + 1, JSON.stringify(dimensions));
   assert.equal(await page.evaluate(() => window.sendCount), 0);
+});
+
+
+test('latest task output replaces a stale summary and displays file labels safely', async t => {
+  const page = await openPhone(t);
+  await page.evaluate(() => {
+    const original = AgentBridge.state;
+    AgentBridge.state = () => {
+      const result = JSON.parse(original());
+      Object.assign(result.data.tasks[0], {
+        workSummary: '旧摘要：仍在等确认',
+        lastOutput: '本次输出：\n测试通过，文件：[redirect.test.js](/tmp/demo/redirect.test.js)。\n[unsafe](javascript:alert(1))'
+      });
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.match(await page.locator('#conversationTimeline').textContent(), /测试通过/);
+  assert.doesNotMatch(await page.locator('#conversationTimeline').textContent(), /旧摘要/);
+  assert.equal(await page.locator('#conversationTimeline .fileReference').first().textContent(), 'redirect.test.js');
+  assert.equal(await page.locator('#conversationTimeline a').count(), 0);
+  const layout = await page.evaluate(() => ({
+    send: document.querySelector('#sendTask').getBoundingClientRect().toJSON(),
+    viewport: innerHeight
+  }));
+  assert.ok(layout.send.bottom <= layout.viewport && layout.send.top >= 0, JSON.stringify(layout));
+});
+
+test('latest butler reply stays above the composer at compact height', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.setViewportSize({ width: 363, height: 620 });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('谁在等我');
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => document.querySelector('#piMessages').textContent.includes('先处理待输入员工'));
+  await page.waitForTimeout(80);
+  const layout = await page.evaluate(() => {
+    const chat = document.querySelector('#piMessages'), dock = document.querySelector('#butlerChatDock');
+    return { bottom: chat.getBoundingClientRect().bottom, dockTop: dock.getBoundingClientRect().top,
+      remaining: chat.scrollHeight - chat.clientHeight - chat.scrollTop };
+  });
+  assert.ok(layout.bottom <= layout.dockTop, JSON.stringify(layout));
+  assert.ok(layout.remaining <= 2, JSON.stringify(layout));
+});
+
+test('butler and employee replies share safe code, table and list formatting', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  const code = '  const literal = "**raw**";\n  const html = "<img src=x onerror=alert(1)>";';
+  const reply = '# 测试结果\n\n两项测试通过。\n\n- 保留查询参数\n- 保留锚点\n\n| 检查 | 结果 |\n| --- | --- |\n| 登录回跳 | 通过 |\n\n```js\n' + code + '\n```\n\n[unsafe](javascript:alert(1))';
+  await page.evaluate(reply => {
+    const studio = AgentBridge.studioOverview;
+    AgentBridge.studioOverview = () => {
+      const data = JSON.parse(studio());
+      data.data.messages = [{ role: 'user', content: '看看测试结果' }, { role: 'assistant', content: reply }];
+      return JSON.stringify(data);
+    };
+    const state = AgentBridge.state;
+    AgentBridge.state = () => {
+      const data = JSON.parse(state());
+      data.data.tasks[0].lastOutput = '最近指令：看看测试结果\n最近输出：' + reply;
+      return JSON.stringify(data);
+    };
+  }, reply);
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#refreshButler').click();
+  await page.locator('#piMessages .messageTable').waitFor();
+  const check = async region => {
+    assert.equal(await region.locator('.messageCode code').textContent(), code);
+    assert.equal(await region.locator('.messageCodeLanguage').textContent(), 'js');
+    assert.equal(await region.locator('.messageTable th').count(), 2);
+    assert.equal(await region.locator('.butlerListItem').count(), 2);
+    assert.equal(await region.locator('img,script,a').count(), 0);
+    assert.match(await region.locator('.butlerHeading').textContent(), /测试结果/);
+  };
+  await check(page.locator('#piMessages'));
+  await page.locator('[data-view="offices"]').click();
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  await check(page.locator('#conversationTimeline'));
+});
+
+test('employee input stays visible while reading long replies at keyboard height', async t => {
+  const page = await openPhone(t);
+  await page.evaluate(() => {
+    const read = AgentBridge.state;
+    AgentBridge.state = () => {
+      const result = JSON.parse(read());
+      result.data.tasks[0].lastOutput = '最近输出：' + '这是一段较长的任务回复。\n\n'.repeat(50);
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('#refreshAll').click();
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('保留我的草稿');
+  for (const height of [800, 420]) {
+    await page.setViewportSize({ width: 363, height });
+    await page.locator('.taskBody').evaluate(body => { body.scrollTop = body.scrollHeight; });
+    const bounds = await page.evaluate(() => ({
+      input: document.getElementById('replyText').getBoundingClientRect().toJSON(),
+      send: document.getElementById('sendTask').getBoundingClientRect().toJSON(),
+      body: document.querySelector('.taskBody').getBoundingClientRect().toJSON(), height: innerHeight
+    }));
+    assert.ok(bounds.input.top >= bounds.body.bottom - 1 && bounds.input.bottom <= bounds.height, JSON.stringify(bounds));
+    assert.ok(bounds.send.bottom <= bounds.height, JSON.stringify(bounds));
+  }
+  assert.equal(await page.locator('#replyText').inputValue(), '保留我的草稿');
+});
+
+test('employee send shows the submitted message and a persistent returned result', async t => {
+  const page = await openPhone(t, { holdSend: true });
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('请保留现有实现，只补测试');
+  await page.locator('#sendTask').click();
+  assert.match(await page.locator('#taskDelivery').textContent(), /已提交/);
+  assert.match(await page.locator('.conversationTurn.user').last().textContent(), /请保留现有实现，只补测试/);
+  await page.evaluate(() => { window.releaseSend = true; });
+  await page.waitForFunction(() => document.getElementById('taskDelivery').dataset.state === 'success');
+  assert.match(await page.locator('.conversationTurn.assistant').textContent(), /回复后的新输出/);
+  assert.match(await page.locator('.conversationTurn.user').textContent(), /请保留现有实现，只补测试/);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+});
+
+test('rejected employee submission keeps the draft and a visible error for retry', async t => {
+  const page = await openPhone(t, { rejectSend: true });
+  await page.locator('[data-task-id="1"]').click();
+  await page.locator('#replyText').fill('请保留现有实现，只补测试');
+  await page.locator('#sendTask').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+  assert.equal(await page.locator('#taskDelivery').getAttribute('data-state'), 'error');
+  assert.match(await page.locator('#taskDelivery').textContent(), /会话暂时无法连接/);
+  assert.equal(await page.locator('#replyText').inputValue(), '请保留现有实现，只补测试');
+  assert.equal(await page.locator('#sendTask').isEnabled(), true);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('#taskDelivery').isVisible(), true);
+  assert.equal(await page.locator('#replyText').inputValue(), '请保留现有实现，只补测试');
+});
+
+
+test('butler task references open only existing tasks and never send messages', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.evaluate(() => {
+    const read = AgentBridge.studioOverview;
+    AgentBridge.studioOverview = () => {
+      const result = JSON.parse(read());
+      result.data.messages = [{ role: 'assistant', content: '检查部署配置与远程连接（S-2）在等你确认。不存在的 S-999 不应打开。\n\n```text\nS-1\n```\nhttps://example.test/S-3' }];
+      return JSON.stringify(result);
+    };
+  });
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#refreshButler').click();
+  const links = page.locator('.chatTaskLink');
+  await links.first().waitFor();
+  assert.equal(await links.count(), 1);
+  assert.equal(await links.getAttribute('data-task-id'), '2');
+  await links.click();
+  assert.equal(await page.locator('#taskTitle').textContent(), '检查部署配置与远程连接');
+  assert.equal(await page.locator('#replyText').inputValue(), '');
+  assert.equal(await page.evaluate(() => window.sendCount), 0);
+});
+
+
+test('task previews show the pending decision, clean only display markup, and retain raw records', async t => {
+  const output = '最近指令：先检查。\n最近输出：已修改 [training-jobs.js](/private/tmp/demo/training-jobs.js)。\n\n**6 项通过，0 项失败。**';
+  const page = await openPhone(t, { taskPreviewRecords: { status: 'idle', requiredInput: '是否只在训练中显示进度？', workSummary: output, lastOutput: output } });
+  const card = page.locator('.employee[data-task-id="1"]');
+  assert.equal(await card.locator('.employeePreviewLabel').textContent(), '需要你确认');
+  assert.equal(await card.locator('.employeeSub').textContent(), '是否只在训练中显示进度？');
+  await card.click();
+  assert.equal(await page.locator('#taskOutput').textContent(), output);
+  await page.locator('[data-close="taskBackdrop"]').click();
+  const result = await openPhone(t, { taskPreviewRecords: { status: 'idle', requiredInput: '', workSummary: output, lastOutput: output } });
+  const preview = result.locator('.employee[data-task-id="1"] .employeeSub');
+  assert.match(await preview.textContent(), /已修改 training-jobs\.js.*6 项通过，0 项失败/);
+  assert.doesNotMatch(await preview.textContent(), /最近指令|private\/tmp|\*\*/);
+  assert.match(await result.locator('.employee[data-task-id="1"] .stateChip').textContent(), /会话空闲/);
 });

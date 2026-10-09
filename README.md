@@ -19,15 +19,15 @@
 
 [下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh.png" width="760" alt="代码修好了，怎么还在等我？"></a>
+<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh.png" width="760" alt="办公小镇操作实录：训练平台开发与小红书改稿"></a>
 
-**[看 42 秒操作实录](https://otterview-labs.github.io/agentBridge/#demo)** · 找待回复的任务、翻记录、选回复草稿。
+**[看 1 分 42 秒操作实录](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex。
 
-| 像素办公室 | 管家聊天 | 语音通话 |
-|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-0.5.44.png" width="240" alt="像素办公室：多台电脑、任务员工与待输入状态"> | <img src="docs/screenshots/butler-0.5.44.png" width="240" alt="管家聊天：任务问答与消息输入"> | <img src="docs/screenshots/call-0.5.44.png" width="240" alt="语音通话：聆听、麦克风、扬声器与挂断按钮"> |
+| 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/office-0.5.45.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
 
-<sub>截图使用样例记录。</sub>
+<sub>办公室、任务回复和管家截图来自演示项目；通话截图使用样例记录。</sub>
 
 </div>
 
@@ -37,7 +37,7 @@
 
 ### 1. 下载 App
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 1.5 MB。
+[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 2.9 MB。
 
 ### 2. 连接电脑
 

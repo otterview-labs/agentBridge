@@ -537,7 +537,7 @@ final class PhoneBridge {
     format.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
     String date = format.format(new java.util.Date());
     JSONObject local = new JSONObject(studioState()).getJSONObject("data");
-    JSONArray sourceTasks = local.getJSONArray("tasks");
+    JSONArray sourceTasks = store.tasks();
     JSONArray tasks = new JSONArray();
     JSONArray ongoing = new JSONArray();
     JSONArray suggestions = new JSONArray();
@@ -550,9 +550,12 @@ final class PhoneBridge {
           .put("agentType", source.optString("agentType"))
           .put("status", source.optString("status"))
           .put("updatedAt", source.optString("updatedAt"))
-          .put("label", source.optBoolean("requiredInput") ? UiText.text("待输入") : UiText.text("待核实"))
-          .put("needsAttention", source.optBoolean("requiredInput"))
-          .put("next", source.optBoolean("requiredInput") ? UiText.text("等待手机回复后继续。") : UiText.text("进入手机控制台查看输出后处理。"))
+          .put("requiredInput", boundedText(sanitize(source.optString("requiredInput")), 320, "…"))
+          .put("workSummary", boundedText(sanitize(source.optString("workSummary")), 400, "…"))
+          .put("lastOutput", boundedText(sanitize(source.optString("lastOutput")), 1200, "…"))
+          .put("label", !source.optString("requiredInput").isEmpty() ? UiText.text("待输入") : UiText.text("待核实"))
+          .put("needsAttention", !source.optString("requiredInput").isEmpty())
+          .put("next", !source.optString("requiredInput").isEmpty() ? UiText.text("等待手机回复后继续。") : UiText.text("进入手机控制台查看输出后处理。"))
           .put("source", UiText.text("手机 SSH 会话记录"))
           .put("completedToday", false);
       tasks.put(task);
@@ -659,12 +662,12 @@ final class PhoneBridge {
         "你是 agentBridge 的管家，帮用户查看电脑上的 Codex、Claude 任务。\n"
             + "职责：查进展、读输出，和用户讨论下一步。\n\n"
             + "回答规则：\n"
-            + "1. 直接回答用户的问题，简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
-            + "2. 用任务名称说话，不要只报编号。例如「云端采集 agent 接入」比「S-252940」好得多。\n"
+            + "1. 直接回答用户的问题，问哪件事在等回复时，先说任务名称和正在等用户决定的具体问题，再说一句下一步。简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
+            + "2. 用任务名称说话。提到具体任务时，在名称后附一次资料里的编号，例如「登录回跳（S-12）」。界面会显示打开任务的按钮；编号必须来自资料，不能编造。\n"
             + "3. 给出可操作的建议时说清楚：做什么、为什么、怎么判断做好了。\n"
             + "4. 待输入的任务最紧急（AI 在等用户回复），放在最前面提醒。\n"
             + "5. 像同事发消息，句子短，具体说事。不写客套开场、口号、排比、‘首先其次最后’或‘综上所述’，少用‘基于、赋能、推进、闭环、优先级’等词。别自夸或反复介绍自己的功能。\n"
-            + "6. 没有数据就直说，不要编造。\n"
+            + "6. 具体待确认问题必须来自 requiredInput 或最近输出。资料只标了待输入却没写原因时，直说还要打开任务看；不能猜测业务规则、改动方案或用户需要确认什么。\n"
             + "7. 你只能查询，不能派发指令、确认部署或执行任务。用户要求操作时，说清楚当前能力，并引导打开对应员工卡片回复；不能声称已经执行。\n"
             + "8. 不输出 JSON，不使用 Markdown 符号（**、#、表格）。\n"
             + "9. 你可以调用工具获取实时数据（list_tasks、check_machines、get_task_output）。"
@@ -764,6 +767,13 @@ final class PhoneBridge {
         .append(" [").append(task.optString("agentType")).append("，M-")
         .append(task.optString("machineId")).append("，记录时间：")
         .append(task.optString("updatedAt", "未知")).append("]\n");
+    for (String key : new String[] { "requiredInput", "workSummary", "lastOutput" }) {
+      String detail = task.optString(key);
+      if (detail.isEmpty() || "true".equals(detail) || "false".equals(detail)) continue;
+      text.append("  ").append(key).append(": ")
+          .append(boundedText(detail, "lastOutput".equals(key) ? 1200 : 400, "…"))
+          .append("\n");
+    }
   }
 
   private String directModelReply(JSONObject model, JSONArray messages) throws Exception {
@@ -1068,7 +1078,9 @@ final class PhoneBridge {
                     .put("fresh", fresh)
                     .put("updatedAt", task.optString("updatedAt"))
                     .put("agentType", task.optString("agentType"))
-                    .put("needsInput", !task.optString("requiredInput").isEmpty()));
+                    .put("needsInput", !task.optString("requiredInput").isEmpty())
+                    .put("requiredInput", shortTaskRecord(task.optString("requiredInput"), 320))
+                    .put("workSummary", shortTaskRecord(task.optString("workSummary"), 400)));
               }
             } catch (Exception sshError) {
               checks.put(new JSONObject().put("id", m.opt("id"))
@@ -1134,6 +1146,11 @@ final class PhoneBridge {
     } catch (Exception ignored) {
       return "{\"error\":\"tool failed\"}";
     }
+  }
+
+  private String shortTaskRecord(String value, int limit) {
+    String clean = Work.clean(sanitize(value));
+    return clean.length() <= limit ? clean : clean.substring(0, limit) + "…";
   }
 
   private JSONObject generateDirectReport(JSONObject model, JSONObject snapshot) throws Exception {
@@ -2161,6 +2178,7 @@ final class PhoneBridge {
   @JavascriptInterface
   public String discoverTasks(int machineId) {
     try {
+      JSONArray baseline = store.tasks();
       JSONObject machine = store.machine(machineId);
       Session session = null;
       try {
@@ -2194,7 +2212,7 @@ final class PhoneBridge {
             + " total=" + discovered.length());
         preserveCustomTitles(machineId, discovered);
         discovered = dedupeSemanticTasks(discovered);
-        store.replaceTasksForMachine(machineId, discovered);
+        discovered = store.replaceTasksForMachine(machineId, discovered, baseline);
         return success(new JSONObject().put("machine", publicMachine(machine)).put("tasks", discovered));
       } finally {
         disconnect(session);
@@ -2258,10 +2276,12 @@ final class PhoneBridge {
     JSONArray result = new JSONArray();
     for (int index = 0; index < discovered.length(); index += 1) {
       JSONObject task = discovered.getJSONObject(index);
-      String title = task.optString("title", "").trim().replaceAll("\\s+", " ");
-      String workspace = task.optString("workspacePath", "").trim();
-      String key = task.getInt("machineId") + "|" + task.optString("agentType", "")
-          + "|" + title.toLowerCase(java.util.Locale.ROOT) + "|" + workspace;
+      String sessionId = task.optString("externalSessionId", "").trim();
+      String stableKey = task.optString("stableKey", "").trim();
+      // Titles describe work; only a session or pane identity can identify it.
+      String identity = !sessionId.isEmpty() ? "session:" + sessionId
+          : !stableKey.isEmpty() ? "stable:" + stableKey : "unidentified:" + index;
+      String key = task.getInt("machineId") + "|" + task.optString("agentType", "") + "|" + identity;
       JSONObject old = bestByKey.get(key);
       if (old == null || preferSemanticTask(task, old)) {
         if (old != null) {
@@ -2358,8 +2378,9 @@ final class PhoneBridge {
       try {
         session = connect(machine);
         String output = sanitize(run(session, "tmux capture-pane -p -S -180 -t " + shellQuote(task.getString("paneId"))));
-        JSONObject fields = new JSONObject().put("lastOutput", output).put("updatedAt", now());
-        if ("missing".equals(task.optString("status"))) fields.put("status", "running");
+        boolean stopped = "1".equals(run(session, "tmux display-message -p -t "
+            + shellQuote(task.getString("paneId")) + " '#{pane_dead}'").trim());
+        JSONObject fields = tmuxTaskFields(output, stopped);
         JSONObject updated = store.patchTask(id, fields);
         return success(new JSONObject().put("task", updated == null ? task : updated));
       } finally {
@@ -2413,12 +2434,17 @@ final class PhoneBridge {
               .put("suggestedReply", "")
               .put("updatedAt", now());
           if (outcome.finished) {
-            fields.put("lastOutput", "本次输出：\n" + outcome.output)
+            fields.put("lastOutput", UiText.text("本次输出：") + "\n" + outcome.output)
+                .put("workSummary", outcome.output.contains("__ASB_CODEX_QUEUED__")
+                    ? UiText.text("回复已加入原会话队列，等待执行。")
+                    : outcome.output.trim().isEmpty() ? UiText.text("回复执行已结束，暂无输出。")
+                    : Work.truncate(Work.clean(outcome.output), 2400))
                 .put("status", outcome.output.contains("__ASB_CODEX_QUEUED__") ? "running" : "idle");
           } else {
             fields.put("lastOutput", "回复已送达，远程仍在处理（手机等了 " + (REPLY_WAIT_MS / 1000) + " 秒）。"
                 + "请稍后点刷新查看结果，不要重复发送。" + (outcome.output.isEmpty() ? "" : "\n\n目前的输出：\n" + outcome.output))
-                .put("status", "running");
+                .put("status", "running")
+                .put("workSummary", UiText.text("回复已送达，远程仍在处理。"));
           }
           JSONObject updated = store.patchTask(id, fields);
           return success(new JSONObject()
@@ -2967,8 +2993,8 @@ final class PhoneBridge {
           .put("title", displayName(agentType, deriveTitle(work.latestUser, work.latestAssistant, windowName, sessionName)))
           .put("workSummary", work.summary())
           .put("lastOutput", output)
-          .put("requiredInput", dead ? "" : requiredInput(work.latestAssistant != null ? work.latestAssistant : output))
-          .put("suggestedReply", dead ? "" : suggestedReply(requiredInput(work.latestAssistant != null ? work.latestAssistant : output)))
+          .put("requiredInput", dead ? "" : requiredInput(work.latestAssistant))
+          .put("suggestedReply", "")
           .put("updatedAt", now());
       result.add(task);
     }
@@ -3761,6 +3787,25 @@ final class PhoneBridge {
     return result.toString();
   }
 
+  private static JSONObject tmuxTaskFields(String output, boolean stopped) throws Exception {
+    Work work = Work.fromTerminal(output);
+    return new JSONObject().put("lastOutput", output).put("workSummary", work.summary())
+        .put("requiredInput", stopped ? "" : requiredInput(work.latestAssistant))
+        .put("suggestedReply", "").put("status", stopped ? "stopped" : "running")
+        .put("updatedAt", now());
+  }
+
+  /** Ignore questions in older terminal turns after the user has already replied. */
+  private static String latestTerminalOutput(String value) {
+    if (value == null) return "";
+    String[] lines = value.split("\\r?\\n", -1);
+    int start = 0;
+    for (int index = 0; index < lines.length; index += 1) {
+      if (lines[index].matches("^\\s*[›❯]\\s+\\S.*$")) start = index + 1;
+    }
+    return String.join("\n", Arrays.copyOfRange(lines, start, lines.length)).trim();
+  }
+
   private static String requiredInput(String value) {
     if (value == null || value.trim().isEmpty()) return "";
     String readable = value
@@ -3864,7 +3909,7 @@ final class PhoneBridge {
     }
 
     private static Work fromTerminal(String value) {
-      return new Work(null, value, "running");
+      return new Work(null, latestTerminalOutput(value), "running");
     }
 
     private static Work fromClaudeTranscript(String value) {
