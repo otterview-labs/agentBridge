@@ -665,7 +665,7 @@ final class PhoneBridge {
             + "1. 直接回答用户的问题，问哪件事在等回复时，先说任务名称和正在等用户决定的具体问题，再说一句下一步。简单的问题两三句即可。需要细节时再展开，不要每次都写一份总结。\n"
             + "2. 用任务名称说话。提到具体任务时，在名称后附一次资料里的编号，例如「登录回跳（S-12）」。界面会显示打开任务的按钮；编号必须来自资料，不能编造。\n"
             + "3. 给出可操作的建议时说清楚：做什么、为什么、怎么判断做好了。\n"
-            + "4. 待输入的任务最紧急（AI 在等用户回复），放在最前面提醒。\n"
+            + "4. 用户询问待办或任务安排时，优先提醒正在等待用户回复的任务。闲聊、招呼和致谢只回应当前这句话，不主动罗列任务，也不继续回答历史问题。\n"
             + "5. 像同事发消息，句子短，具体说事。不写客套开场、口号、排比、‘首先其次最后’或‘综上所述’，少用‘基于、赋能、推进、闭环、优先级’等词。别自夸或反复介绍自己的功能。\n"
             + "6. 具体待确认问题必须来自 requiredInput 或最近输出。资料只标了待输入却没写原因时，直说还要打开任务看；不能猜测业务规则、改动方案或用户需要确认什么。\n"
             + "7. 你只能查询，不能派发指令、确认部署或执行任务。用户要求操作时，说清楚当前能力，并引导打开对应员工卡片回复；不能声称已经执行。\n"
@@ -3930,9 +3930,9 @@ final class PhoneBridge {
 
     private static Work fromTerminal(String value) {
       String output = latestTerminalOutput(value);
-      boolean disconnected = Pattern.compile("(?im)^\\s*■\\s*stream disconnected before completion:")
+      boolean failed = Pattern.compile("(?im)^\\s*■\\s*(?:stream disconnected before completion:|unexpected status [45]\\d{2}\\b)")
           .matcher(output).find();
-      return new Work(null, output, disconnected ? "error" : "running");
+      return new Work(null, output, failed ? "error" : "running");
     }
 
     private static Work fromClaudeTranscript(String value) {
