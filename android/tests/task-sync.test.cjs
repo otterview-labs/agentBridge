@@ -89,3 +89,15 @@ test('tmux refresh clears answered questions and stopped panes but retains new d
  result=tmuxTaskFields("Should I deploy now?",false);check(result.optString("requiredInput").equals("Should I deploy now?"));System.out.println("ok");
  }`);
 });
+
+
+test('a newer reply keeps all progress fields coherent even when some values equal the baseline', t => {
+ harness(t, 'ReplyProgressHarness', `${taskFactory}${fakeStore}${storage}${identity}${patch}
+ public static void main(String[] args)throws Exception {
+ ReplyProgressHarness s=new ReplyProgressHarness();s.saved.put(task(1,1,"a","old output").put("requiredInput","").put("workSummary","old summary").put("suggestedReply",""));
+ JSONArray baseline=s.tasks();JSONArray scan=new JSONArray().put(task(1,1,"a","stale output").put("status","running").put("requiredInput","Deploy now?").put("workSummary","stale summary").put("suggestedReply","stale draft"));
+ s.patchTask(1,new JSONObject().put("lastOutput","new reply").put("workSummary","done").put("requiredInput","").put("status","idle").put("suggestedReply",""));
+ JSONObject result=s.replaceTasksForMachine(1,scan,baseline).getJSONObject(0);
+ check(result.optString("lastOutput").equals("new reply"));check(result.optString("workSummary").equals("done"));check(result.optString("status").equals("idle"));check(result.optString("requiredInput").isEmpty());check(result.optString("suggestedReply").isEmpty());System.out.println("ok");
+ }`);
+});
