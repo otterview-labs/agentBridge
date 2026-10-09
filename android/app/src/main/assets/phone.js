@@ -50,6 +50,12 @@
     collapsedSprites: loadCollapsedSprites()
   };
   const showDeletedOffices = new Set();
+  const employeeMotionObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
+    entries.forEach((entry) => { entry.target.dataset.motion = entry.isIntersecting ? 'live' : 'paused'; });
+  }) : null;
+  document.addEventListener('visibilitychange', () => {
+    document.body.classList.toggle('employeeMotionPaused', document.hidden);
+  });
   const voicePointer = { id: null, x: 0, y: 0, startedAt: 0, cancelArmed: false };
   let chatLayoutFrame = null;
   const agentNames = { codex: 'Codex', 'claude-code': 'Claude', gemini: 'Gemini' };
@@ -1431,6 +1437,7 @@
   }
 
   function renderOffices() {
+    if (employeeMotionObserver) employeeMotionObserver.disconnect();
     const container = $('offices');
     container.textContent = '';
     const butler = element('button', 'townButler');
@@ -2861,12 +2868,15 @@
     card.dataset.agent = task.agentType;
     card.dataset.taskId = String(task.id);
     card.dataset.record = isRecordedTask(task) ? 'true' : 'false';
+    card.dataset.motion = employeeMotionObserver ? 'paused' : 'live';
+    if (employeeMotionObserver) employeeMotionObserver.observe(card);
     card.type = 'button';
     const displayName = taskDisplayName(task);
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
-    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
+    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3,
+      isRecordedTask(task) ? '' : currentState, true));
     const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
     bubble.setAttribute('aria-hidden', 'true');
     stage.append(bubble);
@@ -3009,7 +3019,7 @@
     svg.append(item);
   }
 
-  function employeeSprite(agentType, variant) {
+  function employeeSprite(agentType, variant, pose = '', atDesk = false) {
     const palettes = {
       codex: { shirt: '#7488bc', trim: '#5a6c9b' },
       'claude-code': { shirt: '#cc8250', trim: '#a96940' },
@@ -3022,6 +3032,8 @@
     const hair = '#3b3348';
     const svg = svgPixelNode();
     svg.setAttribute('viewBox', '0 0 18 22');
+    svg.setAttribute('shape-rendering', 'crispEdges');
+    svg.setAttribute('focusable', 'false');
     svg.setAttribute('aria-hidden', 'true');
     svg.classList.add('pixelAvatar');
 
@@ -3044,11 +3056,91 @@
     rect(svg, 7, 8, 1, 1, '#c26060'); rect(svg, 10, 8, 1, 1, '#c26060');
     rect(svg, 8, 8, 2, 1, '#a95050');
     rect(svg, 5, 8, 1, 1, '#f5a8a8'); rect(svg, 12, 8, 1, 1, '#f5a8a8');
-    rect(svg, 2, 11, 2, 4, palette.trim); rect(svg, 14, 11, 2, 4, palette.trim);
-    rect(svg, 2, 15, 2, 1, skin); rect(svg, 14, 15, 2, 1, skin);
+    rect(svg, 2, 11, 2, 4, palette.trim);
+    rect(svg, 2, 15, 2, 1, skin);
+    if (pose === 'attention') {
+      svg.setAttribute('overflow', 'visible');
+      const arm = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      arm.classList.add('employeeRaisedArm');
+      rect(arm, 14, 10, 2, 4, palette.trim);
+      rect(arm, 16, 8, 2, 3, palette.trim);
+      rect(arm, 17, 4, 2, 4, '#a76c43');
+      rect(arm, 17, 4, 1.5, 4, skin);
+      rect(arm, 16.5, 2.5, 3, 2.5, '#a76c43');
+      rect(arm, 17, 3, 2, 2, skin);
+      rect(arm, 16, 3.5, 1, 1.5, '#a76c43');
+      rect(arm, 16.5, 3.5, .5, 1, skin);
+      rect(arm, 17, 1.5, .5, 1.5, '#a76c43');
+      rect(arm, 17, 2, .5, 1, skin);
+      rect(arm, 18, 2, .5, 1, '#a76c43');
+      rect(arm, 18, 2.5, .5, .5, skin);
+      rect(arm, 18.5, 4, .5, 3, '#e9bc98');
+      svg.appendChild(arm);
+    } else {
+      rect(svg, 14, 11, 2, 4, palette.trim);
+      rect(svg, 14, 15, 2, 1, skin);
+    }
     rect(svg, 6, 16, 2, 4, '#39415d'); rect(svg, 10, 16, 2, 4, '#39415d');
     rect(svg, 5, 20, 3, 2, '#28304b'); rect(svg, 10, 20, 3, 2, '#28304b');
-    return svg;
+    // Small pixel accents refine the original face and silhouette, without replacing them.
+    rect(svg, 5, 2.5, 7, .5, '#554b62');
+    rect(svg, 13.5, 4, .5, 5, '#e9bc98');
+    rect(svg, 5, 9.5, 8, .5, '#e9bc98');
+    rect(svg, 6, 6, .5, .5, '#fffaf0'); rect(svg, 10, 6, .5, .5, '#fffaf0');
+    const shirtLight = { codex: '#91a2ca', 'claude-code': '#dda077', gemini: '#a69acb', pi: '#64856a' };
+    rect(svg, 4, 10.5, 3, .5, shirtLight[agentType] || '#91a2b3');
+    rect(svg, 11, 10.5, 2, .5, shirtLight[agentType] || '#91a2b3');
+    rect(svg, 3, 15.5, 12, .5, palette.trim);
+    rect(svg, 5.5, 20, 2, .5, '#46516a'); rect(svg, 10.5, 20, 2, .5, '#46516a');
+    return atDesk ? employeeDeskScene(svg, pose) : svg;
+  }
+
+  function employeeDeskScene(character, pose) {
+    const scene = svgPixelNode();
+    scene.setAttribute('viewBox', '0 0 48 48');
+    scene.setAttribute('shape-rendering', 'crispEdges');
+    scene.setAttribute('aria-hidden', 'true');
+    scene.setAttribute('focusable', 'false');
+    scene.classList.add('pixelAvatar', 'employeeDesk');
+    const draw = (x, y, width, height, color) => rect(scene, x, y, width, height, color);
+    draw(5, 46, 38, 1, '#c8d1be');
+    draw(3, 26, 20, 11, '#6d8575');
+    draw(4, 27, 18, 8, '#a8b8a7');
+    draw(4, 35, 20, 2, '#6d8575');
+    draw(6, 37, 2, 8, '#6d8575');
+    // Whole-number scaling keeps the original character's pixel edges even.
+    character.classList.remove('pixelAvatar');
+    character.classList.add('employeeCharacter');
+    character.setAttribute('x', '-2'); character.setAttribute('y', '1');
+    character.setAttribute('width', '36'); character.setAttribute('height', '44');
+    scene.appendChild(character);
+    draw(34, 22, 12, 11, '#3e5752');
+    draw(35, 23, 10, 8, pose === 'running' ? '#b4d6c2' : '#dce5dc');
+    if (pose === 'running') {
+      draw(36, 24, 4, 1, '#456f60'); draw(36, 26, 7, 1, '#456f60');
+      draw(36, 28, 5, 1, '#456f60');
+      const cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      cursor.classList.add('deskCursor');
+      Object.entries({x: 42, y: 28, width: 1, height: 1, fill: '#456f60'}).forEach(([key, value]) => cursor.setAttribute(key, String(value)));
+      scene.appendChild(cursor);
+    } else {
+      draw(36, 25, 6, 1, '#a4b9aa');
+    }
+    draw(39, 33, 2, 1, '#3e5752'); draw(37, 34, 6, 1, '#3e5752');
+    draw(25, 32, 9, 3, '#4b6459');
+    [26, 28, 30, 32].forEach(x => draw(x, 32, 1, 1, '#edf1e6'));
+    draw(26, 34, 5, .5, '#c5d1c0');
+    draw(2, 35, 44, 1, '#e0c59b'); draw(2, 36, 44, 2, '#b99b73');
+    draw(2, 37, 44, 1, '#987347');
+    draw(4, 38, 2, 8, '#987347'); draw(42, 38, 2, 8, '#987347');
+    if (pose === 'running') {
+      const hands = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      hands.classList.add('typingHands');
+      rect(hands, 26, 31, 5, 3, '#a76c43');
+      rect(hands, 26, 31, 4, 2, '#f6d1ae');
+      scene.appendChild(hands);
+    }
+    return scene;
   }
 
   function machineSubtitle(machine) {

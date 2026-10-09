@@ -560,10 +560,18 @@ test('offline employees show historical status with no work animation', async t 
       connected: Boolean(node && node.isConnected),
       state: node ? node.closest('[data-task-id]')?.getAttribute('data-state') : null };
   }, selector);
-  const idle = await animation('[data-task-id="3"] .pixelAvatar');
+  const idle = await animation('[data-task-id="3"] .employeeCharacter');
   assert.equal(idle.name, 'none', JSON.stringify(idle));
-  const running = await animation('[data-task-id="1"] .pixelAvatar');
+  const running = await animation('[data-task-id="1"] .typingHands');
   assert.notEqual(running.name, 'none', JSON.stringify(running));
+  // The overview refresh can replace the row while Playwright waits for its
+  // position to settle. Resolve and scroll synchronously in the page instead.
+  await page.evaluate(() => document.querySelector('[data-task-id="1"]').scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await page.waitForFunction(() => document.querySelector('[data-task-id="1"]')?.dataset.motion === 'live');
+  await page.locator('[data-view="butler"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-task-id="1"]')?.dataset.motion === 'paused');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  assert.equal((await animation('[data-task-id="1"] .typingHands')).name, 'none');
 });
 
 test('task drafts remain separate when closing and reopening sheets', async t => {
