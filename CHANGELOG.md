@@ -2,6 +2,12 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.50 — 2026-10-09
+
+- 管家聊天支持流式显示，生成文字时即可阅读；工具查询与最终回复均保留完整性校验。
+- 查询任务和机器连接时并行检查最多四台机器，单次对话中复用相同查询结果，减少重复 SSH 等待。
+- 保留断流、刷新失败和不支持流式接口的处理，避免把不完整回复保存为成功。
+
 ## Android 0.5.49 — 2026-10-09
 
 - Mark Codex HTTP 4xx and 5xx terminal failures as errors, including rejected

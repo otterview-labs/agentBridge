@@ -2067,7 +2067,7 @@
         }
         pollingFailures = 0;
         const current = currentResult.data.operation;
-        setChatTyping(true, current.message);
+        setChatTyping(true, current.partialReply || current.message);
         if (current.state !== 'running') {
           if (!['failed', 'succeeded'].includes(current.state)) throw new Error(t("暂时无法确认回复状态，请继续查看"));
           terminal = true;

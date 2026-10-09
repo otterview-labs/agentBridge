@@ -1450,3 +1450,29 @@ test('task previews show the pending decision, clean only display markup, and re
   assert.doesNotMatch(await preview.textContent(), /最近指令|private\/tmp|\*\*/);
   assert.match(await result.locator('.employee[data-task-id="1"] .stateChip').textContent(), /会话空闲/);
 });
+
+test('butler shows streamed text before completion without committing a partial reply', async t => {
+  const page = await openPhone(t, { modelReady: true });
+  await page.locator('[data-view="butler"]').click();
+  await page.evaluate(() => {
+    window.chatDone = false;
+    window.AgentBridge.beginStudioMessage = () => JSON.stringify({ ok: true, data: {
+      operation: { id: 321, state: 'running' }
+    } });
+    window.AgentBridge.operationState = () => JSON.stringify({ ok: true, data: {
+      operation: window.chatDone
+        ? { id: 321, state: 'succeeded', studio: { messages: [
+            { role: 'user', content: '现在谁等我回复' },
+            { role: 'assistant', content: '登录任务正在等你确认测试范围。' }
+          ] } }
+        : { id: 321, state: 'running', message: '整理中', partialReply: '登录任务正在等你' }
+    } });
+  });
+  await page.locator('#piInput').fill('现在谁等我回复');
+  await page.locator('#sendPi').click();
+  await page.locator('#chatTyping').filter({ hasText: '登录任务正在等你' }).waitFor();
+  assert.equal(await page.locator('#sendPi').isDisabled(), true);
+  await page.evaluate(() => { window.chatDone = true; });
+  await page.waitForFunction(() => !document.getElementById('chatTyping'));
+  assert.equal(await page.locator('#piMessages').getByText('登录任务正在等你确认测试范围。', { exact: true }).count(), 1);
+});

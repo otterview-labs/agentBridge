@@ -19,8 +19,8 @@ const tools=methods('PhoneBridge.java','  private JSONArray buildButlerTools()',
 harness(t,'ButlerToolsHarness',`
 static class Store{JSONArray machines=new JSONArray(),tasks=new JSONArray();JSONArray machines(){return machines;}JSONArray tasks(){return tasks;}}
 final Store store=new Store();int discoveries,tails;static class Work{static String clean(String v){return v;}}String sanitize(String v){return v;}String now(){return "fresh-time";}
-String discoverTasks(int id){discoveries++;if(id==2)return new JSONObject().put("ok",false).put("error","SSH unreachable").toString();return new JSONObject().put("ok",true).put("data",new JSONObject().put("tasks",new JSONArray().put(store.tasks.get(0)))).toString();}
-String probeMachine(int id){return new JSONObject().put("ok",false).put("error","host key mismatch").toString();}
+synchronized String discoverTasks(int id){discoveries++;if(id==2)return new JSONObject().put("ok",false).put("error","SSH unreachable").toString();return new JSONObject().put("ok",true).put("data",new JSONObject().put("tasks",new JSONArray().put(store.tasks.get(0)))).toString();}
+synchronized String probeMachine(int id){return new JSONObject().put("ok",false).put("error","host key mismatch").toString();}
 String tailTask(int id){tails++;if(id!=11)return new JSONObject().put("ok",false).put("error","task gone").toString();store.tasks.getJSONObject(0).put("lastOutput","LATEST OUTPUT").put("updatedAt","new-time");return new JSONObject().put("ok",true).toString();}
 ${tools}
 public static void main(String[] args)throws Exception{
@@ -51,12 +51,40 @@ test('tool replies are summarized, incompatible endpoints fall back, and final-r
 const loop=methods('PhoneBridge.java','  private String directModelReplyWithTools(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools)');
 const text=methods('PhoneBridge.java','  private String modelMessageText(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools, String toolChoice)');
 harness(t,'ButlerLoopHarness',`
-int requests,executions;boolean unsupported,ignoreFinal,noTools;JSONArray buildButlerTools(){return new JSONArray().put(new JSONObject());}String executeButlerTool(String name,String args){executions++;return "tool-result";}
+String chatCompletionStream(JSONObject model,JSONArray messages,JSONArray tools,java.util.function.Consumer<String> partial)throws Exception{return chatCompletion(model,messages,tools,null);}
+int requests,executions;boolean unsupported,ignoreFinal,noTools,duplicate;JSONArray buildButlerTools(){return new JSONArray().put(new JSONObject());}String executeButlerTool(String name,String args){executions++;return "tool-result";}
 JSONObject answer(JSONObject message){return new JSONObject().put("choices",new JSONArray().put(new JSONObject().put("message",message)));}
-String chatCompletion(JSONObject model,JSONArray messages,JSONArray tools){return chatCompletion(model,messages,tools,null);}String chatCompletion(JSONObject model,JSONArray messages,JSONArray tools,String choice){requests++;if(noTools){check(tools==null);return answer(new JSONObject().put("content","hello")).toString();}if(unsupported&&requests==1)throw new IllegalStateException("模型返回 HTTP 400: tools unsupported");if(!unsupported&&(requests==1||ignoreFinal))return answer(new JSONObject().put("tool_calls",new JSONArray().put(new JSONObject().put("id","c1").put("function",new JSONObject().put("name","list_tasks").put("arguments","{}"))))).toString();return answer(new JSONObject().put("content",new JSONArray().put(new JSONObject().put("type","text").put("text","real answer")))).toString();}
+String chatCompletion(JSONObject model,JSONArray messages,JSONArray tools){return chatCompletion(model,messages,tools,null);}String chatCompletion(JSONObject model,JSONArray messages,JSONArray tools,String choice){requests++;if(noTools){check(tools==null);return answer(new JSONObject().put("content","hello")).toString();}if(unsupported&&requests==1)throw new IllegalStateException("模型返回 HTTP 400: tools unsupported");if(!unsupported&&(requests==1||ignoreFinal)){JSONArray calls=new JSONArray().put(new JSONObject().put("id","c1").put("function",new JSONObject().put("name","list_tasks").put("arguments","{}")));if(duplicate)calls.put(new JSONObject().put("id","c2").put("function",new JSONObject().put("name","list_tasks").put("arguments","{}")));return answer(new JSONObject().put("tool_calls",calls)).toString();}return answer(new JSONObject().put("content",new JSONArray().put(new JSONObject().put("type","text").put("text","real answer")))).toString();}
 ${loop}${text}
 public static void main(String[] args)throws Exception{
  ButlerLoopHarness b=new ButlerLoopHarness();List<String> progress=new ArrayList<>();check(b.directModelReplyWithTools(new JSONObject(),new JSONArray(),2,progress::add).equals("real answer"));check(b.requests==2&&b.executions==1&&progress.contains("正在刷新机器上的任务…"));
+ b=new ButlerLoopHarness();b.duplicate=true;check(b.directModelReplyWithTools(new JSONObject(),new JSONArray(),2).equals("real answer"));check(b.executions==1);
  b=new ButlerLoopHarness();b.unsupported=true;check(b.directModelReplyWithTools(new JSONObject(),new JSONArray(),2).equals("real answer"));check(b.executions==0);b=new ButlerLoopHarness();b.ignoreFinal=true;try{b.directModelReplyWithTools(new JSONObject(),new JSONArray(),2);throw new AssertionError();}catch(IllegalStateException expected){}check(b.requests==2&&b.executions==1);
  b=new ButlerLoopHarness();b.noTools=true;check(b.directModelReplyWithTools(new JSONObject(),new JSONArray(),1,p->{},false).equals("hello"));check(b.requests==1&&b.executions==0);System.out.println("ok");
+}`);});
+
+test('machine queries overlap, preserve order and isolate unreachable hosts',t=>{
+const query=methods('PhoneBridge.java','  private List<JSONObject> queryButlerMachines(','  private static String toolError(');
+harness(t,'ParallelQueryHarness',`
+CountDownLatch entered=new CountDownLatch(3);java.util.concurrent.atomic.AtomicInteger active=new java.util.concurrent.atomic.AtomicInteger(),peak=new java.util.concurrent.atomic.AtomicInteger();
+String discoverTasks(int id)throws Exception{int count=active.incrementAndGet();peak.accumulateAndGet(count,Math::max);entered.countDown();try{check(entered.await(2,TimeUnit.SECONDS));if(id==2)throw new IllegalStateException("offline");return new JSONObject().put("ok",true).put("id",id).toString();}finally{active.decrementAndGet();}}
+String probeMachine(int id)throws Exception{return discoverTasks(id);}
+${query}
+public static void main(String[] args)throws Exception{ParallelQueryHarness b=new ParallelQueryHarness();JSONArray machines=new JSONArray();for(int i=1;i<=3;i++)machines.put(new JSONObject().put("id",i));List<JSONObject> result=b.queryButlerMachines(machines,false);check(b.peak.get()==3);check(result.get(0).getInt("id")==1&&result.get(2).getInt("id")==3);check(!result.get(1).optBoolean("ok")&&!result.get(1).optString("error").isEmpty());check(b.queryButlerMachines(new JSONArray(),true).isEmpty());System.out.println("ok");}
+`);});
+
+test('streaming replies publish text early, assemble fragmented tools and reject interrupted answers',t=>{
+const read=methods('PhoneBridge.java','  private String readModelAnswerStream(','  private JSONArray buildButlerTools(');
+harness(t,'AnswerStreamHarness',`
+${read}
+static String event(JSONObject delta,String reason){return "data:"+new JSONObject().put("choices",new JSONArray().put(new JSONObject().put("delta",delta).put("finish_reason",reason))).toString()+"\\n\\n";}
+static InputStream input(String data){return new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8));}
+public static void main(String[] args)throws Exception{
+ AnswerStreamHarness b=new AnswerStreamHarness();List<String> partial=new ArrayList<>();String stream=event(new JSONObject().put("content","先看"),"")+event(new JSONObject().put("content","登录任务"),"stop")+"data: [DONE]\\n";
+ JSONObject response=new JSONObject(b.readModelAnswerStream(input(stream),partial::add));check(partial.equals(Arrays.asList("先看","先看登录任务")));check(response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content").equals("先看登录任务"));
+ JSONObject first=new JSONObject().put("index",0).put("id","call-1").put("function",new JSONObject().put("name","get_task_").put("arguments","{\\\"task_"));
+ JSONObject second=new JSONObject().put("index",0).put("function",new JSONObject().put("name","output").put("arguments","id\\\":\\\"S-11\\\"}"));
+ response=new JSONObject(b.readModelAnswerStream(input(event(new JSONObject().put("tool_calls",new JSONArray().put(first)),"")+event(new JSONObject().put("tool_calls",new JSONArray().put(second)),"tool_calls")),p->{}));JSONObject call=response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getJSONArray("tool_calls").getJSONObject(0);check(call.optString("id").equals("call-1"));check(call.getJSONObject("function").optString("name").equals("get_task_output"));check(call.getJSONObject("function").optString("arguments").equals("{\\\"task_id\\\":\\\"S-11\\\"}"));
+ for(String broken:new String[]{event(new JSONObject().put("content","partial"),""),event(new JSONObject().put("content","truncated"),"length"),"data: [DONE]\\n"}){try{b.readModelAnswerStream(input(broken),p->{});throw new AssertionError();}catch(IllegalStateException expected){}}
+ System.out.println("ok");
 }`);});
