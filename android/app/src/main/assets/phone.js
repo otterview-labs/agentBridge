@@ -2514,9 +2514,10 @@
       }
       if (state.callMode) {
         if (event.type === 'recording' || event.type === 'ready' || event.type === 'cloud-recording') {
-          if (state.callTranscript === t("正在准备麦克风和语音识别，准备好后再说话。")) {
+          if (callErrorCount > 0 || state.callTranscript === t("正在准备麦克风和语音识别，准备好后再说话。")) {
             state.callTranscript = t("通话已接通。你说话，管家回复后会继续聆听。");
           }
+          callErrorCount = 0;
           setCallStatus('listening');
         }
         if (event.type === 'cloud-processing' || event.type === 'processing') {

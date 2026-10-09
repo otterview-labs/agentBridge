@@ -8,6 +8,8 @@ Notable changes to agentBridge are documented here.
   API keys, while retaining the original error details and terminal output.
 - Ask the butler to answer greetings and thanks directly instead of launching
   into a task summary or continuing an older question.
+- Clear the old recognition error after a successful reconnect, and reset
+  the consecutive-error counter once listening resumes.
 
 ## Android 0.5.48 — 2026-10-09
 
