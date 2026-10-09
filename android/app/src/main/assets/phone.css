@@ -427,11 +427,11 @@ h1 { margin: 0; font-size: 20px; font-weight: 750; line-height: 1.2; letter-spac
 
 .officeStatus.offline { color: var(--attention); background: var(--attention-soft); }
 
-.employee { display: grid; grid-template-columns: 88px minmax(0,1fr) 16px; align-items: start; min-width: 0; gap: 12px; padding: 18px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; transition: background 160ms ease; }
+.employee { display: grid; grid-template-columns: 104px minmax(0,1fr) 16px; align-items: start; min-width: 0; gap: 12px; padding: 18px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; transition: background 160ms ease; }
 .employee:last-child { border-bottom: 0; }
-.employee > .employeeStage { width: 88px; height: 96px; margin-top: 2px; border-radius: 12px; background: var(--primary-soft); }
+.employee > .employeeStage { width: 104px; height: 120px; margin-top: 2px; border-radius: 12px; background: var(--primary-soft); }
 .employee > .employeeStage:before, .employee > .employeeStage:after { display: none; }
-.employee > .employeeStage .pixelAvatar { width: 80px; height: 80px; bottom: 2px; }
+.employee > .employeeStage .pixelAvatar { width: 96px; height: 96px; bottom: 2px; }
 .employee > .employeeStage .employeeBubble { display: block; }
 .employeeOpen { padding-top: 4px; color: var(--muted); }
 .employeeOpen .uiIcon { width: 16px; height: 16px; }
@@ -670,7 +670,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .taskSheet .eyebrow { font-size: 11px; letter-spacing: 0; text-transform: none; }
 button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .smallAction { box-shadow: none; }
-@media (max-width: 390px) { .employee { grid-template-columns: 88px minmax(0,1fr) 16px; gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
+@media (max-width: 390px) { .employee { grid-template-columns: 104px minmax(0,1fr) 16px; gap: 10px; } .topbar { gap: 4px; } .brandIdentity { gap: 6px; } }
 @media (max-width: 350px) { h1 { font-size: 18px; } .cloudState { max-width: 60px; font-size: 11px; } .officeHeader { grid-template-columns: 1fr; } }
 @media (min-width: 700px) { .sheet { border: 0; border-radius: 20px; } }
 @media (max-height: 700px) { body[data-view="butler"] .butlerHeroBody, body[data-view="butler"] .connectionHint { display: none; } .butlerHeroHeader { padding-bottom: 12px; } }
@@ -744,9 +744,9 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .taskActions #replyText:focus { border-color: var(--primary); outline: 2px solid var(--primary-soft); }
 @media (max-width: 340px) {
   .employees { padding: 0 12px; }
-  .employee { grid-template-columns: 72px minmax(0,1fr) 14px; gap: 10px; }
-  .employee > .employeeStage { width: 72px; height: 86px; }
-  .employee > .employeeStage .pixelAvatar { width: 64px; height: 64px; bottom: 6px; }
+  .employee { grid-template-columns: 88px minmax(0,1fr) 14px; gap: 10px; }
+  .employee > .employeeStage { width: 88px; height: 104px; }
+  .employee > .employeeStage .pixelAvatar { width: 80px; height: 80px; bottom: 2px; }
 }
 
 .conversationEmpty { padding: 16px; border: 0; border-radius: 12px; background: var(--surface-muted); text-align: left; }

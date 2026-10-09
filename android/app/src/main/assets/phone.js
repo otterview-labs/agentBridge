@@ -3064,7 +3064,9 @@
       arm.classList.add('employeeRaisedArm');
       rect(arm, 14, 10, 2, 4, palette.trim);
       rect(arm, 16, 8, 2, 3, palette.trim);
+      rect(arm, 16, 2, 4, 7, '#a76c43');
       rect(arm, 17, 3, 2, 5, skin);
+      rect(arm, 17, 1, 1, 1, '#a76c43');
       rect(arm, 17, 2, 1, 1, skin);
       rect(arm, 18.5, 4, .5, 3, '#e9bc98');
       svg.appendChild(arm);
@@ -3089,45 +3091,46 @@
 
   function employeeDeskScene(character, pose) {
     const scene = svgPixelNode();
-    scene.setAttribute('viewBox', '0 0 40 40');
+    scene.setAttribute('viewBox', '0 0 48 48');
     scene.setAttribute('shape-rendering', 'crispEdges');
     scene.setAttribute('aria-hidden', 'true');
     scene.setAttribute('focusable', 'false');
     scene.classList.add('pixelAvatar', 'employeeDesk');
     const draw = (x, y, width, height, color) => rect(scene, x, y, width, height, color);
-    // The original colleague stays intact; the workstation now has separate layers.
-    draw(5, 35, 30, 1, '#d2d9c9');
-    draw(3, 19, 13, 11, '#86998c');
-    draw(4, 20, 11, 8, '#a8b8a7');
-    draw(4, 28, 14, 2, '#728b7c');
-    draw(6, 30, 2, 5, '#728b7c');
+    draw(5, 46, 38, 1, '#c8d1be');
+    draw(3, 26, 20, 11, '#6d8575');
+    draw(4, 27, 18, 8, '#a8b8a7');
+    draw(4, 35, 20, 2, '#6d8575');
+    draw(6, 37, 2, 8, '#6d8575');
+    // Whole-number scaling keeps the original character's pixel edges even.
     character.classList.remove('pixelAvatar');
     character.classList.add('employeeCharacter');
-    character.setAttribute('x', '-1'); character.setAttribute('y', '4');
-    character.setAttribute('width', '26'); character.setAttribute('height', String(26 * 22 / 18));
+    character.setAttribute('x', '-2'); character.setAttribute('y', '1');
+    character.setAttribute('width', '36'); character.setAttribute('height', '44');
     scene.appendChild(character);
-    // A visible monitor, stand and keyboard sit beside the colleague, above the desk.
-    draw(26, 16, 12, 9, '#566f6b');
-    draw(27, 17, 10, 7, pose === 'running' ? '#aecfc3' : '#dce5dc');
+    draw(34, 22, 12, 11, '#3e5752');
+    draw(35, 23, 10, 8, pose === 'running' ? '#b4d6c2' : '#dce5dc');
     if (pose === 'running') {
-      draw(28, 18, 4, 1, '#547e70'); draw(28, 20, 7, 1, '#668f80');
-      draw(28, 22, 5, 1, '#547e70');
+      draw(36, 24, 4, 1, '#456f60'); draw(36, 26, 7, 1, '#456f60');
+      draw(36, 28, 5, 1, '#456f60');
       const cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       cursor.classList.add('deskCursor');
-      Object.entries({x: 34, y: 22, width: 1, height: 1, fill: '#547e70'}).forEach(([key, value]) => cursor.setAttribute(key, String(value)));
+      Object.entries({x: 42, y: 28, width: 1, height: 1, fill: '#456f60'}).forEach(([key, value]) => cursor.setAttribute(key, String(value)));
       scene.appendChild(cursor);
     } else {
-      draw(28, 19, 6, 1, '#b0c4b5');
+      draw(36, 25, 6, 1, '#a4b9aa');
     }
-    draw(31, 25, 2, 1, '#566f6b'); draw(29, 26, 6, 1, '#566f6b');
-    draw(21, 26, 7, 1, '#71867e'); draw(22, 25, 5, 1, '#b8c8ba');
-    draw(2, 27, 36, 1, '#e0c59b'); draw(2, 28, 36, 2, '#b99b73');
-    draw(4, 30, 2, 6, '#a28766'); draw(34, 30, 2, 6, '#a28766');
+    draw(39, 33, 2, 1, '#3e5752'); draw(37, 34, 6, 1, '#3e5752');
+    draw(25, 33, 9, 2, '#4b6459');
+    [26, 28, 30, 32].forEach(x => draw(x, 33, 1, 1, '#d3dfcf'));
+    draw(2, 35, 44, 1, '#e0c59b'); draw(2, 36, 44, 2, '#b99b73');
+    draw(2, 37, 44, 1, '#987347');
+    draw(4, 38, 2, 8, '#987347'); draw(42, 38, 2, 8, '#987347');
     if (pose === 'running') {
       const hands = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       hands.classList.add('typingHands');
-      rect(hands, 20, 25, 4, 2, '#f6d1ae');
-      rect(hands, 23, 26, 2, 1, '#e9bc98');
+      rect(hands, 26, 31, 5, 3, '#a76c43');
+      rect(hands, 26, 31, 4, 2, '#f6d1ae');
       scene.appendChild(hands);
     }
     return scene;
