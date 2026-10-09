@@ -562,8 +562,14 @@ test('offline employees show historical status with no work animation', async t 
   }, selector);
   const idle = await animation('[data-task-id="3"] .employeeCharacter');
   assert.equal(idle.name, 'none', JSON.stringify(idle));
-  const running = await animation('[data-task-id="1"] .employeeCharacter');
+  const running = await animation('[data-task-id="1"] .typingHands');
   assert.notEqual(running.name, 'none', JSON.stringify(running));
+  await page.locator('[data-task-id="1"]').scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => document.querySelector('[data-task-id="1"]').dataset.motion === 'live');
+  await page.locator('[data-view="butler"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-task-id="1"]').dataset.motion === 'paused');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  assert.equal((await animation('[data-task-id="1"] .typingHands')).name, 'none');
 });
 
 test('task drafts remain separate when closing and reopening sheets', async t => {

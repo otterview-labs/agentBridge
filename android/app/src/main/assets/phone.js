@@ -50,6 +50,12 @@
     collapsedSprites: loadCollapsedSprites()
   };
   const showDeletedOffices = new Set();
+  const employeeMotionObserver = window.IntersectionObserver ? new IntersectionObserver((entries) => {
+    entries.forEach((entry) => { entry.target.dataset.motion = entry.isIntersecting ? 'live' : 'paused'; });
+  }) : null;
+  document.addEventListener('visibilitychange', () => {
+    document.body.classList.toggle('employeeMotionPaused', document.hidden);
+  });
   const voicePointer = { id: null, x: 0, y: 0, startedAt: 0, cancelArmed: false };
   let chatLayoutFrame = null;
   const agentNames = { codex: 'Codex', 'claude-code': 'Claude', gemini: 'Gemini' };
@@ -1431,6 +1437,7 @@
   }
 
   function renderOffices() {
+    if (employeeMotionObserver) employeeMotionObserver.disconnect();
     const container = $('offices');
     container.textContent = '';
     const butler = element('button', 'townButler');
@@ -2861,6 +2868,8 @@
     card.dataset.agent = task.agentType;
     card.dataset.taskId = String(task.id);
     card.dataset.record = isRecordedTask(task) ? 'true' : 'false';
+    card.dataset.motion = employeeMotionObserver ? 'paused' : 'live';
+    if (employeeMotionObserver) employeeMotionObserver.observe(card);
     card.type = 'button';
     const displayName = taskDisplayName(task);
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
@@ -3051,11 +3060,14 @@
     rect(svg, 2, 15, 2, 1, skin);
     if (pose === 'attention') {
       svg.setAttribute('overflow', 'visible');
-      rect(svg, 14, 10, 2, 4, palette.trim);
-      rect(svg, 16, 8, 2, 3, palette.trim);
-      rect(svg, 17, 3, 2, 5, skin);
-      rect(svg, 17, 2, 1, 1, skin);
-      rect(svg, 18.5, 4, .5, 3, '#e9bc98');
+      const arm = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      arm.classList.add('employeeRaisedArm');
+      rect(arm, 14, 10, 2, 4, palette.trim);
+      rect(arm, 16, 8, 2, 3, palette.trim);
+      rect(arm, 17, 3, 2, 5, skin);
+      rect(arm, 17, 2, 1, 1, skin);
+      rect(arm, 18.5, 4, .5, 3, '#e9bc98');
+      svg.appendChild(arm);
     } else {
       rect(svg, 14, 11, 2, 4, palette.trim);
       rect(svg, 14, 15, 2, 1, skin);
@@ -3091,27 +3103,31 @@
     draw(6, 30, 2, 5, '#728b7c');
     character.classList.remove('pixelAvatar');
     character.classList.add('employeeCharacter');
-    character.setAttribute('x', '2'); character.setAttribute('y', '9');
-    character.setAttribute('width', '18'); character.setAttribute('height', '22');
+    character.setAttribute('x', '-1'); character.setAttribute('y', '4');
+    character.setAttribute('width', '26'); character.setAttribute('height', String(26 * 22 / 18));
     scene.appendChild(character);
     // A visible monitor, stand and keyboard sit beside the colleague, above the desk.
-    draw(23, 16, 13, 9, '#566f6b');
-    draw(24, 17, 11, 7, pose === 'running' ? '#c9ded1' : '#dce5dc');
+    draw(26, 16, 12, 9, '#566f6b');
+    draw(27, 17, 10, 7, pose === 'running' ? '#aecfc3' : '#dce5dc');
     if (pose === 'running') {
-      draw(25, 18, 5, 1, '#668f80'); draw(25, 20, 8, 1, '#7a9d8d');
-      draw(25, 22, 6, 1, '#668f80');
+      draw(28, 18, 4, 1, '#547e70'); draw(28, 20, 7, 1, '#668f80');
+      draw(28, 22, 5, 1, '#547e70');
+      const cursor = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      cursor.classList.add('deskCursor');
+      Object.entries({x: 34, y: 22, width: 1, height: 1, fill: '#547e70'}).forEach(([key, value]) => cursor.setAttribute(key, String(value)));
+      scene.appendChild(cursor);
     } else {
-      draw(25, 19, 7, 1, '#b0c4b5');
+      draw(28, 19, 6, 1, '#b0c4b5');
     }
-    draw(28, 25, 2, 1, '#566f6b'); draw(26, 26, 6, 1, '#566f6b');
-    draw(17, 26, 8, 1, '#71867e'); draw(18, 25, 6, 1, '#b8c8ba');
+    draw(31, 25, 2, 1, '#566f6b'); draw(29, 26, 6, 1, '#566f6b');
+    draw(21, 26, 7, 1, '#71867e'); draw(22, 25, 5, 1, '#b8c8ba');
     draw(2, 27, 36, 1, '#e0c59b'); draw(2, 28, 36, 2, '#b99b73');
     draw(4, 30, 2, 6, '#a28766'); draw(34, 30, 2, 6, '#a28766');
     if (pose === 'running') {
       const hands = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       hands.classList.add('typingHands');
-      rect(hands, 16, 24, 4, 2, '#f6d1ae');
-      rect(hands, 19, 25, 2, 1, '#e9bc98');
+      rect(hands, 20, 25, 4, 2, '#f6d1ae');
+      rect(hands, 23, 26, 2, 1, '#e9bc98');
       scene.appendChild(hands);
     }
     return scene;

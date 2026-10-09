@@ -754,10 +754,13 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--primary);
 .conversationEmpty span { color: var(--muted); font-size: 13px; line-height: 1.65; }
 
 .employee .pixelAvatar.employeeDesk { animation: none; }
-.employee[data-state="running"] .employeeCharacter { animation: deskTyping 800ms steps(2, end) infinite; }
 .employee[data-state="running"] .typingHands { animation: deskTyping 600ms steps(2, end) infinite; }
-.employee[data-state="attention"] .employeeCharacter { animation: deskAttention 1400ms steps(2, end) infinite; }
-.employee[data-record="true"] .employeeCharacter, .employee[data-record="true"] .typingHands { animation: none; }
-@keyframes deskTyping { to { transform: translateY(-.5px); } }
-@keyframes deskAttention { to { transform: translateY(-1px); } }
-@media (prefers-reduced-motion: reduce) { .employeeCharacter, .typingHands { animation: none !important; } }
+.employee[data-state="running"] .deskCursor { animation: deskCursor 1200ms steps(1, end) infinite; }
+.employee[data-state="attention"] .employeeRaisedArm { transform-box: view-box; transform-origin: 14px 13px; animation: deskWave 2600ms steps(3, end) infinite; }
+.employee[data-record="true"] .employeeRaisedArm, .employee[data-record="true"] .typingHands, .employee[data-record="true"] .deskCursor { animation: none; }
+.employee[data-motion="paused"] .employeeRaisedArm, .employee[data-motion="paused"] .typingHands, .employee[data-motion="paused"] .deskCursor,
+.employeeMotionPaused .employeeRaisedArm, .employeeMotionPaused .typingHands, .employeeMotionPaused .deskCursor { animation-play-state: paused; }
+@keyframes deskTyping { 50% { transform: translateY(-2px); } }
+@keyframes deskCursor { 50% { opacity: 0; } }
+@keyframes deskWave { 0%, 15%, 55%, 100% { transform: rotate(0); } 25%, 45% { transform: rotate(14deg); } 35% { transform: rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) { .employeeRaisedArm, .typingHands, .deskCursor { animation: none !important; } }
