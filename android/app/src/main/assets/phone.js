@@ -2866,7 +2866,8 @@
     card.setAttribute('aria-label', `${displayName}，${taskStatusText(task)}`);
     const info = element('div', 'employeeInfo');
     const stage = element('span', 'employeeStage');
-    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3));
+    stage.append(employeeSprite(task.agentType, Number(String(task.id).replace(/\D/g, '')) % 3,
+      isRecordedTask(task) ? '' : currentState));
     const bubble = element('span', 'employeeBubble', taskBubbleText(task, currentState));
     bubble.setAttribute('aria-hidden', 'true');
     stage.append(bubble);
@@ -3009,7 +3010,7 @@
     svg.append(item);
   }
 
-  function employeeSprite(agentType, variant) {
+  function employeeSprite(agentType, variant, pose = '') {
     const palettes = {
       codex: { shirt: '#7488bc', trim: '#5a6c9b' },
       'claude-code': { shirt: '#cc8250', trim: '#a96940' },
@@ -3046,10 +3047,29 @@
     rect(svg, 7, 8, 1, 1, '#c26060'); rect(svg, 10, 8, 1, 1, '#c26060');
     rect(svg, 8, 8, 2, 1, '#a95050');
     rect(svg, 5, 8, 1, 1, '#f5a8a8'); rect(svg, 12, 8, 1, 1, '#f5a8a8');
-    rect(svg, 2, 11, 2, 4, palette.trim); rect(svg, 14, 11, 2, 4, palette.trim);
-    rect(svg, 2, 15, 2, 1, skin); rect(svg, 14, 15, 2, 1, skin);
+    rect(svg, 2, 11, 2, 4, palette.trim);
+    rect(svg, 2, 15, 2, 1, skin);
+    if (pose === 'attention') {
+      rect(svg, 14, 9, 2, 5, palette.trim);
+      rect(svg, 14, 5, 2, 4, skin);
+      rect(svg, 14, 4, 1, 1, skin);
+      rect(svg, 15.5, 6, .5, 3, '#e9bc98');
+    } else {
+      rect(svg, 14, 11, 2, 4, palette.trim);
+      rect(svg, 14, 15, 2, 1, skin);
+    }
     rect(svg, 6, 16, 2, 4, '#39415d'); rect(svg, 10, 16, 2, 4, '#39415d');
     rect(svg, 5, 20, 3, 2, '#28304b'); rect(svg, 10, 20, 3, 2, '#28304b');
+    // Small pixel accents refine the original face and silhouette, without replacing them.
+    rect(svg, 5, 2.5, 7, .5, '#554b62');
+    rect(svg, 13.5, 4, .5, 5, '#e9bc98');
+    rect(svg, 5, 9.5, 8, .5, '#e9bc98');
+    rect(svg, 6, 6, .5, .5, '#fffaf0'); rect(svg, 10, 6, .5, .5, '#fffaf0');
+    const shirtLight = { codex: '#91a2ca', 'claude-code': '#dda077', gemini: '#a69acb', pi: '#64856a' };
+    rect(svg, 4, 10.5, 3, .5, shirtLight[agentType] || '#91a2b3');
+    rect(svg, 11, 10.5, 2, .5, shirtLight[agentType] || '#91a2b3');
+    rect(svg, 3, 15.5, 12, .5, palette.trim);
+    rect(svg, 5.5, 20, 2, .5, '#46516a'); rect(svg, 10.5, 20, 2, .5, '#46516a');
     return svg;
   }
 
