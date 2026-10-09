@@ -1525,3 +1525,17 @@ test('call transcript streams before TTS and switches to playback only after com
   assert.match(await page.locator('#callStatus').textContent(), /播报/);
   await page.locator('#callEnd').click();
 });
+
+test('adapter IDs and record paths stay in raw records while readable progress remains visible', async t => {
+  const envelope = 'Codex 线程：thread-123\n状态：task_started\n来源：Codex Desktop\n记录：/private/project/record.jsonl\n\n';
+  for (const [summary, readable] of [['Codex 线程：训练平台2', false], ['最近输出：登录测试已通过。', true]]) {
+    const page = await openPhone(t, { taskPreviewRecords: { workSummary: summary, lastOutput: envelope + summary } });
+    await page.locator('[data-task-id="1"]').click();
+    const timeline = await page.locator('#conversationTimeline').textContent();
+    assert.doesNotMatch(timeline, /thread-123|record\.jsonl|task_started/);
+    if (readable) assert.match(timeline, /登录测试已通过/);
+    else assert.match(timeline, /还没有可读的问答/);
+    await page.locator('#rawRecord > summary').click();
+    assert.equal(await page.locator('#taskOutput').textContent(), envelope + summary);
+  }
+});
