@@ -2469,6 +2469,23 @@ final class PhoneBridge {
       JSONObject task = store.task(id);
       JSONObject machine = store.machine(task.getInt("machineId"));
       if ("process".equals(task.optString("controlMode"))) {
+        if ("codex".equals(task.optString("agentType")) && task.optString("paneId").startsWith("codex:")) {
+          Session session = null;
+          try {
+            session = connect(machine);
+            List<JSONObject> records = listCodexDesktopTasks(session, machine.getInt("id"), task.optString("externalSessionId"));
+            if (records.isEmpty()) throw new IllegalArgumentException(UiText.text("没有找到该员工的会话记录，请刷新办公室后重试。"));
+            JSONObject fresh = records.get(0);
+            JSONObject fields = new JSONObject();
+            for (String key : Arrays.asList("status", "workSummary", "lastOutput", "requiredInput", "suggestedReply", "updatedAt")) {
+              fields.put(key, fresh.opt(key));
+            }
+            JSONObject updated = store.patchTask(id, fields);
+            return success(new JSONObject().put("task", updated == null ? task : updated));
+          } finally {
+            disconnect(session);
+          }
+        }
         return discoverTasks(machine.getInt("id"));
       }
       Session session = null;
@@ -3296,6 +3313,13 @@ final class PhoneBridge {
   }
 
   private List<JSONObject> listCodexDesktopTasks(Session session, int machineId) throws Exception {
+    return listCodexDesktopTasks(session, machineId, null);
+  }
+
+  private List<JSONObject> listCodexDesktopTasks(Session session, int machineId, String onlyThread) throws Exception {
+    if (onlyThread != null && !onlyThread.matches(CODEX_THREAD_ID)) {
+      throw new IllegalArgumentException(UiText.text("没有找到有效的会话 ID。"));
+    }
     // Read the session index first — it has all sessions with human-readable names
     Map<String, String> titleByThread = new HashMap<>();
     for (String line : run(session, "cat \"$HOME/.codex/session_index.jsonl\" 2>/dev/null || true").split("\\n")) {
@@ -3308,8 +3332,8 @@ final class PhoneBridge {
     }
 
     // Detect active threads via lock files
-    String lockValue = run(session, "find \"$HOME/.codex/thread-writer-locks\" -maxdepth 1 -type f "
-        + "-name '*.lock' ! -name '.coordination.lock' -exec basename {} .lock \\; 2>/dev/null || true");
+    String lockValue = onlyThread == null ? run(session, "find \"$HOME/.codex/thread-writer-locks\" -maxdepth 1 -type f "
+        + "-name '*.lock' ! -name '.coordination.lock' -exec basename {} .lock \\; 2>/dev/null || true") : "";
     Set<String> activeThreadIds = new HashSet<>();
     for (String value : lockValue.split("\\n")) {
       String threadId = value.trim().toLowerCase();
@@ -3321,6 +3345,7 @@ final class PhoneBridge {
     for (String id : titleByThread.keySet()) {
       if (!activeThreadIds.contains(id) && threadIds.size() < 30) threadIds.add(id);
     }
+    if (onlyThread != null) threadIds = new ArrayList<>(Collections.singletonList(onlyThread));
     if (threadIds.isEmpty()) return Collections.emptyList();
 
     // Find transcript files
@@ -3339,8 +3364,10 @@ final class PhoneBridge {
         if (clean.toLowerCase().endsWith(threadId + ".jsonl")) transcriptByThread.put(threadId, clean);
       }
     }
+    if (onlyThread != null && !transcriptByThread.containsKey(onlyThread)) return Collections.emptyList();
 
-    StringBuilder script = new StringBuilder();
+    StringBuilder script = new StringBuilder("asb_codex_reader=")
+        .append(shellQuote(codexTranscriptReader())).append('\n');
     for (String threadId : threadIds) {
       String transcriptPath = transcriptByThread.getOrDefault(threadId, "");
       script.append("printf '__ASB_THREAD__\\t%s\\t%s\\n' ")
@@ -3349,7 +3376,7 @@ final class PhoneBridge {
         String quoted = shellQuote(transcriptPath);
         script.append("head -c 4096 ").append(quoted).append(" 2>/dev/null || true\n")
             .append("printf '\\n__ASB_TAIL__\\n'\n")
-            .append("tail -c 32768 ").append(quoted).append(" 2>/dev/null || true\n");
+            .append(codexTranscriptCommand(transcriptPath)).append('\n');
       }
       script.append("printf '\\n__ASB_END__\\n'\n");
     }
@@ -3400,7 +3427,7 @@ final class PhoneBridge {
             ? threadTitle
             : assistantTitle != null ? assistantTitle : userTitle != null ? userTitle : threadTitle;
       if (workTitle == null || workTitle.trim().isEmpty()) workTitle = workspaceName;
-      String status = work != null && "running".equals(work.status) ? "running" : "idle";
+      String status = work == null ? "idle" : work.status;
       String summary = work == null || work.summary().trim().isEmpty()
           ? (threadTitle.isEmpty() ? "已发现 Codex Desktop 线程，暂未读取到文本记录。" : "Codex 线程：" + threadTitle)
           : work.summary();
@@ -3428,6 +3455,23 @@ final class PhoneBridge {
     }
     Log.d("AgentBridgeNative", "codex desktop threads=" + threadIds.size() + " tasks=" + result.size());
     return result;
+  }
+
+  private String codexTranscriptReader() throws IOException {
+    try (InputStream input = activity.getAssets().open("codex-transcript.py")) {
+      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+      byte[] buffer = new byte[4096];
+      int count;
+      while ((count = input.read(buffer)) != -1) bytes.write(buffer, 0, count);
+      return bytes.toString(StandardCharsets.UTF_8.name());
+    }
+  }
+
+  private String codexTranscriptCommand(String path) {
+    // Python is optional on remote machines. Preserve the old bounded reader
+    // when unavailable; never download or install a dependency over SSH.
+    return "{ python3 -c \"$asb_codex_reader\" " + shellQuote(path)
+        + " 2>/dev/null || tail -c 32768 " + shellQuote(path) + " 2>/dev/null; } || true";
   }
 
   private void preserveCustomTitles(int machineId, JSONArray discovered) throws Exception {
@@ -3933,12 +3977,13 @@ final class PhoneBridge {
     for (String line : readable.split("\\r?\\n")) {
       String clean = line.replaceFirst("^#{1,6}\\s*", "").replaceAll("\\s+", " ").trim();
       if (clean.isEmpty() || clean.matches("^(?:[-*]\\s|>\\s*).*")) continue;
-      Collections.addAll(candidates, clean.split("(?<=[。！？!?])\\s*"));
+      Collections.addAll(candidates, clean.split("(?<=[。！？!?])\\s*|(?<=\\.)\\s+"));
     }
     Pattern cue = Pattern.compile("(需要你|你需要|你要|请确认|确认一下|你确认|等你|告诉我|要不要|是否|你选|你决定|手动|装好后|说一声|最后一步|你只需要|你拍板|发给我|提供|输入|可以授权我|验收)");
+    Pattern question = Pattern.compile("(?i)(should\\s+(?:i|we)\\b|may\\s+(?:i|we)\\b|can\\s+(?:i|we|you)\\b|could\\s+you\\b|would\\s+you\\b|do\\s+you\\b|which\\b|confirm\\b|choose\\b|approve\\b|allow\\b|permission\\b|能否|可否|允许|可以|哪个|哪种|吗)");
     for (int index = candidates.size() - 1; index >= 0; index -= 1) {
       String sentence = candidates.get(index).trim();
-      if (cue.matcher(sentence).find() || sentence.matches(".*[?？]$")) {
+      if (cue.matcher(sentence).find() || (sentence.matches(".*[?？]$") && question.matcher(sentence).find())) {
         String selected = sentence.replaceFirst("^[*-]\\s*", "").replaceFirst("^[:：,，。]\\s*", "").trim();
         if (selected.length() >= 6) return selected.substring(0, Math.min(320, selected.length()));
       }
@@ -4044,6 +4089,7 @@ final class PhoneBridge {
       String latestUser = null;
       String latestAssistant = null;
       String status = null;
+      boolean passedLatestUser = false;
       String[] lines = value.split("\\n");
       for (int index = lines.length - 1; index >= 0; index -= 1) {
         String line = lines[index].trim();
@@ -4057,19 +4103,29 @@ final class PhoneBridge {
         if ("codex".equals(kind) && "event_msg".equals(entry.optString("type"))) {
           JSONObject payload = entry.optJSONObject("payload");
           String eventType = payload == null ? "" : payload.optString("type");
-          if (status == null && ("task_complete".equals(eventType) || "task_failed".equals(eventType) || "task_cancelled".equals(eventType))) status = "idle";
+          if (status == null && "task_failed".equals(eventType)) status = "error";
+          if (status == null && ("task_complete".equals(eventType) || "task_cancelled".equals(eventType))) status = "idle";
           if (status == null && "task_started".equals(eventType)) status = "running";
         }
         JSONObject payload = "codex".equals(kind) ? entry.optJSONObject("payload") : entry.optJSONObject("message");
         if (payload == null) continue;
         String role = payload.optString("role");
         String text = "codex".equals(kind) ? codexText(payload.optJSONArray("content")) : claudeText(payload.opt("content"));
+        if ("codex".equals(kind) && "event_msg".equals(entry.optString("type"))) {
+          String event = payload.optString("type");
+          if ("user_message".equals(event) || "agent_message".equals(event)) {
+            role = "user_message".equals(event) ? "user" : "assistant";
+            text = payload.optString("message");
+          }
+        }
         if (text == null || text.trim().isEmpty()) continue;
-        if ("user".equals(role) && latestUser == null && !text.startsWith("<")) latestUser = truncate(clean(text), 2400);
-        if ("assistant".equals(role) && latestAssistant == null) latestAssistant = truncate(clean(text), 2400);
+        if ("user".equals(role) && latestUser == null && !text.startsWith("<")) {
+          latestUser = truncate(clean(text), 2400);
+          passedLatestUser = true;
+        }
+        if ("assistant".equals(role) && latestAssistant == null && !passedLatestUser) latestAssistant = truncate(clean(text), 2400);
         if (latestUser != null && latestAssistant != null && status != null) break;
       }
-      if (latestUser == null && latestAssistant == null) return new Work(null, null, "running");
       return new Work(latestUser, latestAssistant, status == null ? "running" : status);
     }
 

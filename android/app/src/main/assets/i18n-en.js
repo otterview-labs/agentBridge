@@ -630,6 +630,8 @@ window.AGENTBRIDGE_EN = {
   "说话后会自动发给管家，管家回复后继续聆听。": "Will auto-send to Butler after you speak, and continue listening after Butler replies.",
   "管家已回复。": "Butler has replied.",
   "没有找到该进程的会话 ID，暂不能回复。": "Session ID for this process not found. Cannot reply now.",
+  "没有找到该员工的会话记录，请刷新办公室后重试。": "This employee's session record was not found. Refresh the office and try again.",
+  "没有找到有效的会话 ID。": "No valid session ID was found.",
   "暂时没有任务等你回复。": "No tasks waiting for your reply.",
   "看看今天做了什么，明天先做什么。": "See what was done today and what's next for tomorrow.",
   "配置已保存，点「验证连接」试一下。": "Config saved. Tap \"Verify Connection\".",
