@@ -3,6 +3,24 @@ const {methods,harness}=require('./java-json-fixture.cjs');
 const core=methods('ManagedCoordinator.java','  interface Backend','\n}').replaceAll('Files.','java.nio.file.Files.').replaceAll('StandardCopyOption.','java.nio.file.StandardCopyOption.').replaceAll('MessageDigest.','java.security.MessageDigest.');
 const backend=methods('OpenHandsBackend.java','  interface Transport','\n}').replaceAll('new URI(', 'new java.net.URI(').replaceAll('URI uri','java.net.URI uri');
 
+test('managed JSON fences and endpoint tails use bounded linear parsing for untrusted text', t => {
+ const parser=methods('PhoneBridge.java','  static String managedJsonText','  private JSONObject studioMessageTurn');
+ harness(t,'ManagedTextHarness',`
+ static class ManagedCoordinator {${core}}
+ static class OpenHandsBackend implements ManagedCoordinator.Backend {${backend}}
+ ${parser}
+ public static void main(String[] args)throws Exception{
+  check(managedJsonText("  {\\\"action\\\":\\\"wait\\\"}  ").equals("{\\\"action\\\":\\\"wait\\\"}"));
+  check(managedJsonText("\x60\x60\x60json\\n{\\\"action\\\":\\\"review\\\"}\\n\x60\x60\x60").equals("{\\\"action\\\":\\\"review\\\"}"));
+  check(managedJsonText("\x60\x60\x60\\n{}\\n\x60\x60\x60").equals("{}"));
+  try {managedJsonText(" ".repeat(64001));throw new AssertionError();}catch(IllegalArgumentException expected){}
+  check(OpenHandsBackend.endpoint(" https://example.test/v1"+"/".repeat(1000)+" ").equals("https://example.test/v1"));
+  try {OpenHandsBackend.endpoint("https://example.test/"+"/".repeat(4096));throw new AssertionError();}catch(IllegalArgumentException expected){}
+  System.out.println("ok");
+ }
+ `);
+});
+
 test('phone coordinator persists delivery before sending, recovers uncertainty and never retries an ambiguous action',t=>{
  harness(t,'ManagedRecoveryHarness',`
  static class ManagedCoordinator {${core}}

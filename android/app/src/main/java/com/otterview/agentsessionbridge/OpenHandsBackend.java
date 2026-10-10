@@ -11,13 +11,18 @@ final class OpenHandsBackend implements ManagedCoordinator.Backend {
   private final Transport transport;
   OpenHandsBackend(Transport transport) { this.transport=transport; }
   static String endpoint(String value) throws Exception {
-    URI uri=new URI(value.trim());
+    if (value == null || value.length() > 4096)
+      throw new IllegalArgumentException("OpenHands 地址过长，请检查服务地址");
+    String normalized = value.trim();
+    URI uri=new URI(normalized);
     if (!("https".equals(uri.getScheme()) || "http".equals(uri.getScheme())) || uri.getHost()==null
         || uri.getUserInfo()!=null || uri.getQuery()!=null || uri.getFragment()!=null)
       throw new IllegalArgumentException("请填写 OpenHands Agent Server 的 HTTP(S) 地址");
     if ("http".equals(uri.getScheme()) && !uri.getHost().equals("127.0.0.1") && !uri.getHost().equals("localhost"))
       throw new IllegalArgumentException("OpenHands 远程连接请使用 HTTPS；本机端口转发可使用 localhost HTTP");
-    return value.trim().replaceAll("/+$", "");
+    int end = normalized.length();
+    while (end > 0 && normalized.charAt(end - 1) == '/') end--;
+    return normalized.substring(0, end);
   }
   static String conversationPath(JSONObject binding) {
     String id=binding.optString("conversationId").toLowerCase(Locale.ROOT);

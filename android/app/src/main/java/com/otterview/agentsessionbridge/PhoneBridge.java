@@ -242,8 +242,21 @@ final class PhoneBridge {
     messages.put(new JSONObject().put("role", "user").put("content",new JSONObject()
         .put("goal",job.getString("goal")).put("rules",job.getString("rules"))
         .put("memory",job.optString("memory")).put("observation",observation).toString()));
-    String answer=directModelReply(model,messages).trim().replaceFirst("^```(?:json)?\\s*", "").replaceFirst("\\s*```$", "");
+    String answer = managedJsonText(directModelReply(model, messages));
     return new JSONObject(answer);
+  }
+
+  static String managedJsonText(String value) {
+    if (value == null || value.length() > 64000)
+      throw new IllegalArgumentException("管家判断内容过长，请重新检查任务");
+    String answer = value.trim();
+    if (answer.startsWith("```")) {
+      answer = answer.substring(3);
+      if (answer.startsWith("json")) answer = answer.substring(4);
+      answer = answer.trim();
+    }
+    if (answer.endsWith("```")) answer = answer.substring(0, answer.length() - 3).trim();
+    return answer;
   }
 
   private JSONObject studioMessageTurn(JSONObject model, String content, Integer operationId) throws Exception {
