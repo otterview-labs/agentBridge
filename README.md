@@ -21,11 +21,11 @@
 
 <a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh-053.jpg" width="760" alt="办公小镇操作实录：训练平台开发与小红书改稿"></a>
 
-**[看中英文操作视频](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex。
+**[看中英文操作视频](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex，再让管家按范围跟进。
 
 | 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-0.5.45.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
+| <img src="docs/screenshots/office-zh-0.5.51.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
 
 <sub>办公室、任务回复和管家截图来自演示项目；通话截图使用样例记录。</sub>
 
@@ -69,6 +69,10 @@
 管家模型由你选择，支持 OpenAI 兼容接口。聊天回复逐步显示；可以查看整个小镇，也可以只聊某位员工的任务。
 
 **0.5.53：手机持续跟进（试用）**。把目标和处理范围交代清楚，管家会检查进展；允许自动回复后，它可以在这个范围内发消息。回复次数和跟进时长由你设置，遇到需要决定的事会停下来。结果由你确认，随时可以暂停。见[使用与限制](docs/managed-mode.md)。
+
+<p><img src="docs/screenshots/follow-scope-zh-0.5.53.png" width="230" alt="设置训练平台任务目标、授权范围和自动回复限制"> <img src="docs/screenshots/follow-review-zh-0.5.53.png" width="230" alt="跟进结果等待用户验收"></p>
+
+跟进截图来自独立模拟器和受控演示记录。
 
 聊天记录按小镇和员工分别保存在 Markdown 文件里；可选的电脑端 Pi + `pi-memory` 可以查询任务、保存记忆。配置见 [Pi 管家说明](docs/pi-butler.md)。Pi 聊天和手机持续跟进分别运行。
 

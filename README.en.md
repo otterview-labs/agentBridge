@@ -21,11 +21,11 @@ Each computer becomes an office; each task gets a pixel employee.
 
 <a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en-053.jpg" width="760" alt="Office Town app demo: training platform development and Xiaohongshu editing"></a>
 
-**[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, then reply to Codex from your phone.
+**[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, reply to Codex from your phone, and set up butler follow-up.
 
 | Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-en-0.5.45.png" width="180" alt="Training platform and Xiaohongshu editing tasks with pending decisions"> | <img src="docs/screenshots/task-en-0.5.45.png" width="180" alt="Reply to the training platform task and read the returned test results"> | <img src="docs/screenshots/butler-en-0.5.45.png" width="180" alt="Butler reads task records and lists pending decisions"> | <img src="docs/screenshots/call-en-0.5.44.png" width="180" alt="Voice chat with microphone, speaker and end-call controls"> |
+| <img src="docs/screenshots/office-en-0.5.51.png" width="180" alt="Training platform and Xiaohongshu editing tasks with pending decisions"> | <img src="docs/screenshots/task-en-0.5.45.png" width="180" alt="Reply to the training platform task and read the returned test results"> | <img src="docs/screenshots/butler-en-0.5.45.png" width="180" alt="Butler reads task records and lists pending decisions"> | <img src="docs/screenshots/call-en-0.5.44.png" width="180" alt="Voice chat with microphone, speaker and end-call controls"> |
 
 <sub>Office, task reply and butler screenshots come from demo projects. The call screenshot uses sample records.</sub>
 
@@ -69,6 +69,10 @@ Tap refresh for the latest task status. Offline computers show saved records.
 Choose your own butler model through an OpenAI-compatible API. Replies stream as they arrive. Chat about the whole town or focus on one employee.
 
 **New in 0.5.53: phone task supervision (experimental).** Set a goal and scope. The butler checks progress and, if you allow it, sends replies within that scope. You set the reply limit and duration. It stops when a decision needs you; you accept the result yourself. Pause at any time. See [setup and limits](docs/managed-mode.md).
+
+<p><img src="docs/screenshots/follow-scope-en-0.5.53.png" width="230" alt="Set the training task goal, permitted scope and reply limits"> <img src="docs/screenshots/follow-review-en-0.5.53.png" width="230" alt="Follow-up result awaits manual acceptance"></p>
+
+Supervision screenshots use an isolated emulator and controlled demo records.
 
 Town and employee chats have separate Markdown histories. Optional computer-side Pi + `pi-memory` can query tasks and store memory. See [Pi setup](docs/pi-butler.md). Pi chat and phone supervision run separately.
 
