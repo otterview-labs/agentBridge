@@ -50,6 +50,7 @@
             <p id="piMeta">模型未连接</p>
           </div>
           <div class="officeActions">
+            <button class="smallAction" type="button" id="openManaged">跟进</button>
             <button class="smallAction" type="button" id="openCloudFromButler">配置模型</button>
             <button class="callToggle" type="button" id="startCall">通话</button>
             <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg></button>
@@ -233,9 +234,40 @@
       <button class="ghostAction" id="tailTask">刷新输出</button>
       <details class="taskTools">
         <summary>更多操作</summary>
-        <div><button class="ghostAction" id="renameTask">改名</button><button class="ghostAction deleteAction" id="deleteTask">删除</button></div>
+        <div><button class="ghostAction" id="manageTask">交给管家跟进</button><button class="ghostAction" id="renameTask">改名</button><button class="ghostAction deleteAction" id="deleteTask">删除</button></div>
       </details>
     </footer>
+  </section>
+</div>
+
+<div class="sheetBackdrop hidden" id="managedBackdrop">
+  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="managedTitle">
+    <header><h2 id="managedTitle">手机持续跟进</h2><button class="iconButton subtle" data-close="managedBackdrop" aria-label="关闭跟进设置">✕</button></header>
+    <div class="managedBody">
+      <p id="managedStatus" role="status">尚未启动</p>
+      <div class="managedControls"><button type="button" class="primaryAction" id="toggleManaged">启动手机管家</button><button type="button" class="ghostAction" id="refreshManaged">刷新</button></div>
+      <p class="formNote">开启后会显示常驻通知。锁屏和省电设置可能延迟检查；应用被强制停止后，需要重新打开。暂停跟进不会停止电脑上已开始的任务。</p>
+      <div id="managedJobs" class="managedJobs"></div>
+      <details id="newManagedJob"><summary>添加跟进任务</summary>
+        <form id="managedForm">
+          <label>执行后端<select id="managedBackend"><option value="employee">已有员工会话</option><option value="openhands">OpenHands Agent Server</option></select></label>
+          <label id="managedEmployeeRow">员工<select id="managedTaskId"></select></label>
+          <div id="managedOpenHandsFields" class="hidden">
+            <label>Agent Server 地址<input id="ohEndpoint" placeholder="https://你的 Agent Server 地址"></label>
+            <label>服务访问密钥<input id="ohApiKey" type="password" autocomplete="off" placeholder="已保存时可不填"></label>
+            <button type="button" class="smallAction" id="saveOpenHands">保存 OpenHands 连接</button>
+            <label>已有会话 UUID<input id="ohConversationId" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"></label>
+            <p class="formNote">先在 Agent Server 创建会话并配置工作目录。手机绑定该会话进行跟进，执行环境由服务端提供。</p>
+          </div>
+          <label>这次要完成什么<textarea id="managedGoal" rows="2" maxlength="4000" required placeholder="例如：训练页面显示进度和失败原因"></textarea></label>
+          <label>允许管家处理的范围<textarea id="managedRules" rows="3" maxlength="4000" required placeholder="例如：按已确认的设计继续开发并补测试；不增加通知，不发布，有新方案先问我"></textarea></label>
+          <label class="managedPermission"><input id="managedAllowReplies" type="checkbox">允许在上述范围内自动回复</label>
+          <div class="two"><label>最多自动回复次数<input id="managedMaxReplies" type="number" min="1" max="20" value="3" required></label><label>跟进时长（分钟）<input id="managedMinutes" type="number" min="10" max="1440" value="120" required></label></div>
+          <button class="primaryAction wide" type="submit">加入跟进队列</button>
+        </form>
+      </details>
+      <p id="managedFeedback" role="status" aria-live="polite"></p>
+    </div>
   </section>
 </div>
 
@@ -248,6 +280,12 @@
       <button class="iconButton subtle" data-close="cloudBackdrop" aria-label="关闭模型设置">✕</button>
     </header>
     <form id="cloudForm">
+      <label>管家运行方式<select id="butlerRuntime"><option value="phone">手机直接聊天</option><option value="pi">电脑端 Pi + 记忆</option></select></label>
+      <div id="piRuntimeFields" class="hidden">
+        <label>运行 Pi 的电脑<select id="piMachineId"></select></label>
+        <label>Pi 脚本完整路径<input id="piWorkerPath" placeholder="/你的目录/agentBridge/tools/pi-butler/worker.mjs"></label>
+        <p class="formNote">先在电脑上安装配套脚本。该模式会通过 SSH 传递模型配置和所选范围的任务记录，记忆保存在电脑上。</p>
+      </div>
       <div class="modelFields">
         <p class="formNote">填写你的模型服务</p>
         <label>Base URL<input id="modelBaseUrl" type="url" placeholder="https://服务商地址/v1" required></label>
@@ -338,6 +376,7 @@
     <button type="button" data-quick-prompt="请总结今日进展和风险。">总结今日进展</button>
     <button type="button" data-quick-prompt="帮我安排明天的优先级。">安排明日</button>
   </div>
+  <label id="piMemoryScopeRow" class="piMemoryScope hidden">记忆范围<select id="piMemoryScope"><option value="0">整个小镇</option></select></label>
   <div class="chatInputRow">
     <button class="voiceButton" id="voiceButton" type="button" aria-label="按住说话，也可以轻点开始或结束"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button>
     <label class="sr-only" for="piInput">问管家安排</label>

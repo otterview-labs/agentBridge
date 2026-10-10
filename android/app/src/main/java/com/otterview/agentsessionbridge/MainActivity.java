@@ -971,6 +971,15 @@ public final class MainActivity extends Activity {
   }
 
   @Override
+  protected void onResume() {
+    super.onResume();
+    try {
+      if (ManagedRuntime.get(this).coordinator.snapshot().optBoolean("enabled") && !ManagedButlerService.running())
+        ManagedButlerService.start(this);
+    } catch (Exception error) { android.util.Log.w("OfficeTown", "Cannot resume phone supervision", error); }
+  }
+
+  @Override
   protected void onDestroy() {
     cancelCloudSynthesis();
     speechExecutor.shutdownNow();

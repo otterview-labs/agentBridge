@@ -4,10 +4,10 @@
 
 # agentBridge · 办公小镇
 
-### Codex 和 Claude Code 的安卓客户端
+### 在手机上接着处理 Codex 和 Claude Code 的任务
 
 在手机上查看输出、翻记录，接着电脑上的会话回消息。<br>
-让管家查任务进展、找需要回复的任务，或帮你写回复草稿。<br>
+让管家查进展、帮你写回复，也可以按你定的范围继续跟进。<br>
 每台电脑一间办公室，每个任务一位像素员工。
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
@@ -19,13 +19,13 @@
 
 [下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh.png" width="760" alt="办公小镇操作实录：训练平台开发与小红书改稿"></a>
+<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh-053.jpg" width="760" alt="办公小镇操作实录：训练平台开发与小红书改稿"></a>
 
-**[看 1 分 42 秒操作实录](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex。
+**[看中英文操作视频](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex，再让管家按范围跟进。
 
 | 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-0.5.45.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
+| <img src="docs/screenshots/office-zh-0.5.51.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
 
 <sub>办公室、任务回复和管家截图来自演示项目；通话截图使用样例记录。</sub>
 
@@ -66,7 +66,15 @@
 - 不知道怎么回员工时，点「帮我写回复」。模型根据最近一次刷新的记录写几条草稿，你选一条、改好后发送，选中不会自动发出去。
 - 按住说话，或用「拨给管家」通过 App 内的语音通话询问进展。使用前需要配置模型，并测试语音识别和播报。
 
-管家模型由你选择，支持 OpenAI 兼容接口。给员工的指令仍由你在任务卡片里发出。
+管家模型由你选择，支持 OpenAI 兼容接口。聊天回复逐步显示；可以查看整个小镇，也可以只聊某位员工的任务。
+
+**0.5.53：手机持续跟进（试用）**。把目标和处理范围交代清楚，管家会检查进展；允许自动回复后，它可以在这个范围内发消息。回复次数和跟进时长由你设置，遇到需要决定的事会停下来。结果由你确认，随时可以暂停。见[使用与限制](docs/managed-mode.md)。
+
+<p><img src="docs/screenshots/follow-scope-zh-0.5.53.png" width="230" alt="设置训练平台任务目标、授权范围和自动回复限制"> <img src="docs/screenshots/follow-review-zh-0.5.53.png" width="230" alt="跟进结果等待用户验收"></p>
+
+跟进截图来自独立模拟器和受控演示记录。
+
+聊天记录按小镇和员工分别保存在 Markdown 文件里；可选的电脑端 Pi + `pi-memory` 可以查询任务、保存记忆。配置见 [Pi 管家说明](docs/pi-butler.md)。Pi 聊天和手机持续跟进分别运行。
 
 <details>
 <summary>配置管家聊天和语音</summary>
@@ -84,6 +92,8 @@
 | Codex CLI / Codex Desktop 会话 | 发现会话、读取输出、发送消息、查看对话记录 |
 | Claude Code | 发现会话、读取输出、发送消息、查看对话记录 |
 | Gemini CLI | 基础进程发现 |
+| OpenHands Agent Server（可选） | 绑定已有会话，查询进展、发送跟进消息；执行环境在服务端 |
+| Pi + pi-memory（可选） | 电脑端管家查询与 Markdown 记忆；与手机跟进队列分别运行 |
 
 目前提供中文「办公小镇」和英文「Office Town」两款安卓版，可以同时安装。中文版沿用原应用 ID，可覆盖旧正式版；两款 App 的配置和记录各自保存。发送消息、查找任务等操作在开始后可继续在锁屏下执行，完成或失败时通知你。
 
@@ -91,7 +101,13 @@
 
 用的 AI 工具多了，任务和记录也散得到处都是。做过什么、哪件事还没结束，有时候自己都记不清。我想先有个地方，把几台电脑上的任务和记录放在一起。
 
-还有一些事，AI 本来就能自己解决，我不想每个任务都要操心。接下来想让管家在设定的范围内跟进、安排和处理日常任务，需要人决定的时候再来问。自主任务管理还在计划中。
+还有一些事，要求已经说清楚了，AI 本来就能接着处理，我不想每个任务都一直盯着。现在先做了手机持续跟进：规定它能做什么、最多回复几次，拿不准时停下来问我。代码仍在电脑或 OpenHands 的执行环境里运行。
+
+## 持续跟进的边界
+
+自动回复默认关闭。第一次建议只开启观察，确认记录和模型判断合适后，再授权一个小范围的任务。手机会显示常驻通知；省电设置、断网、应用被强制停止可能中断跟进，重新打开后可查看队列。
+
+OpenHands 需要自己配置 Agent Server 和已有会话，目前还不能一键创建开发环境。手机保存近期记录和聊天历史，管家并不拥有原会话的全部上下文。发布、付款等操作不要混在宽泛的任务目标里；本版也没有小红书自动发布功能。
 
 ## 数据与隐私
 

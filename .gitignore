@@ -37,3 +37,4 @@ android/keystore.properties
 /package.json
 /tsconfig.json
 /tsconfig.test.json
+tools/pi-butler/.data/

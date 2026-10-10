@@ -2,6 +2,21 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.53 — 2026-10-10
+
+- Add a user-enabled phone supervision service and persistent per-task queue with scoped goals, reply limits, pause/cancel, recovery and manual result acceptance.
+- Separate orchestration, model decisions, task memory and execution backends; integrate existing Codex/Claude process sessions and an optional OpenHands V1 Agent Server adapter.
+- Persist dispatch intent before sending and stop on uncertain delivery; re-read changed task records instead of replaying stale replies.
+- Add Chinese/English supervision settings and optional OpenHands 1.54.0 backend setup. Existing-session binding only; no one-click sandbox creation or social publishing.
+
+### Memory included in 0.5.53
+
+- 管家对话增加应用私有目录中的 Markdown 历史记录，保留用户原话和未核实的管家报告。
+- 支持选择整个小镇或具体员工，分别显示聊天和加载记忆。
+- 可选电脑端 Pi + pi-memory，通过已有 SSH 连接查询任务和保存长期记忆，保留流式回复。未启用自动发送或全托管执行。
+- 电脑端模型验证采用独立记忆范围，不读取真实任务历史。worker 凭据仅通过标准输入传递。
+- 新增记忆隔离、进程重启召回、协议中断和 UI 范围切换测试。QMD 语义检索尚未验收。
+
 ## Android 0.5.51 — 2026-10-09
 
 - 保留原来的像素员工造型，放大工位中的人物，并用整数倍缩放保持轮廓清楚。
