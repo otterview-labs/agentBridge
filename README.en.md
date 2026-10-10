@@ -4,10 +4,10 @@
 
 # agentBridge · Office Town
 
-### Android client for Codex and Claude Code
+### Keep coding with AI from your phone
 
-Read output, browse history, and reply to sessions running on your computers.<br>
-Ask the butler to check progress, draft replies, and follow up within limits you set.<br>
+Check Codex and Claude Code progress, add instructions, and keep the original session on your computer moving.<br>
+Ask the butler what needs your reply, or let it follow up within limits you set.<br>
 Each computer becomes an office; each task gets a pixel employee.
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
@@ -19,9 +19,11 @@ Each computer becomes an office; each task gets a pixel employee.
 
 [Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en-053.jpg" width="760" alt="Office Town app demo: training platform development and Xiaohongshu editing"></a>
+<a href="https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-en-20261010.jpg" width="760" alt="Office Town app recording: keep coding with AI from your phone"></a>
 
-**[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, reply to Codex from your phone, and set up butler follow-up.
+[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
+
+[Download all four videos, subtitles, and narration scripts](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled demo records; waits have been shortened.
 
 | Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
@@ -101,7 +103,9 @@ Operations such as finding tasks and sending messages can continue after the pho
 
 ## Why I’m building Office Town
 
-The more AI tools I use, the more places there are to check. Tasks and records end up spread across sessions and computers. Sometimes I lose track of what got done and what still needs attention. I want one place to check that work and its history.
+I often have a few AI sessions open, working on a training platform in one and a Xiaohongshu draft in another. When I leave my computer, I still want to check progress and add instructions so those sessions can continue.
+
+Tasks and records end up spread across tools and computers. After a while, I lose track of where I left off and which session needs a reply. I want to keep that work together and pick it up from my phone.
 
 I also want to spend less time watching tasks whose requirements are already clear. Phone supervision is the first step: set what the butler may do and how many replies it may send, then let it ask when something is uncertain. Code still runs on a computer or in an OpenHands execution environment.
 
