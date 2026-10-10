@@ -1,0 +1,193 @@
+WEBVTT
+
+00:00:00.150 --> 00:00:02.056
+I have been building a small project
+
+00:00:02.056 --> 00:00:03.110
+called Office Town.
+
+00:00:03.950 --> 00:00:05.802
+The reason is pretty simple.
+
+00:00:05.802 --> 00:00:08.272
+I often have several AI sessions open.
+
+00:00:08.272 --> 00:00:10.618
+I am coding different projects while
+
+00:00:10.618 --> 00:00:12.656
+working on Xiaohongshu content.
+
+00:00:12.656 --> 00:00:15.002
+One session is changing the training
+
+00:00:15.002 --> 00:00:15.681
+platform,
+
+00:00:15.681 --> 00:00:18.274
+another is drafting a post or trying out
+
+00:00:18.274 --> 00:00:18.830
+titles.
+
+00:00:19.383 --> 00:00:20.474
+When I come back,
+
+00:00:20.474 --> 00:00:22.024
+I have to check each one.
+
+00:00:22.024 --> 00:00:23.460
+Where did we leave off?
+
+00:00:23.460 --> 00:00:25.354
+Is anyone waiting for my reply?
+
+00:00:25.354 --> 00:00:27.306
+Sometimes I cannot even remember
+
+00:00:27.306 --> 00:00:29.143
+everything I asked them to do.
+
+00:00:29.717 --> 00:00:32.167
+The records are spread across different
+
+00:00:32.167 --> 00:00:32.645
+tools.
+
+00:00:32.645 --> 00:00:34.080
+Away from my computer,
+
+00:00:34.080 --> 00:00:36.172
+picking things up is awkward too.
+
+00:00:36.172 --> 00:00:38.383
+I wanted to bring them together and
+
+00:00:38.383 --> 00:00:40.117
+check progress on my phone.
+
+00:00:40.683 --> 00:00:42.711
+This is the current interface.
+
+00:00:42.711 --> 00:00:45.308
+Each employee represents an AI session.
+
+00:00:45.308 --> 00:00:47.525
+I can open one to read my earlier
+
+00:00:47.525 --> 00:00:48.159
+request,
+
+00:00:48.159 --> 00:00:49.299
+see what it did,
+
+00:00:49.299 --> 00:00:51.643
+and find anything still unresolved.
+
+00:00:52.217 --> 00:00:53.762
+I also added a butler.
+
+00:00:53.762 --> 00:00:56.079
+I can ask what needs my attention,
+
+00:00:56.079 --> 00:00:58.397
+and it checks the task records for
+
+00:00:58.397 --> 00:01:00.457
+anything waiting for my reply.
+
+00:01:03.217 --> 00:01:04.674
+For the training platform,
+
+00:01:04.674 --> 00:01:06.757
+I can send more details from my phone.
+
+00:01:06.757 --> 00:01:08.683
+The original session on my computer
+
+00:01:08.683 --> 00:01:09.777
+continues the work.
+
+00:01:13.217 --> 00:01:15.879
+It works the same way for a Xiaohongshu
+
+00:01:15.879 --> 00:01:16.398
+draft.
+
+00:01:16.398 --> 00:01:18.930
+I can choose a title or ask for a few
+
+00:01:18.930 --> 00:01:21.527
+paragraphs to be rewritten in the same
+
+00:01:21.527 --> 00:01:22.177
+session.
+
+00:01:23.217 --> 00:01:24.077
+When it finishes,
+
+00:01:24.077 --> 00:01:25.617
+I come back and read the result.
+
+00:01:33.217 --> 00:01:34.975
+I have now added phone supervision.
+
+00:01:34.975 --> 00:01:36.591
+Once the requirements are clear,
+
+00:01:36.591 --> 00:01:38.586
+I can set a goal and let the butler keep
+
+00:01:38.586 --> 00:01:39.537
+checking the work.
+
+00:01:40.117 --> 00:01:42.706
+This is a controlled demo task.
+
+00:01:42.706 --> 00:01:44.825
+I set what it may handle.
+
+00:01:44.825 --> 00:01:47.885
+Automatic replies are off by default.
+
+00:01:47.885 --> 00:01:49.298
+If I allow them,
+
+00:01:49.298 --> 00:01:52.437
+I also set a reply limit and duration.
+
+00:01:53.017 --> 00:01:55.239
+The butler checks new records and sends
+
+00:01:55.239 --> 00:01:56.811
+messages within that scope.
+
+00:01:56.811 --> 00:01:59.196
+It stops when something needs my decision.
+
+00:01:59.196 --> 00:02:00.768
+I accept the result myself,
+
+00:02:00.768 --> 00:02:02.937
+and I can pause follow-up at any time.
+
+00:02:03.517 --> 00:02:05.299
+OpenHands is another option.
+
+00:02:05.299 --> 00:02:07.794
+Code still runs on a computer or server.
+
+00:02:07.794 --> 00:02:10.289
+Phone battery restrictions can interrupt
+
+00:02:10.289 --> 00:02:10.824
+checks,
+
+00:02:10.824 --> 00:02:12.725
+so this part still needs work.
+
+00:02:12.725 --> 00:02:15.161
+I want to keep these tasks together and
+
+00:02:15.161 --> 00:02:17.597
+spend less time checking every session.

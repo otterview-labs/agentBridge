@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#faf9f5">
-<meta name="description" content="把几台电脑上的 Codex、Claude Code 任务和记录放在一起，在安卓手机上查看输出、回复原会话。管家可以查进展、写回复草稿。下载中文或英文 APK。">
+<meta name="description" content="在安卓手机上查看和回复 Codex、Claude Code 会话。管家帮你查进展，并按你设定的范围持续跟进；可选 OpenHands 执行端。下载中文或英文 APK。">
 <title>办公小镇 agentBridge：在安卓手机上查看、回复 Codex 和 Claude Code</title>
 <link rel="canonical" href="https://otterview-labs.github.io/agentBridge/">
 <link rel="alternate" hreflang="zh-Hans" href="https://otterview-labs.github.io/agentBridge/">
@@ -17,7 +17,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:title" content="办公小镇 agentBridge：在安卓手机上查看、回复 Codex 和 Claude Code">
-<meta property="og:description" content="把几台电脑上的 Codex、Claude Code 任务和记录放在一起，在安卓手机上查看输出、回复原会话。管家可以查进展、写回复草稿。下载中文或英文 APK。">
+<meta property="og:description" content="在安卓手机上查看和回复 Codex、Claude Code 会话。管家帮你查进展，并按你设定的范围持续跟进；可选 OpenHands 执行端。下载中文或英文 APK。">
 <meta property="og:url" content="https://otterview-labs.github.io/agentBridge/">
 <meta property="og:image" content="https://otterview-labs.github.io/agentBridge/social-card-bridge.jpg">
 <meta property="og:image:secure_url" content="https://otterview-labs.github.io/agentBridge/social-card-bridge.jpg">
@@ -27,7 +27,7 @@
 <meta property="og:image:alt" content="agentBridge 办公小镇：看看你的 AI 同事在忙什么，右侧为办公室样例截图">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="办公小镇 agentBridge：在安卓手机上查看、回复 Codex 和 Claude Code">
-<meta name="twitter:description" content="把几台电脑上的 Codex、Claude Code 任务和记录放在一起，在安卓手机上查看输出、回复原会话。管家可以查进展、写回复草稿。下载中文或英文 APK。">
+<meta name="twitter:description" content="在安卓手机上查看和回复 Codex、Claude Code 会话。管家帮你查进展，并按你设定的范围持续跟进；可选 OpenHands 执行端。下载中文或英文 APK。">
 <meta name="twitter:image" content="https://otterview-labs.github.io/agentBridge/social-card-bridge.jpg">
 <meta name="twitter:image:alt" content="agentBridge 办公小镇下载页与办公室样例截图">
 <script type="application/ld+json">
@@ -39,7 +39,7 @@
       "@id": "https://otterview-labs.github.io/agentBridge/#webpage",
       "url": "https://otterview-labs.github.io/agentBridge/",
       "name": "办公小镇 agentBridge：在安卓手机上查看、回复 Codex 和 Claude Code",
-      "description": "把几台电脑上的 Codex、Claude Code 任务和记录放在一起，在安卓手机上查看输出、回复原会话。管家可以查进展、写回复草稿。下载中文或英文 APK。",
+      "description": "在安卓手机上查看和回复 Codex、Claude Code 会话。管家帮你查进展，并按你设定的范围持续跟进；可选 OpenHands 执行端。下载中文或英文 APK。",
       "inLanguage": "zh-CN",
       "mainEntity": {
         "@id": "https://otterview-labs.github.io/agentBridge/#app-zh"
@@ -51,7 +51,7 @@
       "name": "agentBridge · 办公小镇",
       "alternateName": "agentBridge",
       "url": "https://otterview-labs.github.io/agentBridge/",
-      "description": "把几台电脑上的 Codex、Claude Code 任务和记录放在一起，在安卓手机上查看输出、回复原会话。管家可以查进展、写回复草稿。下载中文或英文 APK。",
+      "description": "在安卓手机上查看和回复 Codex、Claude Code 会话。管家帮你查进展，并按你设定的范围持续跟进；可选 OpenHands 执行端。下载中文或英文 APK。",
       "operatingSystem": "Android 7.0+",
       "applicationCategory": "DeveloperApplication",
       "inLanguage": "zh-CN",
@@ -65,7 +65,7 @@
       "license": "https://github.com/otterview-labs/agentBridge/blob/main/LICENSE",
       "sameAs": "https://github.com/otterview-labs/agentBridge",
       "softwareRequirements": "Mac 或 Linux 电脑保持开机并可通过 SSH 连接；管家需要自行配置模型，语音需要可用的识别与播报服务。",
-      "softwareVersion": "0.5.51",
+      "softwareVersion": "0.5.53",
       "identifier": "com.otterview.agentsessionbridge"
     },
     {
@@ -79,13 +79,23 @@
       "targetProduct": {
         "@id": "https://otterview-labs.github.io/agentBridge/#app-zh"
       }
+    },
+    {
+      "@type": "VideoObject",
+      "name": "办公小镇：从手机回复到管家跟进",
+      "description": "训练平台开发、小红书改稿与手机管家跟进操作。使用演示项目及受控任务记录。",
+      "thumbnailUrl": "https://otterview-labs.github.io/agentBridge/demo/office-town-053-zh.jpg",
+      "contentUrl": "https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-053-zh-landscape.mp4",
+      "uploadDate": "2026-10-10T10:00:00+08:00",
+      "duration": "PT2M5S",
+      "inLanguage": "zh-CN"
     }
   ]
 }
 </script>
 <link rel="icon" href="icon-bridge.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/manrope-latin.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="site.css?v=20261007-clarity">
+<link rel="stylesheet" href="site.css?v=20261010-053">
 </head>
 <body>
 <a class="skip" href="#download">跳到下载</a>
@@ -98,45 +108,47 @@
   <section class="hero" aria-labelledby="hero-title">
     <div class="hero-copy">
       <h1 id="hero-title">电脑上的任务，<br>手机上接着聊。</h1>
-      <p class="intro">把几台电脑上的 Codex 和 Claude Code 会话放在一起。看做过什么、翻记录，需要补充要求时，直接回复原来的会话。</p>
+      <p class="intro">把分散的 Codex 和 Claude Code 会话放在一起。看做过什么，接着回复；要求已经说清楚的任务，也可以交给管家继续跟进。</p>
       <div class="download-area" id="download">
         <a class="download" href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5"/></svg><span>下载中文 APK</span></a>
         <p class="language-note"><a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk" lang="en">Download English APK</a></p>
-        <ul class="release-meta" aria-label="版本信息"><li id="release-version">v0.5.51</li><li>Android 7.0+</li><li id="release-size">1.6 MB</li></ul>
+        <ul class="release-meta" aria-label="版本信息"><li id="release-version">v0.5.53</li><li>Android 7.0+</li><li id="release-size">1.6 MB</li></ul>
       </div>
-      <a class="demo-link" href="#demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 11 7-11 7V5Z"/></svg>看 1 分 42 秒操作实录</a>
+      <a class="demo-link" href="#demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 11 7-11 7V5Z"/></svg>看新版 App 操作视频</a>
       <p class="connection-note">通过 SSH 连接你的 Mac 或 Linux 电脑，电脑上不用安装 agentBridge。</p>
     </div>
     <div class="hero-preview" id="app-preview">
       <div class="stage"><figure class="phone"><img id="preview-image" src="office-0.5.51-zh.png" alt="办公小镇任务：训练平台开发和小红书改稿，展示具体待确认问题（演示项目）" width="390" height="844" fetchpriority="high"></figure></div>
-      <div class="preview-tabs" role="group" aria-label="切换应用截图"><button type="button" data-view="office" aria-pressed="true" aria-controls="preview-image">办公室</button><button type="button" data-view="butler" aria-pressed="false" aria-controls="preview-image">管家聊天</button><button type="button" data-view="task" aria-pressed="false" aria-controls="preview-image">任务回复</button><button type="button" data-view="call" aria-pressed="false" aria-controls="preview-image">语音通话</button></div>
+      <div class="preview-tabs" role="group" aria-label="切换应用截图"><button type="button" data-view="office" aria-pressed="true" aria-controls="preview-image">办公室</button><button type="button" data-view="butler" aria-pressed="false" aria-controls="preview-image">管家聊天</button><button type="button" data-view="task" aria-pressed="false" aria-controls="preview-image">任务回复</button><button type="button" data-view="follow" aria-pressed="false" aria-controls="preview-image">持续跟进</button><button type="button" data-view="call" aria-pressed="false" aria-controls="preview-image">语音通话</button></div>
     </div>
   </section>
   <section class="demo" id="demo" aria-labelledby="demo-title">
-    <div class="section-heading"><h2 id="demo-title">一边写代码，一边做小红书</h2><p>问管家谁在等回复，补充训练平台的要求，再改一篇小红书稿子。</p></div>
+    <div class="section-heading"><h2 id="demo-title">一边写代码，一边做小红书</h2><p>查谁在等回复，补充开发要求、修改小红书稿子，再把一个任务交给管家跟进。</p></div>
     <figure class="demo-player">
-      <video controls playsinline preload="none" width="1920" height="1080" poster="demo/office-town-clarity-zh.png" aria-label="办公小镇操作实录，含中文解说" aria-describedby="demo-caption">
-        <source src="demo/office-town-clarity-zh.mp4" type="video/mp4">
-        <track kind="captions" src="demo/office-town-clarity-zh.vtt" srclang="zh" label="中文">
-        <a href="demo/office-town-clarity-zh.mp4">打开演示视频</a>
+      <video controls playsinline preload="none" width="1920" height="1080" poster="demo/office-town-053-zh.jpg" aria-label="办公小镇操作实录，含中文解说" aria-describedby="demo-caption">
+        <source src="https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-053-zh-landscape.mp4" type="video/mp4">
+        <track kind="captions" src="demo/office-town-053-zh.vtt" srclang="zh" label="中文">
+        <a href="https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-053-zh-landscape.mp4">打开演示视频</a>
       </video>
-      <figcaption id="demo-caption">1 分 42 秒 App 实录。两个演示项目，实际 Codex 会话回复；等待已剪辑，AI 男声配音。管家自动跟进是后续计划。 <a href="demo/office-town-clarity-zh.mp4">单独打开视频</a> · <a href="https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk">下载正式版 APK</a> · <a href="https://github.com/otterview-labs/agentBridge/releases/download/demo-video-20261007-clarity/office-town-clarity-zh-en.zip">视频与素材包</a></figcaption>
+      <figcaption id="demo-caption">App 操作实录，中英文字幕和男声解说。前半段使用两个演示项目的 Codex 会话；跟进段使用受控演示记录，等待已剪辑。 <a href="https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-053-zh-landscape.mp4">单独打开视频</a> · <a href="https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-053-zh-portrait.mp4">下载竖版</a></figcaption>
     </figure>
   </section>
   <section class="purpose" aria-labelledby="purpose-title">
     <div class="section-heading"><h2 id="purpose-title">为什么做办公小镇</h2><p>任务多了，想有个地方把它们收在一起。</p></div>
-    <div class="purpose-copy"><p>AI 工具用了好几个，事情也散在好几个地方。有时连做过什么都记不清。这是做办公小镇的第一个原因。</p><p>还有一个原因：有些事 AI 本来就能自己解决，我不想每个任务都要操心。接下来想让它自己安排和处理日常任务，需要人决定的时候再来问。</p><p class="direction-note">自主任务管理还在计划中。当前管家可以查记录、讨论进展和写回复草稿，给员工的指令仍由你在任务卡片里发出。</p></div>
+    <div class="purpose-copy"><p>AI 工具用了好几个，事情也散在好几个地方。有时连做过什么都记不清。这是做办公小镇的第一个原因。</p><p>还有一个原因：有些事要求已经说清楚了，我不想每个任务都一直盯着。能继续处理的就让管家接着跟进，遇到需要决定的地方再来问我。</p><p class="direction-note">0.5.53 已加入手机持续跟进试用。目标、处理范围、回复次数和时长由你设置，结果由你确认。</p></div>
   </section>
   <section class="features" aria-labelledby="features-title">
     <div class="section-heading"><h2 id="features-title">现在可以怎么用</h2><p>任务在电脑上继续跑，手机负责查看和回复。</p></div>
-    <div class="feature-list"><div class="feature"><h3>继续原来的任务</h3><p>打开员工卡片，读输出、补充要求，消息会发回原来的 Codex 或 Claude Code 会话。几台电脑的任务可以一起看，状态需要手动刷新。</p></div><div class="feature"><h3>问管家，不用逐个翻</h3><p>配好模型后，可以问管家哪些任务需要回复。管家会查任务和记录；卡片里的「帮我写回复」会生成草稿，由你修改后发送。</p></div><div class="feature"><h3>也可以用语音聊</h3><p>按住说话，或用「拨给管家」询问进展。聊天模型、语音识别和声音播报需要先配置、测试，通话在 App 内进行。</p></div></div>
+    <div class="feature-list"><div class="feature"><h3>继续原来的任务</h3><p>打开员工卡片，读输出、补充要求，消息会发回原来的 Codex 或 Claude Code 会话。几台电脑的任务可以一起看，点刷新读取最新记录。</p></div><div class="feature"><h3>问管家，不用逐个翻</h3><p>配好模型后，可以问管家哪些任务需要回复。管家会查任务和记录，回复逐步显示。卡片里的「帮我写回复」会生成草稿，聊天历史按小镇和员工分开保存。</p></div><div class="feature"><h3>把一个任务交给管家</h3><p>写清目标和允许处理的范围，开启持续跟进。自动回复默认关闭；授权后按次数和时长限制执行，遇到需要确认的事会停下来。可选已有会话或 OpenHands。</p></div><div class="feature"><h3>也可以用语音聊</h3><p>按住说话，或用「拨给管家」询问进展。聊天模型、语音识别和声音播报需要先配置、测试，通话在 App 内进行。</p></div></div>
   </section>
   <section class="guide" id="guide" aria-labelledby="guide-title">
     <div class="section-heading"><h2 id="guide-title">安装以后怎么用</h2><p>先连上电脑，发出第一条回复。<br>管家和语音可以之后再配置。</p></div>
     <div class="guide-details">
+<details><summary>让手机管家继续跟进（试用）</summary><div class="detail-content"><p>在「管家 → 跟进」添加任务，写清目标和处理范围。先只观察；需要自动发消息时，再勾选授权并设置回复次数、跟进时长。</p><p>开启后会显示常驻通知。省电设置、断网和强制停止可能中断跟进；重新打开 App 查看队列。暂停跟进不会停止电脑上已经开始的工作，结果要由你确认。</p><p>OpenHands 需要自行配置 Agent Server 并绑定已有会话。手机负责跟进，代码在电脑或服务器上执行。Pi + pi-memory 是可选的电脑端查询与记忆扩展。<a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/managed-mode.md">查看配置和限制</a></p></div></details>
+
       <details><summary>连接电脑，找到任务</summary><div class="detail-content"><ol><li>打开 App，用「发现机器」扫描局域网，或手动填写 SSH 地址、账号和密码／私钥。</li><li>点击「找任务」，导入机器上已有的 Codex、Claude 会话。</li><li>打开员工卡片查看输出、回复指令，或处理待确认事项。</li></ol><p>电脑上要先有 Codex 或 Claude 会话。点击刷新，查看最新状态。在外使用需要可访问的 SSH 地址，也可以配置自己的 FRP 入口。</p><p>不知道怎么回，可以点「帮我写回复」。先配置管家模型，再选一条改成你想说的话。建议参考上次刷新的记录，选中后不会自动发送。</p></div></details>
-      <details><summary>和管家聊天、通话</summary><div class="detail-content"><ol><li>在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点击「验证连接」。</li><li>先发一句文字，确认模型能回复。</li><li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li><li>麦克风和声音都正常后，点击「拨给管家」，允许使用麦克风。</li></ol><p>手机不能识别语音或读中文时，在「语音设置 → 云端语音配置」填写<strong>百炼北京地域 API Key</strong>。语音和聊天可以用不同的密钥。不用云端语音时，手机需要支持语音识别和中文播报。</p><p>管家可以查询和讨论任务。给员工的指令仍从任务卡片发出。</p></div></details>
-      <details><summary>安装与更新</summary><div class="detail-content"><p>需要 Android 7.0 或更高版本。下载 APK 后安装，首次安装时按提示允许浏览器安装应用。旧正式版可直接覆盖更新；调试版会作为另一款应用保留。</p><p>安装包发布在 GitHub Releases，使用同一发布密钥签名。下载没开始时，到<a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>里下载 agentbridge-zh.apk。</p><p><strong>0.5.51：</strong>保留原来的像素小人，放大员工工位。等你回复时举手，工作时敲键盘；手掌、键盘和显示器更清楚。</p></div></details>
+      <details><summary>和管家聊天、通话</summary><div class="detail-content"><ol><li>在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点击「验证连接」。</li><li>先发一句文字，确认模型能回复。</li><li>在「语音设置」试听声音，再用聊天框旁的麦克风测试识别。</li><li>麦克风和声音都正常后，点击「拨给管家」，允许使用麦克风。</li></ol><p>手机不能识别语音或读中文时，在「语音设置 → 云端语音配置」填写<strong>百炼北京地域 API Key</strong>。语音和聊天可以用不同的密钥。不用云端语音时，手机需要支持语音识别和中文播报。</p><p>管家可以查询和讨论任务。要让它持续跟进，可打开「跟进」单独设置目标与回复范围。</p></div></details>
+      <details><summary>安装与更新</summary><div class="detail-content"><p>需要 Android 7.0 或更高版本。下载 APK 后安装，首次安装时按提示允许浏览器安装应用。旧正式版可直接覆盖更新；调试版会作为另一款应用保留。</p><p>安装包发布在 GitHub Releases，使用同一发布密钥签名。下载没开始时，到<a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a>里下载 agentbridge-zh.apk。</p><p><strong>0.5.53：</strong>手机持续跟进、按员工保存聊天历史，可选 Pi 记忆和 OpenHands 执行端。保留看电脑和举手的像素员工。</p></div></details>
       <details><summary>数据保存与隐私</summary><div class="detail-content"><p>配置、对话与记录保存在手机应用私有存储。密码与 API Key 使用 Android Keystore 加密，应用没有统计上报。</p><p>聊天会把必要的任务信息发送到你配置的模型服务。使用百炼云端语音时，录音或播报文字会发送到百炼。详见<a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a>。</p></div></details>
     </div>
   </section>
@@ -144,7 +156,7 @@
 </main>
 <footer><div class="footer-links"><a href="https://github.com/otterview-labs/agentBridge">源码仓库</a><a href="https://github.com/otterview-labs/agentBridge/releases">全部版本</a><a href="https://github.com/otterview-labs/agentBridge/blob/main/docs/android-app.md">使用文档</a><a href="https://github.com/otterview-labs/agentBridge/blob/main/SECURITY.md">安全说明</a></div><span>agentBridge / Apache-2.0</span></footer>
 </div>
-<script type="application/json" id="preview-data">{"office": {"image": "office-0.5.51-zh.png", "alt": "办公小镇任务：训练平台开发和小红书改稿，展示具体待确认问题（演示项目）"}, "butler": {"image": "butler-clarity-zh-20261007.png", "alt": "管家读取两个演示任务的待确认问题"}, "call": {"image": "call-0.5.44.png", "alt": "管家通话：麦克风、扬声器与挂断按钮（样例记录）"}, "task": {"image": "task-clarity-zh-20261007.png", "alt": "训练平台任务回复：状态显示修复与实际测试结果（演示项目）"}}</script>
-<script src="site.js?v=20261009-049" defer></script>
+<script type="application/json" id="preview-data">{"office": {"image": "office-0.5.51-zh.png", "alt": "办公小镇任务：训练平台开发和小红书改稿，展示具体待确认问题（演示项目）"}, "butler": {"image": "butler-clarity-zh-20261007.png", "alt": "管家读取两个演示任务的待确认问题"}, "call": {"image": "call-0.5.44.png", "alt": "管家通话：麦克风、扬声器与挂断按钮（样例记录）"}, "task": {"image": "task-clarity-zh-20261007.png", "alt": "训练平台任务回复：状态显示修复与实际测试结果（演示项目）"}, "follow": {"image": "follow-0.5.53-zh.png", "alt": "管家跟进任务，等待用户验收（受控演示记录）"}}</script>
+<script src="site.js?v=20261010-053" defer></script>
 </body>
 </html>
