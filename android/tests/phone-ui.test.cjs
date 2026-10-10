@@ -145,7 +145,8 @@ async function openPhone(t, options = {}) {
         const input = JSON.parse(payload);
         studio.modelSettings = {
           enabled: true, provider: 'openai-compatible', modelId: input.modelId,
-          baseUrl: input.baseUrl, hasApiKey: true, source: 'local'
+          baseUrl: input.baseUrl, hasApiKey: true, source: 'local', runtime: input.runtime,
+          piMachineId: input.piMachineId, piWorkerPath: input.piWorkerPath
         };
         studio.model = { ready: true, label: input.modelId };
         return ok(studio);
@@ -295,6 +296,22 @@ async function openPhone(t, options = {}) {
         return ok({ hasVoiceKey });
       }
     };
+    if (options.scopedMemory) {
+      studio.messages = [
+        { role: 'user', content: 'Town question', memoryTaskId: 0 },
+        { role: 'assistant', content: 'Town answer', memoryTaskId: 0 },
+        { role: 'user', content: 'Training requirement', memoryTaskId: 1 },
+        { role: 'assistant', content: 'Training remembered', memoryTaskId: 1 }
+      ];
+      window.scopedChats = [];
+      window.AgentBridge.beginScopedStudioMessage = payload => {
+        const input = JSON.parse(payload); window.scopedChats.push(input);
+        const result = JSON.parse(window.AgentBridge.beginStudioMessage(input.content));
+        result.data.operation.studio.messages.forEach(item => { item.memoryTaskId = input.taskId; });
+        chatOperation = result.data.operation;
+        return JSON.stringify(result);
+      };
+    }
     if (options.savedCredentials) {
       Object.assign(data.machines[0], { hasPassword: true, password: 'must-not-appear' });
     }
@@ -306,6 +323,15 @@ async function openPhone(t, options = {}) {
         lastError: '「Mac Pro · 开发办公室」的 SSH 主机指纹和上次不一致，已拒绝连接。' });
     }
     if (options.voiceAutoSendOff) localStorage.setItem('voiceAutoSend', 'false');
+    if (options.managedMode) {
+      let managed={schema:1,enabled:false,running:false,jobs:[],openHands:{endpoint:'',hasApiKey:false}};
+      window.managedInputs=[];window.managedEnableCalls=[];
+      window.AgentBridge.managedState=()=>ok(managed);
+      window.AgentBridge.setManagedEnabled=enabled=>{window.managedEnableCalls.push(enabled);managed.enabled=enabled;managed.running=enabled;return ok(managed);};
+      window.AgentBridge.saveOpenHandsConfig=raw=>{const input=JSON.parse(raw);managed.openHands={endpoint:input.endpoint,hasApiKey:!!input.apiKey};return ok(managed);};
+      window.AgentBridge.addManagedJob=raw=>{const input=JSON.parse(raw);window.managedInputs.push(input);managed.jobs.push({...input,id:'managed-1',state:'waiting',replyCount:0,events:[],message:'已加入手机跟进队列。'});return ok(managed);};
+      window.AgentBridge.managedControl=(id,action)=>{const job=managed.jobs.find(item=>item.id===id);if(job)job.state=action==='pause'?'paused':action==='resume'?'waiting':action==='cancel'?'cancelled':'complete';return ok(managed);};
+    }
     if (options.backgroundCalls) {
       // Native runs SSH-bound methods on a worker thread; the page polls.
       window.backgroundCalls = [];
@@ -709,6 +735,29 @@ test('failed model verification stays visible and does not claim a connection', 
   await page.waitForFunction(() => document.getElementById('butlerConnectionText').textContent.includes('HTTP 401'));
   assert.equal(await page.locator('#cloudState').textContent(), '连接异常');
   assert.equal(await page.locator('#checkButlerModel').isEnabled(), true);
+});
+
+test('butler selects Pi explicitly and scoped conversations stay separate at phone width', async t => {
+  const page = await openPhone(t, { modelReady: true, scopedMemory: true });
+  await page.locator('[data-view="butler"]').click();
+  assert.match(await page.locator('#piMessages').innerText(), /Town answer/);
+  assert.doesNotMatch(await page.locator('#piMessages').innerText(), /Training remembered/);
+  await page.locator('#piMemoryScope').selectOption('1');
+  assert.match(await page.locator('#piMessages').innerText(), /Training remembered/);
+  assert.doesNotMatch(await page.locator('#piMessages').innerText(), /Town answer/);
+  await page.locator('#piInput').fill('继续训练平台的要求');
+  await page.locator('#sendPi').click();
+  await page.waitForFunction(() => window.scopedChats.length === 1 && !document.getElementById('piMemoryScope').disabled);
+  assert.deepEqual(await page.evaluate(() => window.scopedChats[0]), { content: '继续训练平台的要求', taskId: 1 });
+  await page.locator('#openCloudFromButler').click();
+  await page.locator('#butlerRuntime').selectOption('pi');
+  assert.equal(await page.locator('#piRuntimeFields').isVisible(), true);
+  await page.locator('#piMachineId').selectOption('1');
+  await page.locator('#piWorkerPath').fill('/home/demo/agentBridge/tools/pi-butler/worker.mjs');
+  await page.locator('#cloudForm button[type="submit"]').click();
+  await page.locator('#butlerRuntime').selectOption('phone');
+  assert.equal(await page.locator('#piRuntimeFields').isVisible(), false);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
 });
 
 test('chat errors preserve the message and a working retry after a refresh', async t => {
@@ -1550,4 +1599,37 @@ test('adapter IDs and record paths stay in raw records while readable progress r
     await page.locator('#rawRecord > summary').click();
     assert.equal(await page.locator('#taskOutput').textContent(), envelope + summary);
   }
+});
+
+
+test('phone supervision requires an explicit scope and reply opt-in, preserves jobs while pausing and configures OpenHands separately',async t=>{
+ const page=await openPhone(t,{modelReady:true,managedMode:true});
+ await page.locator('[data-view="butler"]').click(); await page.locator('#openManaged').click();
+ assert.equal(await page.locator('#managedAllowReplies').isChecked(),false);
+ assert.equal(await page.locator('#managedTaskId option').count(),1);
+ await page.locator('#newManagedJob summary').click();
+ await page.locator('#managedGoal').fill('训练页面显示进度');await page.locator('#managedRules').fill('按已确认方案开发；不发布');
+ await page.locator('#managedForm button[type="submit"]').click();
+ assert.equal(await page.evaluate(()=>window.managedInputs[0].allowReplies),false);
+ assert.equal(await page.evaluate(()=>window.managedEnableCalls.length),0);
+ await page.locator('#toggleManaged').click();assert.equal(await page.evaluate(()=>window.managedEnableCalls[0]),true);
+ await page.locator('#managedJobs').getByRole('button',{name:'暂停',exact:true}).click();
+ assert.match(await page.locator('#managedJobs').innerText(),/已暂停/);
+ await page.locator('#toggleManaged').click();assert.equal(await page.evaluate(()=>window.managedEnableCalls[1]),false);
+ await page.locator('#managedBackend').selectOption('openhands');
+ await page.locator('#ohEndpoint').fill('https://server.example.test');await page.locator('#ohApiKey').fill('test-only-key');
+ await page.locator('#saveOpenHands').click();assert.equal(await page.locator('#ohApiKey').inputValue(),'');
+ assert.ok(!/test-only-key/.test(await page.locator('#managedJobs').innerText()));
+ const overflow=await page.evaluate(()=>document.querySelector('#managedBackdrop .sheet').scrollWidth>document.querySelector('#managedBackdrop .sheet').clientWidth);
+ assert.equal(overflow,false);
+});
+
+test('English supervision controls keep original user goals unchanged',async t=>{
+ const page=await openPhone(t,{language:'en',modelReady:true,managedMode:true,englishSamples:true});
+ await page.locator('[data-view="butler"]').click();await page.locator('#openManaged').click();
+ assert.match(await page.locator('#managedTitle').innerText(),/Phone task supervision/);
+ await page.locator('#newManagedJob summary').click();await page.locator('#managedGoal').fill('原始用户目标');await page.locator('#managedRules').fill('No publishing');
+ await page.locator('#managedAllowReplies').check();await page.locator('#managedForm button[type="submit"]').click();
+ assert.equal(await page.evaluate(()=>window.managedInputs[0].goal),'原始用户目标');
+ assert.equal(await page.evaluate(()=>window.managedInputs[0].allowReplies),true);
 });

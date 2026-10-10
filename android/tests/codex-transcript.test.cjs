@@ -16,7 +16,7 @@ test('refreshing one desktop employee reads only that thread and retains its rep
  static final String TARGET="01a094c7-6452-73d2-a9c0-1b85f22498c7";
  static class Session{} static class Log{static void d(String tag,String value){}}
  static class Assets{InputStream open(String name){check(name.equals("codex-transcript.py"));return new ByteArrayInputStream("reader".getBytes(StandardCharsets.UTF_8));}}
- static class Activity{Assets getAssets(){return new Assets();}} Activity activity=new Activity();
+ static class Activity{Assets getAssets(){return new Assets();}} Activity appContext=new Activity();
  static class Work{String latestUser="Check login",latestAssistant="Tests passed",status="idle";static Work fromCodexTranscript(String text){check(text.contains("REAL_REPLY"));return new Work();}String summary(){return latestAssistant;}}
  JSONObject parseObject(String text){try{return new JSONObject(text);}catch(Exception e){return null;}}
  String run(Session session,String command){

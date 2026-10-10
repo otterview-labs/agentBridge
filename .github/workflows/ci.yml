@@ -41,6 +41,13 @@ jobs:
         working-directory: android/tests
         run: npm test
 
+      - name: Test optional Pi worker and Markdown extension
+        working-directory: tools/pi-butler
+        run: |
+          node --version
+          npm ci --ignore-scripts
+          npm test
+
   build:
     name: Build debug APK and Android lint
     runs-on: ubuntu-latest

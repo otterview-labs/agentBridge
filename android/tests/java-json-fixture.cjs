@@ -8,10 +8,24 @@ function methods(file,start,end){const text=fs.readFileSync(path.join(source,fil
 // production control flow and state; the platform JSON parser is not under test.
 const json=`
 static final Map<String,Object> fixtures=new HashMap<>();
-static synchronized String encode(Object value){String key="j"+fixtures.size();fixtures.put(key,value);return key;}
+static String quote(String value){return "\\\""+value.replace("\\\\","\\\\\\\\").replace("\\\"","\\\\\\\"").replace("\\n","\\\\n").replace("\\r","\\\\r").replace("\\t","\\\\t")+"\\\"";}
+static String canonical(Object value){
+ if(value==null || value==JSONObject.NULL)return "null";
+ if(value instanceof String)return quote((String)value);
+ if(value instanceof JSONObject){List<String> fields=new ArrayList<>();for(Map.Entry<String,Object> e:((JSONObject)value).values.entrySet())fields.add(quote(e.getKey())+":"+canonical(e.getValue()));return "{"+String.join(",",fields)+"}";}
+ if(value instanceof JSONArray){List<String> items=new ArrayList<>();for(Object item:((JSONArray)value).values)items.add(canonical(item));return "["+String.join(",",items)+"]";}return String.valueOf(value);
+}
+static synchronized String encode(Object value){String key=canonical(value);fixtures.put(key,JSONObject.copy(value));return key;}
 static class JSONObject{
  final Map<String,Object> values=new LinkedHashMap<>();
- JSONObject(){} JSONObject(String raw){if(raw.equals("{}"))return;Object v=fixtures.get(raw);if(!(v instanceof JSONObject))throw new IllegalArgumentException("invalid JSON");values.putAll(((JSONObject)v).values);}
+ static final Object NULL=new Object();
+ JSONObject(){} JSONObject(String raw){if(raw.equals("{}"))return;Object v=fixtures.get(raw);if(!(v instanceof JSONObject))throw new IllegalArgumentException("invalid JSON");for(Map.Entry<String,Object> item:((JSONObject)v).values.entrySet())values.put(item.getKey(),copy(item.getValue()));}
+ static Object copy(Object value){
+  if(value instanceof JSONObject){JSONObject result=new JSONObject();for(Map.Entry<String,Object> e:((JSONObject)value).values.entrySet())result.put(e.getKey(),copy(e.getValue()));return result;}
+  if(value instanceof JSONArray){JSONArray result=new JSONArray();for(Object item:((JSONArray)value).values)result.put(copy(item));return result;}return value;
+ }
+ int optInt(String k,int fallback){return has(k)?optInt(k):fallback;}
+ long optLong(String k){try{return Long.parseLong(optString(k));}catch(Exception e){return 0;}}
  boolean has(String k){return values.containsKey(k);} Iterator<String> keys(){return values.keySet().iterator();} Object get(String k){return opt(k);} Object remove(String k){return values.remove(k);} String getString(String k){return optString(k);} JSONObject put(String k,Object v){values.put(k,v);return this;} Object opt(String k){return values.get(k);}
  String optString(String k){return optString(k,"");} String optString(String k,String fallback){Object v=opt(k);return v==null?fallback:String.valueOf(v);}
  boolean optBoolean(String k){return Boolean.parseBoolean(optString(k));} int optInt(String k){try{return Integer.parseInt(optString(k));}catch(Exception e){return 0;}}

@@ -1,0 +1,4 @@
+# Optional execution backend; not installed inside Android.
+openhands-agent-server==1.54.0
+openhands-sdk==1.54.0
+openhands-tools==1.54.0

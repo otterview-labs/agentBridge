@@ -104,6 +104,24 @@ final class BridgeStore {
     }
   }
 
+  synchronized JSONObject openHandsConfig() throws Exception {
+    return new JSONObject(readSealed("openhands_config", "{}"));
+  }
+  synchronized void saveOpenHandsConfig(JSONObject value) {
+    if (!writeSealed(prefs.edit(),"openhands_config",value.toString()).commit())
+      throw new IllegalStateException("OpenHands 配置保存失败");
+  }
+
+  synchronized String piMemoryNamespace() {
+    String value = prefs.getString("pi_memory_namespace", "");
+    if (!value.isEmpty()) return value;
+    value = java.util.UUID.randomUUID().toString();
+    if (!prefs.edit().putString("pi_memory_namespace", value).commit()) {
+      throw new IllegalStateException("Cannot save Pi memory namespace");
+    }
+    return value;
+  }
+
   synchronized JSONArray studioMessages() throws Exception {
     return new JSONArray(prefs.getString("studio_messages", "[]"));
   }
@@ -144,11 +162,15 @@ final class BridgeStore {
 
   /** Publish both sides with one commit; a failed save must never leave half a turn. */
   synchronized JSONObject appendStudioTurn(String user, String answer, String createdAt, String turnId) throws Exception {
+    return appendScopedStudioTurn(user, answer, createdAt, turnId, 0);
+  }
+
+  synchronized JSONObject appendScopedStudioTurn(String user, String answer, String createdAt, String turnId, int taskId) throws Exception {
     JSONArray messages = studioMessages();
     JSONObject reply = new JSONObject().put("id", turnId + "-assistant")
-        .put("role", "assistant").put("content", answer).put("createdAt", createdAt);
+        .put("role", "assistant").put("content", answer).put("createdAt", createdAt).put("memoryTaskId", taskId);
     messages.put(new JSONObject().put("id", turnId + "-user")
-        .put("role", "user").put("content", user).put("createdAt", createdAt));
+        .put("role", "user").put("content", user).put("createdAt", createdAt).put("memoryTaskId", taskId));
     messages.put(reply);
     while (messages.length() > 100) messages.remove(0);
     while (messages.length() > 0 && !"user".equals(messages.getJSONObject(0).optString("role"))) {

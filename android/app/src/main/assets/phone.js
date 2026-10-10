@@ -72,6 +72,27 @@
   $('refreshButler').addEventListener('click', () => void loadStudio());
   $('cloudForm').addEventListener('submit', saveCloudConnection);
   $('testModelConnection').addEventListener('click', checkModelConnection);
+  $('butlerRuntime').addEventListener('change', () => {
+    $('piRuntimeFields').classList.toggle('hidden', $('butlerRuntime').value !== 'pi');
+  });
+  $('piMemoryScope').addEventListener('change', () => { state.followChat = true; renderPiDetail(); });
+  $('openManaged').addEventListener('click', () => openManagedSheet());
+  $('manageTask').addEventListener('click', () => openManagedSheet(state.currentTaskId));
+  $('refreshManaged').addEventListener('click', () => void refreshManaged());
+  $('toggleManaged').addEventListener('click', async () => {
+    await managedRequest('setManagedEnabled', !state.managed?.enabled);
+  });
+  $('managedBackend').addEventListener('change', renderManagedBackend);
+  $('saveOpenHands').addEventListener('click', async () => {
+    const result = await managedRequest('saveOpenHandsConfig', JSON.stringify({endpoint:$('ohEndpoint').value,apiKey:$('ohApiKey').value}));
+    if (result) $('ohApiKey').value = '';
+  });
+  $('managedForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    await managedRequest('addManagedJob', JSON.stringify({backend:$('managedBackend').value,taskId:Number($('managedTaskId').value),
+      conversationId:$('ohConversationId').value.trim(),goal:$('managedGoal').value,rules:$('managedRules').value,
+      allowReplies:$('managedAllowReplies').checked,maxReplies:Number($('managedMaxReplies').value),minutes:Number($('managedMinutes').value)}));
+  });
   $('checkButlerModel').addEventListener('click', checkModelConnection);
   $('saveVoiceService').addEventListener('click', () => saveVoiceService(false));
   $('clearVoiceService').addEventListener('click', () => saveVoiceService(true));
@@ -1568,7 +1589,85 @@
     toast(t("员工已恢复"));
   }
 
+  async function openManagedSheet(taskId) {
+    $('managedFeedback').textContent = '';
+    const select = $('managedTaskId');
+    select.replaceChildren();
+    state.tasks.filter(task => task.controlMode === 'process' && task.externalSessionId && ['codex','claude-code'].includes(task.agentType)).forEach(task => {
+      const option = element('option','',`${task.title} (S-${task.id})`); option.value=String(task.id); select.appendChild(option);
+    });
+    if (taskId && Array.from(select.options).some(option => option.value === String(taskId))) {
+      select.value=String(taskId); $('managedBackend').value='employee'; $('newManagedJob').open=true;
+    }
+    renderManagedBackend(); if (!$('taskBackdrop').classList.contains('hidden')) closeSheet('taskBackdrop'); openSheet('managedBackdrop'); await refreshManaged();
+  }
+  function renderManagedBackend() {
+    const oh=$('managedBackend').value==='openhands';
+    $('managedEmployeeRow').classList.toggle('hidden',oh); $('managedOpenHandsFields').classList.toggle('hidden',!oh);
+  }
+  async function managedRequest(method,...args) {
+    if (!window.AgentBridge || typeof AgentBridge[method] !== 'function') { $('managedFeedback').textContent=t('当前版本尚不支持持续跟进'); return false; }
+    try {
+      const result=JSON.parse(AgentBridge[method](...args));
+      if(!result.ok) { $('managedFeedback').textContent=result.error || t('操作失败'); return false; }
+      state.managed=result.data; renderManaged(); $('managedFeedback').textContent=''; return true;
+    } catch(error) { $('managedFeedback').textContent=t('跟进状态读取失败'); return false; }
+  }
+  async function refreshManaged() {
+    const ok=await managedRequest('managedState');
+    if(ok) {
+      $('ohEndpoint').value=state.managed.openHands?.endpoint || '';
+      $('ohApiKey').placeholder=state.managed.openHands?.hasApiKey ? t('已保存时可不填') : t('服务访问密钥');
+    }
+  }
+  function renderManaged() {
+    const managed=state.managed || {}, jobs=Array.isArray(managed.jobs)?managed.jobs:[];
+    $('managedStatus').textContent=t(managed.running?'手机管家正在运行':managed.enabled?'已开启，等待服务启动':'手机管家已暂停');
+    $('toggleManaged').textContent=t(managed.enabled?'暂停跟进':'启动手机管家');
+    const labels={waiting:'等待检查',observing:'正在查看',dispatching:'正在发送',needs_user:'需要你处理',uncertain:'发送结果待核对',review:'等待验收',paused:'已暂停',complete:'已完成',cancelled:'已取消'};
+    $('managedJobs').replaceChildren();
+    if(!jobs.length) $('managedJobs').appendChild(element('p','formNote',t('还没有跟进任务。先添加任务，再启动手机管家。')));
+    jobs.forEach(job => {
+      const card=element('article','managedJob');
+      card.appendChild(element('strong','',job.goal));
+      card.appendChild(element('p','managedJobMeta',`${job.backend==='openhands'?'OpenHands':t('员工会话')} · ${t(labels[job.state] || job.state)} · ${job.replyCount}/${job.maxReplies}`));
+      card.appendChild(element('p','',job.message || ''));
+      if(job.draft && ['needs_user','uncertain'].includes(job.state)) card.appendChild(element('pre','managedDraft',job.draft));
+      const details=element('details','managedEvents'); details.appendChild(element('summary','',t('查看跟进记录')));
+      (job.events || []).forEach(item => details.appendChild(element('p','',`${new Date(item.at).toLocaleTimeString()} ${item.text}`)));
+      if(job.lastObservation) details.appendChild(element('pre','managedDraft',JSON.stringify(job.lastObservation,null,2)));
+      card.appendChild(details);
+      const controls=element('div','managedControls');
+      const actions=['complete','cancelled'].includes(job.state)?[['remove','清理记录']]:
+        [...(['waiting','observing','dispatching'].includes(job.state)?[['pause','暂停']]:[['resume','重新检查']]),
+         ...(job.state==='review'?[['accept','验收完成']]:[]),['cancel','取消跟进']];
+      actions.forEach(([action,label]) => { const button=element('button','smallAction',t(label)); button.type='button';
+        button.addEventListener('click',()=>void managedRequest('managedControl',job.id,action)); controls.appendChild(button); });
+      card.appendChild(controls); $('managedJobs').appendChild(card);
+    });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden && !$('managedBackdrop').classList.contains('hidden')) void refreshManaged();
+  });
+  setInterval(() => {
+    if(!document.hidden && !$('managedBackdrop').classList.contains('hidden')) void managedRequest('managedState');
+  },5000);
+
   function renderPiDetail() {
+    $('piMemoryScopeRow').classList.toggle('hidden', !state.studio?.model?.ready);
+    const scopeSelect = $('piMemoryScope');
+    const previousScope = scopeSelect.value || '0';
+    scopeSelect.replaceChildren();
+    const townOption = element('option', '', t("整个小镇"));
+    townOption.value = '0';
+    scopeSelect.appendChild(townOption);
+    (state.tasks || []).filter(task => task.externalSessionId).forEach(task => {
+      const option = element('option', '', `${task.title} (S-${task.id})`);
+      option.value = String(task.id);
+      scopeSelect.appendChild(option);
+    });
+    scopeSelect.value = Array.from(scopeSelect.options).some(option => option.value === previousScope) ? previousScope : '0';
+    scopeSelect.disabled = state.sending || state.callMode;
     const chat = $('piMessages');
     const scrollPosition = chat.scrollTop;
     const followLatest = state.followChat || !chat.children.length || chat.scrollHeight - chat.clientHeight - chat.scrollTop < 32;
@@ -1699,7 +1798,9 @@
     })), 'attention', t("暂时没有任务等你回复。"));
 
     $('piMessages').replaceChildren();
-    const messages = Array.isArray(studio.messages) ? studio.messages.slice(-20) : [];
+    const selectedScope = Number($('piMemoryScope').value);
+    const messages = Array.isArray(studio.messages)
+      ? studio.messages.filter(message => Number(message.memoryTaskId || 0) === selectedScope).slice(-20) : [];
     $('butler').classList.toggle('hasConversation', Boolean(messages.length || state.pendingChat || state.failedChat));
     if (!messages.length && !state.pendingChat && !state.failedChat) {
       const welcome = element('div', 'chatWelcome');
@@ -1731,6 +1832,11 @@
       const messages = $('piMessages');
       updateChatLayout();
       if (messages) messages.scrollTop = followLatest ? messages.scrollHeight : scrollPosition;
+      // The dock/hero ResizeObserver can resize the chat once more after this
+      // frame. Preserve the reader's pre-render intent through that layout.
+      requestAnimationFrame(() => {
+        if (messages && followLatest) messages.scrollTop = messages.scrollHeight;
+      });
       state.followChat = false;
     });
   }
@@ -1766,6 +1872,16 @@
     $('modelBaseUrl').value = modelSettings.baseUrl || '';
     $('modelId').value = modelSettings.modelId || '';
     $('modelApiKey').value = '';
+    $('butlerRuntime').value = modelSettings.runtime || 'phone';
+    $('piRuntimeFields').classList.toggle('hidden', $('butlerRuntime').value !== 'pi');
+    $('piMachineId').replaceChildren();
+    (state.machines || []).forEach(machine => {
+      const option = element('option', '', machine.name || `M-${machine.id}`);
+      option.value = String(machine.id);
+      $('piMachineId').appendChild(option);
+    });
+    $('piMachineId').value = String(modelSettings.piMachineId || state.machines?.[0]?.id || '');
+    $('piWorkerPath').value = modelSettings.piWorkerPath || '';
     openSheet('cloudBackdrop');
   }
 
@@ -1779,7 +1895,8 @@
       return;
     }
     const modelResult = await call('saveStudioModel', t("保存 OpenAI 格式模型…"), JSON.stringify({
-      baseUrl, modelId, apiKey
+      baseUrl, modelId, apiKey, runtime: $('butlerRuntime').value,
+      piMachineId: Number($('piMachineId').value), piWorkerPath: $('piWorkerPath').value.trim()
     }));
     if (!modelResult.ok) return;
     state.studio = modelResult.data;
@@ -1819,6 +1936,7 @@
       }
       if (operation.state !== 'succeeded') throw new Error(operation.message || t("验证失败"));
       state.studio = operation.studio || state.studio;
+      if (state.studio.memoryWarning) state.chatNotices.push(state.studio.memoryWarning);
       $('modelCheckResult').textContent = t("连接正常，可以发消息了。");
       toast(t("连接正常，可以聊天了"));
     } catch (error) {
@@ -2060,7 +2178,9 @@
       if (!operation) {
         let parsed;
         try {
-          parsed = JSON.parse(AgentBridge.beginStudioMessage(value));
+          parsed = typeof AgentBridge.beginScopedStudioMessage === 'function'
+            ? JSON.parse(AgentBridge.beginScopedStudioMessage(JSON.stringify({ content: value, taskId: Number($('piMemoryScope').value) })))
+            : JSON.parse(AgentBridge.beginStudioMessage(value));
         } catch (error) {
           parsed = { ok: false, error: t("无法启动管家回复") };
         }

@@ -7,7 +7,7 @@
 ### Android client for Codex and Claude Code
 
 Read output, browse history, and reply to sessions running on your computers.<br>
-Ask the AI butler to check progress, find tasks needing your reply, or help draft a response.<br>
+Ask the butler to check progress, draft replies, and follow up within limits you set.<br>
 Each computer becomes an office; each task gets a pixel employee.
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
@@ -19,9 +19,9 @@ Each computer becomes an office; each task gets a pixel employee.
 
 [Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en.png" width="760" alt="Office Town app demo: training platform development and Xiaohongshu editing"></a>
+<a href="https://otterview-labs.github.io/agentBridge/en/#demo"><img src="docs/screenshots/demo-en-053.jpg" width="760" alt="Office Town app demo: training platform development and Xiaohongshu editing"></a>
 
-**[Watch the 1-minute 53-second app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, then reply to Codex from your phone.
+**[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/#demo)** · Follow training platform development and a Xiaohongshu draft, then reply to Codex from your phone.
 
 | Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
@@ -66,7 +66,11 @@ Tap refresh for the latest task status. Offline computers show saved records.
 - Choose **Help me reply** on an employee card for drafts based on the last refreshed task records. Select one, edit it, and send it yourself; selecting a draft does not send it.
 - Use voice input or an in-app call to ask about progress. Configure the model and test speech recognition and playback first.
 
-Choose your own butler model through an OpenAI-compatible API. Instructions to employees are sent from their task cards.
+Choose your own butler model through an OpenAI-compatible API. Replies stream as they arrive. Chat about the whole town or focus on one employee.
+
+**New in 0.5.53: phone task supervision (experimental).** Set a goal and scope. The butler checks progress and, if you allow it, sends replies within that scope. You set the reply limit and duration. It stops when a decision needs you; you accept the result yourself. Pause at any time. See [setup and limits](docs/managed-mode.md).
+
+Town and employee chats have separate Markdown histories. Optional computer-side Pi + `pi-memory` can query tasks and store memory. See [Pi setup](docs/pi-butler.md). Pi chat and phone supervision run separately.
 
 <details>
 <summary>Set up butler chat and voice</summary>
@@ -84,6 +88,8 @@ Then test the microphone and speech playback before starting a call. If system s
 | Codex CLI / Codex Desktop sessions | Find sessions, read output and history, send messages |
 | Claude Code | Find sessions, read output and history, send messages |
 | Gemini CLI | Basic process discovery |
+| OpenHands Agent Server (optional) | Observe and message an existing conversation; execution stays on the server |
+| Pi + pi-memory (optional) | Computer-side task queries and Markdown memory; separate from phone supervision |
 
 The Chinese **办公小镇** and English **Office Town** apps can be installed together. Each keeps its own settings and records. The Chinese edition updates existing Chinese releases; future English releases update the English app. Original task records retain their language.
 
@@ -93,7 +99,13 @@ Operations such as finding tasks and sending messages can continue after the pho
 
 The more AI tools I use, the more places there are to check. Tasks and records end up spread across sessions and computers. Sometimes I lose track of what got done and what still needs attention. I want one place to check that work and its history.
 
-I also want routine tasks to need less attention. Next, I want the butler to follow up, plan, and handle work within boundaries I set, asking when a decision needs me. Autonomous task management is still planned.
+I also want to spend less time watching tasks whose requirements are already clear. Phone supervision is the first step: set what the butler may do and how many replies it may send, then let it ask when something is uncertain. Code still runs on a computer or in an OpenHands execution environment.
+
+## Supervision limits
+
+Automatic replies are off by default. Start with observation, check the records and model decisions, then allow a narrowly scoped task. A foreground notification stays visible. Battery restrictions, loss of network, or force-stopping the app can interrupt checks; reopen the app to inspect the queue.
+
+OpenHands requires your own Agent Server and an existing conversation. One-click sandbox creation is not available yet. The butler uses recent records and saved chat history, which do not provide the original session’s full context. Keep publishing and payments outside broad task instructions; this release has no automatic Xiaohongshu publishing.
 
 ## Data and privacy
 
