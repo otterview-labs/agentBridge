@@ -4,10 +4,10 @@
 
 # agentBridge · 办公小镇
 
-### 在手机上接着处理 Codex 和 Claude Code 的任务
+### 离开电脑，也能接着用 AI 写代码
 
-在手机上查看输出、翻记录，接着电脑上的会话回消息。<br>
-让管家查进展、帮你写回复，也可以按你定的范围继续跟进。<br>
+用手机查看 Codex 和 Claude Code 的进展，补充要求，让电脑上的原会话继续。<br>
+管家帮你找出待回复的事，也可以按你定的范围持续跟进。<br>
 每台电脑一间办公室，每个任务一位像素员工。
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
@@ -19,9 +19,11 @@
 
 [下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/#demo"><img src="docs/screenshots/demo-zh-053.jpg" width="760" alt="办公小镇操作实录：训练平台开发与小红书改稿"></a>
+<a href="https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-zh-20261010.jpg" width="760" alt="办公小镇 App 录屏：离开电脑，也能接着用 AI 写代码"></a>
 
-**[看中英文操作视频](https://otterview-labs.github.io/agentBridge/#demo)** · 开发训练平台、修改小红书介绍稿，用手机接着回复 Codex，再让管家按范围跟进。
+[看新版操作视频](https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo) · 手机补充训练平台的开发要求，查看修改和测试结果，接着处理小红书稿子，再让管家帮忙跟进。
+
+[下载中英文横竖版、字幕和旁白稿](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控演示记录，等待时间已剪短。
 
 | 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|:---:|
@@ -99,7 +101,9 @@
 
 ## 为什么做办公小镇
 
-用的 AI 工具多了，任务和记录也散得到处都是。做过什么、哪件事还没结束，有时候自己都记不清。我想先有个地方，把几台电脑上的任务和记录放在一起。
+起因挺简单的。我平时用 AI 写代码，会同时开几个会话，比如一边开发训练平台，一边改小红书的稿子。出门以后，我也想看看进展、补充要求，让电脑上的原会话接着做。
+
+工具用得多了，任务和记录也散在好几个地方。忙一会儿再回来，有时记不清刚才做到哪了、谁还等着我回复。我想把这些任务和记录放在一起，在手机上也能接着处理。
 
 还有一些事，要求已经说清楚了，AI 本来就能接着处理，我不想每个任务都一直盯着。现在先做了手机持续跟进：规定它能做什么、最多回复几次，拿不准时停下来问我。代码仍在电脑或 OpenHands 的执行环境里运行。
 
