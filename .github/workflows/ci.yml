@@ -13,6 +13,9 @@ jobs:
   tests:
     name: UI, installer, reply and native regression tests
     runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     timeout-minutes: 20
     steps:
       - name: Check out repository
