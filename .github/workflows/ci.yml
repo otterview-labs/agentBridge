@@ -12,7 +12,7 @@ permissions:
 jobs:
   tests:
     name: UI, installer, reply and native regression tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
     timeout-minutes: 20
     steps:
       - name: Check out repository
@@ -50,7 +50,7 @@ jobs:
 
   build:
     name: Build debug APK and Android lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -93,7 +93,7 @@ jobs:
     # Keep the required check name in the main-branch ruleset. It succeeds only
     # when both the regression suite and Android build/lint succeeded.
     name: check
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
     needs: [tests, build]
     if: always()
     steps:

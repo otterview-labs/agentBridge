@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","X64","chenhao-140","ubuntu-22.04"]') }}
     timeout-minutes: 30
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
