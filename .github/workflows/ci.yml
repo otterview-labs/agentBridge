@@ -80,10 +80,16 @@ jobs:
             unzip -q "$temp_dir/tools.zip" -d "$temp_dir/unpacked"
             mv "$temp_dir/unpacked/cmdline-tools" "$tools"
           fi
+          proxy_args=()
+          proxy_url="${https_proxy:-${HTTPS_PROXY:-}}"
+          if [ -n "$proxy_url" ]; then
+            read -r proxy_host proxy_port < <(python3 -c 'import sys,urllib.parse; p=urllib.parse.urlparse(sys.argv[1]); print(p.hostname,p.port or 80)' "$proxy_url")
+            proxy_args=(--proxy=http --proxy_host="$proxy_host" --proxy_port="$proxy_port")
+          fi
           set +o pipefail
-          yes | "$tools/bin/sdkmanager" --sdk_root="$sdk" --licenses >/dev/null
+          yes | "$tools/bin/sdkmanager" "${proxy_args[@]}" --sdk_root="$sdk" --licenses >/dev/null
           set -o pipefail
-          "$tools/bin/sdkmanager" --sdk_root="$sdk" \
+          "$tools/bin/sdkmanager" "${proxy_args[@]}" --sdk_root="$sdk" \
             'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
           echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
