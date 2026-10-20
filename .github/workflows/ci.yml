@@ -50,7 +50,7 @@ jobs:
 
   build:
     name: Build debug APK and Android lint
-    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","X64","chenhao-ci-x64","ubuntu-22.04"]') }}
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -61,6 +61,13 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Prepare pinned Android SDK on self-hosted runner
+        id: provision-self-hosted-android-sdk
+        if: runner.environment == 'self-hosted'
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Check the runner's Android SDK covers what the build pins
         run: |
