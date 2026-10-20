@@ -12,7 +12,10 @@ permissions:
 jobs:
   tests:
     name: UI, installer, reply and native regression tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
+    env:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     timeout-minutes: 20
     steps:
       - name: Check out repository
@@ -50,7 +53,7 @@ jobs:
 
   build:
     name: Build debug APK and Android lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","X64","chenhao-ci-x64","ubuntu-22.04"]') }}
     timeout-minutes: 30
     steps:
       - name: Check out repository
@@ -61,6 +64,38 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Prepare pinned Android SDK on self-hosted runner
+        id: provision-self-hosted-android-sdk
+        if: runner.environment == 'self-hosted'
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$RUNNER_TOOL_CACHE/android-sdk}}"
+          tools="$sdk/cmdline-tools/22.0"
+          mkdir -p "$sdk/cmdline-tools"
+          if [ ! -x "$tools/bin/sdkmanager" ]; then
+            temp_dir=$(mktemp -d)
+            trap 'rm -rf "$temp_dir"' EXIT
+            curl --fail --location --retry 3 --connect-timeout 20 \
+              https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip \
+              --output "$temp_dir/tools.zip"
+            echo "4e4c464f145a7512b57d088ac6c278c03c9eea610886b35a5e0804e74eedf583  $temp_dir/tools.zip" | sha256sum --check
+            unzip -q "$temp_dir/tools.zip" -d "$temp_dir/unpacked"
+            mv "$temp_dir/unpacked/cmdline-tools" "$tools"
+          fi
+          proxy_args=()
+          proxy_url="${https_proxy:-${HTTPS_PROXY:-}}"
+          if [ -n "$proxy_url" ]; then
+            read -r proxy_host proxy_port < <(python3 -c 'import sys,urllib.parse; p=urllib.parse.urlparse(sys.argv[1]); print(p.hostname,p.port or 80)' "$proxy_url")
+            proxy_args=(--proxy=http --proxy_host="$proxy_host" --proxy_port="$proxy_port")
+          fi
+          set +o pipefail
+          yes | "$tools/bin/sdkmanager" "${proxy_args[@]}" --sdk_root="$sdk" --licenses >/dev/null
+          set -o pipefail
+          "$tools/bin/sdkmanager" "${proxy_args[@]}" --sdk_root="$sdk" \
+            'platform-tools' 'platforms;android-35' 'build-tools;35.0.0'
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk" >> "$GITHUB_ENV"
 
       - name: Check the runner's Android SDK covers what the build pins
         run: |
@@ -93,7 +128,7 @@ jobs:
     # Keep the required check name in the main-branch ruleset. It succeeds only
     # when both the regression suite and Android build/lint succeeded.
     name: check
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
     needs: [tests, build]
     if: always()
     steps:
