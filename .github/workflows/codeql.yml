@@ -20,7 +20,7 @@ jobs:
     # command, so it is analysed as well as the WebView script.
     name: ${{ matrix.name }}
     runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","X64","chenhao-ci-x64","ubuntu-22.04"]') }}
-    timeout-minutes: 20
+    timeout-minutes: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 60 || 20 }}
     strategy:
       fail-fast: false
       matrix:
