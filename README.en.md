@@ -21,15 +21,15 @@ Each computer becomes an office; each task gets a pixel employee.
 
 <a href="https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-en-20261010.jpg" width="760" alt="Office Town app recording: keep coding with AI from your phone"></a>
 
-[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
+[Watch the app walkthrough](https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
 
-[Download all four videos, subtitles, and narration scripts](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled demo records; waits have been shortened.
+[Download all four videos, subtitles, and narration scripts](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled sample records; waits have been shortened.
 
 | Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
 | <img src="docs/screenshots/office-en-0.5.51.png" width="180" alt="Training platform and Xiaohongshu editing tasks with pending decisions"> | <img src="docs/screenshots/task-en-0.5.45.png" width="180" alt="Reply to the training platform task and read the returned test results"> | <img src="docs/screenshots/butler-en-0.5.45.png" width="180" alt="Butler reads task records and lists pending decisions"> | <img src="docs/screenshots/call-en-0.5.44.png" width="180" alt="Voice chat with microphone, speaker and end-call controls"> |
 
-<sub>Office, task reply and butler screenshots come from demo projects. The call screenshot uses sample records.</sub>
+<sub>Office, task reply and butler screenshots come from sample projects. The call screenshot uses sample records.</sub>
 
 </div>
 
@@ -74,7 +74,7 @@ Choose your own butler model through an OpenAI-compatible API. Replies stream as
 
 <p><img src="docs/screenshots/follow-scope-en-0.5.53.png" width="230" alt="Set the training task goal, permitted scope and reply limits"> <img src="docs/screenshots/follow-review-en-0.5.53.png" width="230" alt="Follow-up result awaits manual acceptance"></p>
 
-Supervision screenshots use an isolated emulator and controlled demo records.
+Supervision screenshots use an isolated emulator and controlled sample records.
 
 Town and employee chats have separate Markdown histories. Optional computer-side Pi + `pi-memory` can query tasks and store memory. See [Pi setup](docs/pi-butler.md). Pi chat and phone supervision run separately.
 
