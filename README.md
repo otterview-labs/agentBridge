@@ -23,13 +23,13 @@
 
 [看新版操作视频](https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo) · 手机补充训练平台的开发要求，查看修改和测试结果，接着处理小红书稿子，再让管家帮忙跟进。
 
-[下载中英文横竖版、字幕和旁白稿](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控演示记录，等待时间已剪短。
+[下载中英文横竖版、字幕和旁白稿](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控样例记录，等待时间已剪短。
 
 | 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|:---:|
 | <img src="docs/screenshots/office-zh-0.5.51.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
 
-<sub>办公室、任务回复和管家截图来自演示项目；通话截图使用样例记录。</sub>
+<sub>办公室、任务回复和管家截图来自样例项目；通话截图使用样例记录。</sub>
 
 </div>
 
@@ -74,7 +74,7 @@
 
 <p><img src="docs/screenshots/follow-scope-zh-0.5.53.png" width="230" alt="设置训练平台任务目标、授权范围和自动回复限制"> <img src="docs/screenshots/follow-review-zh-0.5.53.png" width="230" alt="跟进结果等待用户验收"></p>
 
-跟进截图来自独立模拟器和受控演示记录。
+跟进截图来自独立模拟器和受控样例记录。
 
 聊天记录按小镇和员工分别保存在 Markdown 文件里；可选的电脑端 Pi + `pi-memory` 可以查询任务、保存记忆。配置见 [Pi 管家说明](docs/pi-butler.md)。Pi 聊天和手机持续跟进分别运行。
 
