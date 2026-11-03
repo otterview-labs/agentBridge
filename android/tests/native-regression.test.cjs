@@ -288,3 +288,47 @@ public class AsrCaptureHarness {
 }`);
   assert.equal(result.trim(), 'ok');
 });
+
+
+test('TTS bridge validates both numeric inputs before narrowing or changing settings', t => {
+  const settings = methods('PhoneBridge.java', '  @JavascriptInterface\n  public String setTtsSettings(', '  @JavascriptInterface\n  public String setTtsEnginePreference(');
+  const result = runHarness(t, 'TtsSettingsHarness', `
+import java.util.*;
+public class TtsSettingsHarness {
+  @interface JavascriptInterface {}
+  final Activity activity = new Activity();
+  JSONObject response;
+  static class Activity {
+    int calls;
+    float rate, pitch;
+    void setTtsSettings(float rate, float pitch) { calls++; this.rate = rate; this.pitch = pitch; }
+  }
+  static class JSONObject {
+    final Map<String, Double> values = new HashMap<>();
+    JSONObject put(String key, double value) { values.put(key, value); return this; }
+  }
+  String success(JSONObject value) { response = value; return "ok"; }
+  String failure(Exception error) { return "failed"; }
+  ${settings}
+  static void check(boolean condition) { if (!condition) throw new AssertionError(); }
+  public static void main(String[] args) {
+    TtsSettingsHarness bridge = new TtsSettingsHarness();
+    for (double value : new double[] {0.5, 1.0, 2.0, 1.25}) {
+      check(bridge.setTtsSettings(value, value).equals("ok"));
+      check(bridge.activity.rate == (float) value && bridge.activity.pitch == (float) value);
+      check(bridge.response.values.get("rate") == value && bridge.response.values.get("pitch") == value);
+    }
+    int calls = bridge.activity.calls;
+    JSONObject lastResponse = bridge.response;
+    for (double value : new double[] {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
+        Double.MAX_VALUE, -Double.MAX_VALUE, 0.0, -1.0, 0.4999, 2.0001}) {
+      check(bridge.setTtsSettings(value, 1.0).equals("failed"));
+      check(bridge.setTtsSettings(1.0, value).equals("failed"));
+      check(bridge.activity.calls == calls);
+      check(bridge.response == lastResponse);
+    }
+    System.out.println("ok");
+  }
+}`);
+  assert.equal(result.trim(), 'ok');
+});

@@ -1,129 +1,131 @@
 <div align="center">
 
-<img src="docs/screenshots/icon.png" width="72" alt="agentBridge 双拱桥标记">
+<img src="docs/screenshots/icon.png" width="72" alt="agentBridge bridge mark">
 
-# agentBridge · 办公小镇
+# agentBridge · Office Town
 
-### 离开电脑，也能接着用 AI 写代码
+### Keep coding with AI from your phone
 
-用手机查看 Codex 和 Claude Code 的进展，补充要求，让电脑上的原会话继续。<br>
-管家帮你找出待回复的事，也可以按你定的范围持续跟进。<br>
-每台电脑一间办公室，每个任务一位像素员工。
+Check Codex and Claude Code progress, add instructions, and keep the original session on your computer moving.<br>
+Ask the butler what needs your reply, or let it follow up within limits you set.<br>
+Each computer becomes an office; each task gets a pixel employee.
 
 [![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
 [![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
-[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/en/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
-[中文](README.md) · **[English README](README.en.md)**
+[简体中文](README.zh-CN.md) · **English**
 
-[下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
+[Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-zh-20261010.jpg" width="760" alt="办公小镇 App 录屏：离开电脑，也能接着用 AI 写代码"></a>
+<a href="https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-en-20261010.jpg" width="760" alt="Office Town app recording: keep coding with AI from your phone"></a>
 
-[看新版操作视频](https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo) · 手机补充训练平台的开发要求，查看修改和测试结果，接着处理小红书稿子，再让管家帮忙跟进。
+[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
 
-[下载中英文横竖版、字幕和旁白稿](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控演示记录，等待时间已剪短。
+[Download all four videos, subtitles, and narration scripts](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled demo records; waits have been shortened.
 
-| 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
+| Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
-| <img src="docs/screenshots/office-zh-0.5.51.png" width="180" alt="训练平台开发和小红书改稿，展示各自的待确认问题"> | <img src="docs/screenshots/task-0.5.45.png" width="180" alt="训练平台任务：手机发出要求，查看 Codex 返回的测试结果"> | <img src="docs/screenshots/butler-0.5.45.png" width="180" alt="管家读取任务记录，列出需要处理的问题"> | <img src="docs/screenshots/call-0.5.44.png" width="180" alt="管家语音通话：麦克风、扬声器与挂断按钮"> |
+| <img src="docs/screenshots/office-en-0.5.51.png" width="180" alt="Training platform and Xiaohongshu editing tasks with pending decisions"> | <img src="docs/screenshots/task-en-0.5.45.png" width="180" alt="Reply to the training platform task and read the returned test results"> | <img src="docs/screenshots/butler-en-0.5.45.png" width="180" alt="Butler reads task records and lists pending decisions"> | <img src="docs/screenshots/call-en-0.5.44.png" width="180" alt="Voice chat with microphone, speaker and end-call controls"> |
 
-<sub>办公室、任务回复和管家截图来自演示项目；通话截图使用样例记录。</sub>
+<sub>Office, task reply and butler screenshots come from demo projects. The call screenshot uses sample records.</sub>
 
 </div>
 
-## 开始使用
+## Get started
 
-需要 Android 7.0+ 手机，以及一台能通过 SSH 连接、已有 Codex 或 Claude Code 会话的 Mac / Linux 电脑。
+You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, with an existing Codex or Claude Code session.
 
-### 1. 下载 App
+### 1. Download the app
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 1.6 MB。
+[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 1.6 MB.
 
-### 2. 连接电脑
+### 2. Connect your computer
 
-打开 App，点「发现机器」扫描局域网，或填写 SSH 地址、账号和密码／私钥。
+Use the LAN scan or enter your computer's SSH address, username, and password or private key.
 
-### 3. 找到任务，接着回复
+### 3. Find a task and reply
 
-点「找任务」，导入电脑上已有的会话。打开员工卡片看输出、发消息，再点击刷新查看进展。
+Find existing sessions, open an employee card, and send a reply. Tap refresh to see new output.
 
-管家聊天和语音可以之后再配置，先连上电脑、发出第一条回复。照着 [首次使用指南](docs/getting-started.zh.md) 操作；连接、找任务或管家配置卡住时，里面有对应的排查步骤。
+You can set up the butler and voice later. Start by connecting your computer and sending a reply. Follow the [first-use guide](docs/getting-started.en.md) for setup and help with connection, discovery, and butler problems.
 
-## 怎么连接电脑上的任务
+## How it works
 
-任务继续在你的电脑上执行。手机通过 SSH 读取会话记录、发送消息，电脑端无需安装 agentBridge 或部署配套服务。回复会发回原来的 Codex 或 Claude Code 会话。
+Tasks keep running on your computers. The app uses SSH to read session records and send messages back to the original Codex or Claude Code session. Your computer needs no agentBridge installation or companion service.
 
-电脑需要保持开机。局域网内可以直接连接；在外使用需要可访问的 SSH 地址，也可以配置自己的 FRP 入口。连接配置见 [使用文档](docs/android-app.md#add-a-machine)。
+Keep your computer on. Away from your LAN, use a reachable SSH address or your own FRP connection. See the [connection guide](docs/android-app.md#add-a-machine).
 
-任务状态在点击刷新后更新；离线电脑显示的是历史记录。
+Tap refresh for the latest task status. Offline computers show saved records.
 
-## 可以用它做什么
+## What you can do
 
-- 离开电脑后，读任务输出和对话记录，补充要求或回答 AI 的问题。
-- 把几台 Mac、Linux 电脑的任务放在一起，每台电脑各有自己的办公室。
-- 在像素办公室里看哪些任务正在工作、空闲或等你输入。需要回复的任务排在前面。
-- 让管家查哪些任务需要回复、某个任务最近做了什么。它可以刷新任务、检查电脑连接、读取输出，再根据查到的内容回答。
-- 不知道怎么回员工时，点「帮我写回复」。模型根据最近一次刷新的记录写几条草稿，你选一条、改好后发送，选中不会自动发出去。
-- 按住说话，或用「拨给管家」通过 App 内的语音通话询问进展。使用前需要配置模型，并测试语音识别和播报。
+- Read output and conversation history while away from your desk, then add instructions or answer the agent's questions.
+- Keep tasks from several Mac and Linux computers together, with a separate office for each.
+- See which tasks are working, idle, or waiting for input. Tasks needing a reply appear first.
+- Ask the butler “Which tasks need my reply?” or “What has this task done recently?” It can refresh tasks, check connections, and read output before answering.
+- Choose **Help me reply** on an employee card for drafts based on the last refreshed task records. Select one, edit it, and send it yourself; selecting a draft does not send it.
+- Use voice input or an in-app call to ask about progress. Configure the model and test speech recognition and playback first.
 
-管家模型由你选择，支持 OpenAI 兼容接口。聊天回复逐步显示；可以查看整个小镇，也可以只聊某位员工的任务。
+Choose your own butler model through an OpenAI-compatible API. Replies stream as they arrive. Chat about the whole town or focus on one employee.
 
-**0.5.53：手机持续跟进（试用）**。把目标和处理范围交代清楚，管家会检查进展；允许自动回复后，它可以在这个范围内发消息。回复次数和跟进时长由你设置，遇到需要决定的事会停下来。结果由你确认，随时可以暂停。见[使用与限制](docs/managed-mode.md)。
+**New in 0.5.53: phone task supervision (experimental).** Set a goal and scope. The butler checks progress and, if you allow it, sends replies within that scope. You set the reply limit and duration. It stops when a decision needs you; you accept the result yourself. Pause at any time. See [setup and limits](docs/managed-mode.md).
 
-<p><img src="docs/screenshots/follow-scope-zh-0.5.53.png" width="230" alt="设置训练平台任务目标、授权范围和自动回复限制"> <img src="docs/screenshots/follow-review-zh-0.5.53.png" width="230" alt="跟进结果等待用户验收"></p>
+<p><img src="docs/screenshots/follow-scope-en-0.5.53.png" width="230" alt="Set the training task goal, permitted scope and reply limits"> <img src="docs/screenshots/follow-review-en-0.5.53.png" width="230" alt="Follow-up result awaits manual acceptance"></p>
 
-跟进截图来自独立模拟器和受控演示记录。
+Supervision screenshots use an isolated emulator and controlled demo records.
 
-聊天记录按小镇和员工分别保存在 Markdown 文件里；可选的电脑端 Pi + `pi-memory` 可以查询任务、保存记忆。配置见 [Pi 管家说明](docs/pi-butler.md)。Pi 聊天和手机持续跟进分别运行。
+Town and employee chats have separate Markdown histories. Optional computer-side Pi + `pi-memory` can query tasks and store memory. See [Pi setup](docs/pi-butler.md). Pi chat and phone supervision run separately.
 
 <details>
-<summary>配置管家聊天和语音</summary>
+<summary>Set up butler chat and voice</summary>
 
-在「管家 → 配置模型」填写服务商地址、模型名和 API Key，保存后点「验证连接」，再发一条文字消息。
+Save your provider URL, model name, and API key in model settings, verify the connection, and send a text message.
 
-文字聊天成功后，单独测试麦克风识别和声音播报，再打开「拨给管家」。系统语音服务不可用时，可配置百炼北京地域的云端语音服务。具体配置见 [使用文档](docs/android-app.md)。
+Then test the microphone and speech playback before starting a call. If system speech services are unavailable, configure Bailian / DashScope cloud speech with a Beijing-region key. Chat and speech can use separate keys. See the [Android guide](docs/android-app.md).
 
 </details>
 
-## 支持的工具
+## Supported tools and editions
 
-| 工具 | 当前支持 |
+| Tool | Current support |
 | --- | --- |
-| Codex CLI / Codex Desktop 会话 | 发现会话、读取输出、发送消息、查看对话记录 |
-| Claude Code | 发现会话、读取输出、发送消息、查看对话记录 |
-| Gemini CLI | 基础进程发现 |
-| OpenHands Agent Server（可选） | 绑定已有会话，查询进展、发送跟进消息；执行环境在服务端 |
-| Pi + pi-memory（可选） | 电脑端管家查询与 Markdown 记忆；与手机跟进队列分别运行 |
+| Codex CLI / Codex Desktop sessions | Find sessions, read output and history, send messages |
+| Claude Code | Find sessions, read output and history, send messages |
+| Gemini CLI | Basic process discovery |
+| OpenHands Agent Server (optional) | Observe and message an existing conversation; execution stays on the server |
+| Pi + pi-memory (optional) | Computer-side task queries and Markdown memory; separate from phone supervision |
 
-目前提供中文「办公小镇」和英文「Office Town」两款安卓版，可以同时安装。中文版沿用原应用 ID，可覆盖旧正式版；两款 App 的配置和记录各自保存。发送消息、查找任务等操作在开始后可继续在锁屏下执行，完成或失败时通知你。
+The Chinese **办公小镇** and English **Office Town** apps can be installed together. Each keeps its own settings and records. The Chinese edition updates existing Chinese releases; future English releases update the English app. Original task records retain their language.
 
-## 为什么做办公小镇
+Operations such as finding tasks and sending messages can continue after the phone locks, with a notification when they finish or fail.
 
-起因挺简单的。我平时用 AI 写代码，会同时开几个会话，比如一边开发训练平台，一边改小红书的稿子。出门以后，我也想看看进展、补充要求，让电脑上的原会话接着做。
+## Why I’m building Office Town
 
-工具用得多了，任务和记录也散在好几个地方。忙一会儿再回来，有时记不清刚才做到哪了、谁还等着我回复。我想把这些任务和记录放在一起，在手机上也能接着处理。
+I often have a few AI sessions open, working on a training platform in one and a Xiaohongshu draft in another. When I leave my computer, I still want to check progress and add instructions so those sessions can continue.
 
-还有一些事，要求已经说清楚了，AI 本来就能接着处理，我不想每个任务都一直盯着。现在先做了手机持续跟进：规定它能做什么、最多回复几次，拿不准时停下来问我。代码仍在电脑或 OpenHands 的执行环境里运行。
+Tasks and records end up spread across tools and computers. After a while, I lose track of where I left off and which session needs a reply. I want to keep that work together and pick it up from my phone.
 
-## 持续跟进的边界
+I also want to spend less time watching tasks whose requirements are already clear. Phone supervision is the first step: set what the butler may do and how many replies it may send, then let it ask when something is uncertain. Code still runs on a computer or in an OpenHands execution environment.
 
-自动回复默认关闭。第一次建议只开启观察，确认记录和模型判断合适后，再授权一个小范围的任务。手机会显示常驻通知；省电设置、断网、应用被强制停止可能中断跟进，重新打开后可查看队列。
+## Supervision limits
 
-OpenHands 需要自己配置 Agent Server 和已有会话，目前还不能一键创建开发环境。手机保存近期记录和聊天历史，管家并不拥有原会话的全部上下文。发布、付款等操作不要混在宽泛的任务目标里；本版也没有小红书自动发布功能。
+Automatic replies are off by default. Start with observation, check the records and model decisions, then allow a narrowly scoped task. A foreground notification stays visible. Battery restrictions, loss of network, or force-stopping the app can interrupt checks; reopen the app to inspect the queue.
 
-## 数据与隐私
+OpenHands requires your own Agent Server and an existing conversation. One-click sandbox creation is not available yet. The butler uses recent records and saved chat history, which do not provide the original session’s full context. Keep publishing and payments outside broad task instructions; this release has no automatic Xiaohongshu publishing.
 
-任务在你连接的电脑上执行。App 的配置、对话和记录保存在手机应用私有存储；SSH 密码、私钥、模型密钥等凭据使用 Android Keystore 加密，并从备份中排除。SSH 连接会核对已保存的主机密钥。
+## Data and privacy
 
-使用管家时，必要的任务信息和对话会发送到你选择的模型服务；启用百炼云端语音时，录音或播报文字会发送到百炼。详情见 [安全说明](SECURITY.md)。
+Tasks run on the computers you connect. App settings, conversations, and records stay in private app storage on your phone. SSH passwords, private keys, and model credentials are encrypted with Android Keystore and excluded from backups. SSH connections verify saved host keys.
 
-## 开发与贡献
+Butler chat sends relevant task information and messages to your chosen model provider. Bailian cloud speech sends audio or playback text to Bailian when enabled. See [SECURITY.md](SECURITY.md).
 
-Java · Android WebView · JSch / SSH · WebSocket · Android Service。
+## Development
 
-需要 JDK 17、Android SDK 35、Build Tools 35.0.0；运行测试还需要 Node.js 20+。
+Java, Android WebView, JSch / SSH, WebSocket, and Android Service.
+
+Build requirements: JDK 17, Android SDK 35, and Build Tools 35.0.0. Tests also require Node.js 20 or later.
 
 ```bash
 git clone https://github.com/otterview-labs/agentBridge.git
@@ -131,9 +133,9 @@ cd agentBridge/android
 ./gradlew assembleDebug lintZhDebug lintEnDebug
 ```
 
-调试安装包：`android/app/build/outputs/apk/zh/debug/app-zh-debug.apk` 和 `android/app/build/outputs/apk/en/debug/app-en-debug.apk`。调试版与正式版使用不同的应用 ID，可同时安装。
+Debug APKs: `android/app/build/outputs/apk/zh/debug/app-zh-debug.apk` and `android/app/build/outputs/apk/en/debug/app-en-debug.apk`. Debug builds use separate application IDs and can coexist with releases.
 
-在 `android` 目录下运行测试：
+From the `android` directory, run the tests:
 
 ```bash
 cd tests
@@ -142,10 +144,6 @@ npx playwright install chromium
 npm test
 ```
 
-反馈问题或提出功能建议：[提交 Issue](https://github.com/otterview-labs/agentBridge/issues)。参与开发请阅读 [贡献指南](CONTRIBUTING.md)。
+[Report an issue](https://github.com/otterview-labs/agentBridge/issues) or read the [contribution guide](CONTRIBUTING.md).
 
-[Apache-2.0](LICENSE) 许可证。
-
----
-
-Read the [English README](README.en.md) for features, setup, and development instructions.
+Licensed under [Apache-2.0](LICENSE).
