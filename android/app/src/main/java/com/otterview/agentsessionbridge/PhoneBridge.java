@@ -540,6 +540,13 @@ final class PhoneBridge {
   @JavascriptInterface
   public String setTtsSettings(double rate, double pitch) {
     try {
+      // Validate WebView inputs before narrowing them for Android's TTS API.
+      if (!Double.isFinite(rate) || rate < 0.5 || rate > 2.0) {
+        throw new IllegalArgumentException("Speech rate must be finite and between 0.5 and 2.0");
+      }
+      if (!Double.isFinite(pitch) || pitch < 0.5 || pitch > 2.0) {
+        throw new IllegalArgumentException("Speech pitch must be finite and between 0.5 and 2.0");
+      }
       activity.setTtsSettings((float) rate, (float) pitch);
       return success(new JSONObject()
           .put("rate", rate)
