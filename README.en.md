@@ -15,7 +15,7 @@ Each computer becomes an office; each task gets a pixel employee.
 [![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/en/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
-[中文](README.md) · **English**
+[简体中文](README.zh-CN.md) · **English**
 
 [Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
