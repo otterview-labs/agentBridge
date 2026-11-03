@@ -50,6 +50,7 @@ jobs:
           node --version
           npm ci --ignore-scripts
           npm test
+          npm run check
 
   build:
     name: Build debug APK and Android lint

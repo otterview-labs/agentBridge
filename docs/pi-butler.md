@@ -81,3 +81,7 @@ ASB_PI_TEST_MODEL=qwen3.6:27b node live-smoke.mjs
 Release 0.5.53 supports optional Pi + pi-memory on an SSH-connected computer. Install dependencies under `tools/pi-butler` using `npm ci --ignore-scripts`, then choose the Pi runtime in model settings and enter the absolute worker path. Use the app connection check to verify SSH, Pi, the extension and the model together.
 
 Choose the town or a specific agent above the composer. Stable original session IDs isolate agent memories. Normal phone chat also keeps local Markdown history. Raw records, user decisions and assistant claims remain distinct. QMD is optional and its semantic indexing has not been validated here. Pi chat has no sending tools. The separate 0.5.53 phone supervision queue can dispatch bounded follow-up replies; see managed-mode.md.
+
+## Dependency maintenance — 2026-11-03
+
+The pinned Pi 1.1.0 SDK has scoped overrides for patched Undici 8.12.3+ and Minimatch 11.0.3+. These match the dependency generations used by upstream Pi 1.5 without changing this worker’s SDK API. Run `npm ci --ignore-scripts`, `npm test`, `npm run check` and `npm audit` when updating the lockfile. The import check does not establish SSH access or model authentication.
