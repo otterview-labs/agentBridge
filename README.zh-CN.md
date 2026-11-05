@@ -33,7 +33,7 @@
 
 </div>
 
-## 最近更新 · 0.5.62（2026-11-05，本地测试版）
+## 最近更新 · 0.5.62（2026-11-05，手机验收待完成）
 
 - **聊天创建小红书草稿**：告诉管家主题、配图和提醒时间，生成标题与正文并保存，无需重新填写草稿表单。
 - **聊天管理图片和提醒**：支持系统选择一张图片、沿用最近图片，以及调整、取消一次性提醒和查看草稿清单。
@@ -41,7 +41,7 @@
 
 例如：`帮我写一篇介绍深圳咖啡店的小红书笔记，配图，明天晚上八点提醒我。` 生成文案需要可用的管家模型；新图片由用户在系统选择器中选择。
 
-**定时功能为到点通知提醒，最终发布需要在小红书确认。** 暂不支持无人值守发布、多图或周期提醒。143 项本地自动测试和中英文 debug 构建通过；真实模型、系统选图、通知与小红书交接仍待手机验收。本条记录不代表已发布 GitHub Release，顶部下载链接以实际 Release 版本为准。
+**定时功能为到点通知提醒，最终发布需要在小红书确认。** 暂不支持无人值守发布、多图或周期提醒。完整本地回归 270 项通过、6 项跳过；真实模型、系统选图、通知与小红书交接仍待手机验收。构建和发布状态见 [PR #92](https://github.com/otterview-labs/agentBridge/pull/92)，顶部下载链接以实际 Release 版本为准。
 
 [完整更新日志](CHANGELOG.md) · [配置与使用说明](docs/qa/note-chat-2026-11-05.md#用户可配置项) · [验证范围与待验收项](docs/qa/note-chat-2026-11-05.md)
 
@@ -51,7 +51,7 @@
 
 ### 1. 下载 App
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。安装包约 1.6 MB。
+[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。新版包含语音运行库和桌面连接组件，语音模型按需另行下载。
 
 ### 2. 连接电脑
 

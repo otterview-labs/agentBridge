@@ -1,0 +1,59 @@
+/* Model settings follows the office's warm paper and forest-green palette. */
+#cloudBackdrop .modelSettingsSheet { display: flex; flex-direction: column; width: min(100%, 560px); max-height: min(94dvh, 860px); overflow: hidden; padding: 0; background: var(--surface, #fffefb); border-radius: 22px 22px 0 0; }
+#cloudBackdrop .modelSettingsHeader { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; margin: 0; padding: 18px 20px 16px; border-bottom: 1px solid var(--line, #d5dacd); background: var(--surface, #fffefb); }
+.modelSettingsHeading { min-width: 0; flex: 1; }
+#cloudBackdrop .modelSettingsHeading h2 { font-size: 20px; font-weight: 700; line-height: 1.3; }
+#cloudBackdrop .modelSettingsHeader .iconButton { display: grid; place-items: center; width: 44px; height: 44px; min-width: 44px; padding: 10px; border: 0; border-radius: 12px; background: var(--surface-muted, #f0f1e9); box-shadow: none; }
+.modelSettingsHeader svg { width: 20px; height: 20px; }
+#cloudForm { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; gap: 0; overflow: hidden; margin: 0; }
+.modelFormScroll { display: grid; gap: 14px; overflow-y: auto; overscroll-behavior: contain; padding: 18px 20px 20px; min-height: 0; scrollbar-color: #a6b39d transparent; scrollbar-width: thin; }
+.modelSectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.modelSectionHeading h3 { margin: 0; font-size: 14px; font-weight: 650; }
+.modelConnectionBadge { padding: 4px 8px; border-radius: 6px; color: var(--muted, #5d6b5c); background: var(--surface-muted, #f0f1e9); font-size: 12px; line-height: 1.5; white-space: nowrap; }
+.modelConnectionBadge[data-state="verified"] { color: #244b39; background: #e5eddf; }
+.modelProviderChoices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+#cloudForm .modelServiceChoices { margin: 0; }
+#cloudForm .modelServiceChoices > summary, #cloudForm .modelCustomChoice { display: flex; align-items: center; min-height: 44px; width: 100%; gap: 10px; padding: 8px 11px; border: 1px solid var(--line, #d5dacd); border-radius: 8px; background: var(--surface, #fffefb); color: var(--ink, #263b30); font-size: 14px; font-weight: 600; text-align: left; }
+#cloudForm .modelServiceChoices > summary { justify-content: space-between; list-style: none; cursor: pointer; }
+.modelServiceChoices > summary::after { content: ''; width: 7px; height: 7px; flex: 0 0 7px; margin: 0 3px 3px 0; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
+.modelServiceChoices[open] > summary::after { transform: rotate(225deg); margin-bottom: -3px; }
+.modelServiceChoices .modelProviderChoices { margin-top: 8px; }
+#cloudForm .modelCustomChoice { margin-top: 8px; }
+#cloudForm .modelCustomChoice.selected, #cloudForm .modelSuggestions button[aria-pressed="true"] { border-color: #57866f; color: #173e31; background: #e5efe6; }
+.modelSuggestions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
+#cloudForm .modelSuggestions button { min-height: 44px; max-width: 100%; padding: 5px 10px; border: 1px solid var(--line, #d5dacd); border-radius: 6px; color: var(--ink, #263b30); background: var(--surface, #fffefb); font-size: 13px; overflow-wrap: anywhere; }
+#cloudForm .modelProviderChoice { min-height: 44px; min-width: 0; padding: 8px 4px; border: 1px solid var(--line, #d5dacd); border-radius: 10px; background: var(--surface, #fffefb); color: var(--ink, #263b30); font-size: 12px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; transition: background-color 160ms ease-out, border-color 160ms ease-out; }
+#cloudForm .modelProviderChoice.selected { color: #fffefb; background: var(--primary, #244b39); border-color: var(--primary, #244b39); font-weight: 650; }
+@media (hover: hover) { #cloudForm .modelProviderChoice:not(.selected):hover { background: var(--surface-muted, #f0f1e9); border-color: #81987b; } }
+#cloudForm .modelProviderChoice:active { background: #dce7d5; color: #244b39; }
+#cloudForm .modelProviderChoice:disabled { cursor: progress; opacity: .65; }
+.modelVariantRow { margin-top: 12px; }
+#cloudForm label { color: var(--ink, #263b30); font-size: 12px; font-weight: 600; gap: 7px; }
+#cloudForm input, #cloudForm select, #cloudForm textarea { min-height: 46px; width: 100%; min-width: 0; border: 1px solid var(--line, #d5dacd); border-radius: 10px; background: var(--surface, #fffefb); color: var(--ink, #263b30); padding: 11px 12px; font-size: 14px; font-weight: 400; line-height: 1.5; accent-color: var(--primary, #244b39); caret-color: var(--primary, #244b39); }
+#cloudForm input::placeholder, #cloudForm textarea::placeholder { color: #687462; opacity: 1; }
+#cloudForm :is(input, select, textarea, button, summary):focus-visible { outline: 2px solid var(--primary, #244b39); outline-offset: 3px; }
+#cloudForm :is(input, textarea)::selection { color: #fffefb; background: #244b39; }
+#cloudForm input:disabled, #cloudForm select:disabled, #cloudForm textarea:disabled { opacity: .65; }
+.modelProviderHint, .modelKeyHint { margin: 8px 0 0; color: var(--muted, #5d6b5c); font-size: 13px; font-weight: 400; line-height: 1.6; overflow-wrap: anywhere; }
+.modelCredentials { display: grid; gap: 16px; }
+.modelKeyHint { margin-top: 6px; }
+.modelEndpointDetails, .modelAdvancedDetails { border-top: 1px solid var(--line, #d5dacd); padding-top: 8px; }
+#cloudForm .modelEndpointDetails > summary, #cloudForm .modelAdvancedDetails > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; list-style: none; cursor: pointer; color: var(--ink, #263b30); font-size: 12px; font-weight: 600; }
+#cloudForm details > summary::-webkit-details-marker { display: none; }
+.modelEndpointDetails > summary::after, .modelAdvancedDetails > summary::after { content: ''; width: 7px; height: 7px; flex: 0 0 7px; margin-right: 3px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
+.modelEndpointDetails[open] > summary::after, .modelAdvancedDetails[open] > summary::after { transform: rotate(225deg); }
+.modelEndpointHost { min-width: 0; margin-left: auto; color: var(--muted, #5d6b5c); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modelExtraFields { display: grid; gap: 13px; padding: 0 0 14px; }
+#cloudForm .modelExtraFields .formNote { font-size: 12px; font-weight: 400; line-height: 1.65; }
+#cloudForm .modelExtraFields details { margin: 0; }
+#cloudForm .modelExtraFields details > summary { min-height: 44px; padding: 10px 0; color: var(--muted, #5d6b5c); font-size: 12px; cursor: pointer; }
+.modelSettingsActions { display: grid; flex: 0 0 auto; gap: 8px; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line, #d5dacd); background: var(--surface, #fffefb); }
+#cloudForm .modelSettingsActions .primaryAction { min-height: 48px; border-radius: 12px; box-shadow: none; background: var(--primary, #244b39); color: #fffefb; font-size: 14px; font-weight: 650; }
+#cloudForm .modelSettingsActions .primaryAction:disabled { opacity: .6; cursor: progress; }
+.modelSecondaryActions { display: flex; justify-content: center; gap: 8px; }
+#cloudForm .modelSecondaryActions button { min-height: 36px; padding: 6px 10px; color: var(--muted, #5d6b5c); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+#cloudForm .modelCheckFeedback { margin: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted, #5d6b5c); font-size: 12px; line-height: 1.5; text-align: center; }
+#cloudForm .modelCheckFeedback.error { color: #8e3d29; }
+@media (max-width: 370px) { .modelFormScroll { padding-inline: 16px; } #cloudBackdrop .modelSettingsHeader { padding-inline: 16px; } .modelSettingsActions { padding-inline: 16px; } #cloudForm .modelProviderChoice { font-size: 12px; } }
+@media (min-width: 700px) { #cloudBackdrop .modelSettingsSheet { border-radius: 20px; } }
+@media (prefers-reduced-motion: reduce) { #cloudForm .modelProviderChoice { transition: none; } }

@@ -6,11 +6,11 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { source, methods, harness } = require('./java-json-fixture.cjs');
 const reader = path.resolve(__dirname, '../app/src/main/assets/codex-transcript.py');
-const java = fs.readFileSync(path.join(source, 'PhoneBridge.java'), 'utf8');
+const java = fs.readFileSync(path.join(source, 'PhoneController.java'), 'utf8');
 const work = java.slice(java.indexOf('  private static final class Work {'), java.lastIndexOf('\n}')).replaceAll('org.json.JSONArray', 'JSONArray');
 
 test('refreshing one desktop employee reads only that thread and retains its reply', t => {
-  const discovery = methods('PhoneBridge.java', '  private List<JSONObject> listCodexDesktopTasks(', '  private void preserveCustomTitles(');
+  const discovery = methods('PhoneController.java', '  private List<JSONObject> listCodexDesktopTasks(', '  private void preserveCustomTitles(');
   harness(t, 'CodexSingleRefreshHarness', `
  static final String CODEX_THREAD_ID="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
  static final String TARGET="01a094c7-6452-73d2-a9c0-1b85f22498c7";
@@ -100,7 +100,7 @@ test('transcript status and the latest reply stay coherent across new turns and 
 });
 
 test('explanatory questions do not become pending confirmations', t => {
-  const required = methods('PhoneBridge.java', '  private static String requiredInput(', '  private static String suggestedReply(');
+  const required = methods('PhoneController.java', '  private static String requiredInput(', '  private static String suggestedReply(');
   harness(t, 'PendingQuestionHarness', `${required}
  static void expect(String input,String wanted){String actual=requiredInput(input);if(!actual.equals(wanted))throw new AssertionError("Expected ["+wanted+"] but got ["+actual+"]");}
  public static void main(String[] args){

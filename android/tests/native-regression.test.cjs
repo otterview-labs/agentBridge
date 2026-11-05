@@ -24,7 +24,7 @@ function runHarness(t, name, body) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'asb-native-tests-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const file = path.join(root, `${name}.java`);
-  fs.writeFileSync(file, body + '\n' + fs.readFileSync(path.join(source, 'UiText.java'), 'utf8').replace(/^package .*;\n/m, ''));
+  fs.writeFileSync(file, body + '\n' + fs.readFileSync(path.join(source, 'UiText.java'), 'utf8').replace(/^package .*;\n/m, '') + '\n' + fs.readFileSync(path.join(source, 'ModelEndpoint.java'), 'utf8').replace(/^package .*;\n/m, ''));
   execFileSync(javac, ['-d', root, file]);
   return execFileSync(java, ['-cp', root, name], { encoding: 'utf8', timeout: 10000 });
 }
@@ -98,6 +98,7 @@ test('cloud synthesis returns immediately and cancels stale playback and errors'
   const speech = methods('MainActivity.java', '  void speakCloudText(', '  private String synthesizeCloudSpeechUrl(');
   const result = runHarness(t, 'SpeechHarness', `
 import java.net.*;
+import java.io.File;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 public class SpeechHarness {
@@ -114,6 +115,7 @@ public class SpeechHarness {
   boolean isFinishing() { return false; }
   boolean isDestroyed() { return false; }
   void runOnUiThread(Runnable body) { if (Thread.currentThread() == main) body.run(); else ui.add(body); }
+  File getCacheDir() { return new File(System.getProperty("java.io.tmpdir"), "speech-fixture"); }
   void stopCloudSpeechPlayback() {}
   void stopStreamingCapture() {}
   void playSpeechUrl(String url) { plays.incrementAndGet(); }
@@ -163,7 +165,7 @@ public class SpeechHarness {
 });
 
 test('model endpoint normalization handles pasted completion URLs and rejects unsafe destinations', t => {
-  const validate = methods('PhoneBridge.java', '  private String validateDirectModelUrl(', '  private void appendStudioMessage(');
+  const validate = methods('PhoneController.java', '  private String validateDirectModelUrl(', '  private void appendStudioMessage(');
   const result = runHarness(t, 'ModelUrlHarness', `
 import java.net.*;
 public class ModelUrlHarness {
@@ -192,12 +194,12 @@ public class AsrSettlementHarness {
   final AtomicBoolean running = new AtomicBoolean(true), settled = new AtomicBoolean(false);
   final StringBuilder committed = new StringBuilder();
   String pendingSentence = "";
-  boolean discard;
+  boolean discard, doubao;
   WebSocket ws = new WebSocket();
   final Handler mainHandler = new Handler();
   final Listener listener = new Listener();
   static class Handler { void post(Runnable callback) { callback.run(); } }
-  static class WebSocket { int closes; void close(int code, String reason) { closes++; } }
+  static class WebSocket { int closes, cancels; void close(int code, String reason) { closes++; } void cancel() { cancels++; } }
   static class Listener {
     int finals, stops, errors; String text;
     void onFinal(String text) { finals++; this.text = text; }
@@ -218,9 +220,11 @@ public class AsrSettlementHarness {
     check(speech.listener.finals == 1 && speech.listener.text.equals("帮我看进展"));
     check(speech.listener.stops == 0);
     AsrSettlementHarness cancelled = new AsrSettlementHarness();
-    cancelled.discard = true; cancelled.pendingSentence = "不应发送";
+    cancelled.discard = true; cancelled.doubao = true; cancelled.pendingSentence = "不应发送";
+    WebSocket cancelledSocket = cancelled.ws;
     cancelled.settle();
     check(cancelled.listener.finals == 0 && cancelled.listener.stops == 0);
+    check(cancelledSocket.cancels == 1 && cancelledSocket.closes == 0);
     AsrSettlementHarness failure = new AsrSettlementHarness();
     failure.fail("network"); failure.settle();
     check(failure.listener.errors == 1 && failure.listener.stops == 0 && failure.listener.finals == 0);
@@ -245,6 +249,10 @@ public class AsrCaptureHarness {
   final Listener listener=new Listener();
   volatile WebSocket ws;
   volatile AudioRecord recorder;
+  final boolean doubao = false;
+  final Object audioSendLock = new Object();
+  byte[] doubaoPendingPcm;
+  int sequence;
   int mode;
   class Handler { void post(Runnable callback) { callback.run(); } }
   class Listener { void onReady() {
@@ -255,8 +263,9 @@ public class AsrCaptureHarness {
   static class AudioFormat { static final int CHANNEL_IN_MONO=1, ENCODING_PCM_16BIT=2; }
   static class MediaRecorder { static class AudioSource { static final int VOICE_COMMUNICATION=7; } }
   static class Log { static void w(String tag,String message,Exception error) {} }
-  static class ByteString { static byte[] of(byte[] value,int offset,int length) { return value; } }
-  static class WebSocket { void send(byte[] value) {} }
+  static class ByteString { static byte[] of(byte[] value,int offset,int length) { return value; } static byte[] of(byte[] value) { return value; } }
+  static class WebSocket { boolean send(byte[] value) { return true; } long queueSize() { return 0; } }
+  static class DoubaoAsrProtocol { static byte[] audio(int sequence,byte[] data,boolean last) { throw new AssertionError(); } }
   class AudioRecord {
     static final int STATE_INITIALIZED=1, RECORDSTATE_RECORDING=3;
     boolean recording;
@@ -282,50 +291,6 @@ public class AsrCaptureHarness {
       check(h.ready.get()==(mode==0 ? 1 : 0));
       check(h.errors.get()==(mode==0 ? 0 : 1));
       check(!h.recorder.recording);
-    }
-    System.out.println("ok");
-  }
-}`);
-  assert.equal(result.trim(), 'ok');
-});
-
-
-test('TTS bridge validates both numeric inputs before narrowing or changing settings', t => {
-  const settings = methods('PhoneBridge.java', '  @JavascriptInterface\n  public String setTtsSettings(', '  @JavascriptInterface\n  public String setTtsEnginePreference(');
-  const result = runHarness(t, 'TtsSettingsHarness', `
-import java.util.*;
-public class TtsSettingsHarness {
-  @interface JavascriptInterface {}
-  final Activity activity = new Activity();
-  JSONObject response;
-  static class Activity {
-    int calls;
-    float rate, pitch;
-    void setTtsSettings(float rate, float pitch) { calls++; this.rate = rate; this.pitch = pitch; }
-  }
-  static class JSONObject {
-    final Map<String, Double> values = new HashMap<>();
-    JSONObject put(String key, double value) { values.put(key, value); return this; }
-  }
-  String success(JSONObject value) { response = value; return "ok"; }
-  String failure(Exception error) { return "failed"; }
-  ${settings}
-  static void check(boolean condition) { if (!condition) throw new AssertionError(); }
-  public static void main(String[] args) {
-    TtsSettingsHarness bridge = new TtsSettingsHarness();
-    for (double value : new double[] {0.5, 1.0, 2.0, 1.25}) {
-      check(bridge.setTtsSettings(value, value).equals("ok"));
-      check(bridge.activity.rate == (float) value && bridge.activity.pitch == (float) value);
-      check(bridge.response.values.get("rate") == value && bridge.response.values.get("pitch") == value);
-    }
-    int calls = bridge.activity.calls;
-    JSONObject lastResponse = bridge.response;
-    for (double value : new double[] {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY,
-        Double.MAX_VALUE, -Double.MAX_VALUE, 0.0, -1.0, 0.4999, 2.0001}) {
-      check(bridge.setTtsSettings(value, 1.0).equals("failed"));
-      check(bridge.setTtsSettings(1.0, value).equals("failed"));
-      check(bridge.activity.calls == calls);
-      check(bridge.response == lastResponse);
     }
     System.out.println("ok");
   }

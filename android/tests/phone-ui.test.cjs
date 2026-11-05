@@ -65,6 +65,8 @@ async function openPhone(t, options = {}) {
       data.tasks[2].workSummary = 'Last record: session idle';
     }
     if (options.taskPreviewRecords) Object.assign(data.tasks[0], options.taskPreviewRecords);
+    if (options.openCodeMachine) Object.assign(data.machines[0], options.openCodeMachine);
+    if (options.offlinePending) Object.assign(data.tasks[2], { requiredInput: options.englishSamples ? 'Reconnect this computer, then review the previous question?' : '是否先恢复这台电脑的连接，再核对上次的问题？' });
     if (options.empty) { data.machines = []; data.tasks = []; }
     if (options.frpStatus) {
       data.frpServer = { machineId: 2, publicAddress: 'public.example.test',
@@ -102,10 +104,14 @@ async function openPhone(t, options = {}) {
         modelId: options.modelReady ? 'test-model' : '', baseUrl: options.modelReady ? 'https://model.example.test/v1' : '',
         hasApiKey: Boolean(options.modelReady), source: options.modelReady ? 'local' : 'unconfigured'
       },
-      machines: [], tasks: [], memories: [], messages: [],
+      machines: [], tasks: [], memories: [], messages: options.butlerMessages || [],
       dailyReport: null, reportHistory: [],
       report: { completed: [], ongoing: [], suggestions: [] }
     };
+    if (options.modelProfiles) { studio.modelProfiles = options.modelProfiles; studio.modelSettings = {...studio.modelSettings,...options.modelProfiles[0]}; }
+    window.modelProfileActions = [];
+    window.modelSaves = [];
+    window.modelCheckCount = 0;
     window.sendCount = 0;
     window.suggestionCount = 0;
     const suggestionOperations = new Map();
@@ -119,6 +125,8 @@ async function openPhone(t, options = {}) {
     let chatOperation;
     let modelCheckOperation;
     let hasVoiceKey = false;
+    let voiceConfig = { provider: 'system' };
+    const voiceProfiles = {};
     window.AgentBridge = {
       state: () => ++reads > 1 && options.stateFails
         ? fail('读取失败') : ok(data),
@@ -141,8 +149,17 @@ async function openPhone(t, options = {}) {
         suggestionOperations.set(operation.id, operation);
         return ok({ operation });
       },
+      studioModelProfileAction: payload => {
+        const input=JSON.parse(payload);window.modelProfileActions.push(input);
+        const profile=studio.modelProfiles.find(p=>p.profileId===input.id);
+        if(input.action==='favorite')profile.favorite=!profile.favorite;
+        if(input.action==='select'){studio.modelSettings={...profile};studio.model={ready:true,label:profile.modelId,verifiedAt:profile.verifiedAt||''};}
+        if(input.action==='delete')studio.modelProfiles=studio.modelProfiles.filter(p=>p.profileId!==input.id);
+        return ok(studio);
+      },
       saveStudioModel: payload => {
         const input = JSON.parse(payload);
+        window.modelSaves.push(input);
         studio.modelSettings = {
           enabled: true, provider: 'openai-compatible', modelId: input.modelId,
           baseUrl: input.baseUrl, hasApiKey: true, source: 'local', runtime: input.runtime,
@@ -152,9 +169,10 @@ async function openPhone(t, options = {}) {
         return ok(studio);
       },
       beginStudioModelCheck: () => {
+        window.modelCheckCount += 1;
         studio.model.verifiedAt = options.modelCheckFails ? '' : checkedAt;
         modelCheckOperation = { id: 'test-model-check', state: options.modelCheckFails ? 'failed' : 'succeeded',
-          message: options.modelCheckFails ? '模型返回 HTTP 401，请检查 API Key' : '模型连接成功', studio };
+          message: options.modelCheckFails ? (options.modelCheckError || '模型返回 HTTP 401，请检查 API Key') : '模型连接成功', studio };
         return ok({ operation: modelCheckOperation });
       },
       discoverTasks: id => (options.failedIds || []).includes(id)
@@ -287,13 +305,31 @@ async function openPhone(t, options = {}) {
         window.callCalls.push(['tts-settings', rate, pitch]);
         return ok({ rate, pitch });
       },
-      getTtsStatus: () => ok({ ready: !options.voiceUnavailable || hasVoiceKey,
-        recognitionAvailable: !options.voiceUnavailable, cloudAvailable: hasVoiceKey,
+      getOfflineVoiceModelStatus: () => ok({
+        state: window.offlineFixtureState || (options.offlineVoiceInstalled === false ? 'missing' : 'ready'),
+        downloadedBytes: window.offlineFixtureState === 'downloading' ? 61000000 : 0, totalBytes: 129118208
+      }),
+      downloadOfflineVoiceModel: () => {
+        window.offlineFixtureState = 'downloading';
+        return ok({ state: 'downloading', downloadedBytes: 61000000, totalBytes: 129118208 });
+      },
+      getTtsStatus: () => ok({ ...voiceConfig, profiles: voiceProfiles,
+        ready: ['system', 'sherpa', 'doubao'].includes(voiceConfig.provider) ? options.voicePlaybackAvailable ?? !options.voiceUnavailable : hasVoiceKey,
+        localReady: options.voicePlaybackAvailable ?? !options.voiceUnavailable,
+        recognitionAvailable: voiceConfig.provider === 'sherpa'
+          ? !!options.offlineVoiceAvailable && (window.offlineFixtureState === 'ready' || options.offlineVoiceInstalled !== false)
+          : !options.voiceUnavailable,
+        offlineAvailable: !!options.offlineVoiceAvailable,
+        cloudAvailable: !['system', 'sherpa'].includes(voiceConfig.provider) && hasVoiceKey,
         hasVoiceKey, microphoneGranted: true, engine: 'test-engine', language: 'zh-CN' }),
       saveVoiceService: payload => {
         const input = JSON.parse(payload);
+        if (voiceConfig.provider !== input.provider || voiceConfig.baseUrl !== input.baseUrl) hasVoiceKey = false;
         hasVoiceKey = input.clear ? false : Boolean(input.apiKey) || hasVoiceKey;
-        return ok({ hasVoiceKey });
+        voiceConfig = { ...input, hasVoiceKey }; delete voiceConfig.apiKey;
+        voiceProfiles[input.provider] = voiceConfig;
+        window.voiceSavedConfig = voiceConfig;
+        return ok(voiceConfig);
       }
     };
     if (options.scopedMemory) {
@@ -362,6 +398,11 @@ async function expectToast(page, text) {
     document.getElementById('toast').textContent === expected, text);
 }
 
+async function openButlerActions(page) {
+  if (await page.locator('#butlerActions').getAttribute('open') === null)
+    await page.locator('#butlerActions > summary').click();
+}
+
 test('English app localizes controls while preserving session text and human drafts', async t => {
   const page = await openPhone(t, { language: 'en', modelReady: true, modelVerified: true });
   assert.equal(await page.locator('html').getAttribute('lang'), 'en');
@@ -370,7 +411,7 @@ test('English app localizes controls while preserving session text and human dra
     await page.setViewportSize({ width, height: 800 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width);
   }
-  assert.equal(await page.locator('[data-view="butler"]').textContent(), 'Butler');
+  assert.equal(await page.locator('[data-view="butler"]').textContent(), 'Butler chat');
   assert.match(await page.locator('[data-task-id="1"]').textContent(), /修复手机版任务状态显示/);
   await page.locator('[data-task-id="1"]').click();
   assert.doesNotMatch(await page.locator('#sendTask').textContent(), /[\u4e00-\u9fff]/);
@@ -422,6 +463,31 @@ test('compact office controls, responsive layout and navigation', async t => {
   await page.locator('[data-view="public"]').click();
   await page.getByRole('button', { name: '开始配置', exact: true }).click();
   assert.equal(await page.locator('#frpForm').isVisible(), true);
+});
+
+test('SSH remains behind advanced settings in every view and returns focus without stacking sheets', async t => {
+  const page = await openPhone(t);
+  for (const view of ['offices', 'butler', 'todo', 'public']) {
+    await page.locator(`.tab[data-view="${view}"]`).click();
+    assert.equal(await page.locator('#openAdd').isVisible(), false);
+    await page.locator('#openAppearance').click();
+    await page.locator('#connectionAdvanced').evaluate(el => { el.open = false; });
+    assert.equal(await page.locator('#openAdd').isVisible(), false);
+    await page.locator('#connectionAdvanced > summary').click();
+    assert.equal(await page.locator('#openScan').isVisible(), true);
+    assert.equal(await page.locator('#machineBackdrop').isVisible(), false);
+    if (process.env.PAIRED_QA_DIR && view === 'offices') {
+      fs.mkdirSync(process.env.PAIRED_QA_DIR, {recursive:true});
+      await page.locator('#connectionAdvanced').scrollIntoViewIfNeeded();
+      await page.screenshot({path:path.join(process.env.PAIRED_QA_DIR,'town-advanced-settings.png')});
+    }
+    await page.locator('#openAdd').click();
+    assert.equal(await page.locator('#appearanceBackdrop').isVisible(), false);
+    assert.equal(await page.locator('.sheetBackdrop:not(.hidden)').count(), 1);
+    assert.equal(await page.locator('#machineForm').isVisible(), true);
+    await page.locator('[data-close="machineBackdrop"]').click();
+    assert.equal(await page.locator('#openAppearance').evaluate(el => el === document.activeElement), true);
+  }
 });
 
 test('refresh reports success, partial failure and total failure accurately', async t => {
@@ -516,11 +582,19 @@ test('long titles and paths fit narrow screens', async t => {
 
 test('empty state does not imply active supervision', async t => {
   const page = await openPhone(t, { empty: true });
+  assert.equal(await page.locator('#openConnector').isVisible(), true);
+  assert.equal(await page.locator('.summary').isVisible(), false);
+  assert.equal(await page.locator('#openAdd').isVisible(), false);
+  if (process.env.PAIRED_QA_DIR) {
+    fs.mkdirSync(process.env.PAIRED_QA_DIR, {recursive:true});
+    await page.screenshot({path:path.join(process.env.PAIRED_QA_DIR,'town-qr-welcome.png')});
+  }
   await page.locator('[data-view="todo"]').click();
   assert.match(await page.locator('#todo').textContent(), /暂无待输入记录.*检查最新会话状态/);
   assert.equal(await page.locator('#attentionCount').isDisabled(), true);
   await page.locator('#refreshAll').click();
-  await page.locator('#machineForm').waitFor({ state: 'visible' });
+  await page.locator('#connectorBackdrop').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#machineBackdrop').isVisible(), false);
 });
 
 test('attention shortcut and employee ordering prioritize pending input', async t => {
@@ -540,12 +614,16 @@ test('attention shortcut and employee ordering prioritize pending input', async 
 test('town butler shortcut opens chat without submitting a message', async t => {
   for (const language of ['zh-CN', 'en']) {
     const page = await openPhone(t, { language, modelReady: true });
-    const shortcut = page.locator('.townButler');
+    const shortcut = page.locator('#openTownButler');
     assert.match(await shortcut.textContent(), language === 'en'
-      ? /Talk to the butler.*Check progress and pending replies/
-      : /找管家聊聊.*问进度，找待回复的任务/);
+      ? /Chat with the butler.*Check progress and discuss tasks/
+      : /和管家聊天.*问进度、聊任务/);
+    const entry = await shortcut.boundingBox();
+    const employee = await page.locator('.employee').first().boundingBox();
+    assert.ok(entry.y + entry.height < employee.y, 'shortcut stays above the employee list');
     await shortcut.click();
     assert.equal(await page.locator('#butler').isVisible(), true);
+    assert.equal(await page.locator('#piInput').isVisible(), true);
     assert.equal(await page.locator('.tab[data-view="butler"]').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.evaluate(() => window.chatCount), 0);
     await page.locator('[data-view="offices"]').click();
@@ -586,18 +664,18 @@ test('offline employees show historical status with no work animation', async t 
       connected: Boolean(node && node.isConnected),
       state: node ? node.closest('[data-task-id]')?.getAttribute('data-state') : null };
   }, selector);
-  const idle = await animation('[data-task-id="3"] .employeeCharacter');
+  const idle = await animation('[data-task-id="3"] :is(.employeeCharacter, .gameSprite)');
   assert.equal(idle.name, 'none', JSON.stringify(idle));
-  const running = await animation('[data-task-id="1"] .typingHands');
-  assert.notEqual(running.name, 'none', JSON.stringify(running));
   // The overview refresh can replace the row while Playwright waits for its
   // position to settle. Resolve and scroll synchronously in the page instead.
   await page.evaluate(() => document.querySelector('[data-task-id="1"]').scrollIntoView({ block: 'center', behavior: 'instant' }));
   await page.waitForFunction(() => document.querySelector('[data-task-id="1"]')?.dataset.motion === 'live');
+  const running = await animation('[data-task-id="1"] :is(.typingHands, .gameSprite)');
+  assert.notEqual(running.name, 'none', JSON.stringify(running));
   await page.locator('[data-view="butler"]').click();
   await page.waitForFunction(() => document.querySelector('[data-task-id="1"]')?.dataset.motion === 'paused');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  assert.equal((await animation('[data-task-id="1"] .typingHands')).name, 'none');
+  assert.equal((await animation('[data-task-id="1"] :is(.typingHands, .gameSprite)')).name, 'none');
 });
 
 test('task drafts remain separate when closing and reopening sheets', async t => {
@@ -714,11 +792,11 @@ test('butler model is configured directly without a Hub dependency', async t => 
   await page.locator('[data-view="butler"]').click();
   assert.equal(await page.locator('#cloudState').textContent(), '配置模型');
   assert.equal(await page.locator('#sendPi').isDisabled(), true);
-  await page.locator('#openCloudFromButler').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
   await page.locator('#modelBaseUrl').fill('https://model.example.test/v1');
   await page.locator('#modelId').fill('test-model');
   await page.locator('#modelApiKey').fill('test-only-secret');
-  await page.locator('#cloudForm button[type="submit"]').click();
+  await page.locator('#saveModelOnly').click();
   await page.waitForFunction(() => document.getElementById('cloudState').textContent === '模型待验证');
   assert.equal(await page.locator('#cloudBackdrop').isVisible(), true);
   await page.locator('#testModelConnection').click();
@@ -742,6 +820,7 @@ test('butler selects Pi explicitly and scoped conversations stay separate at pho
   await page.locator('[data-view="butler"]').click();
   assert.match(await page.locator('#piMessages').innerText(), /Town answer/);
   assert.doesNotMatch(await page.locator('#piMessages').innerText(), /Training remembered/);
+  await openButlerActions(page); await page.locator('#butlerComposerOptions > summary').click();
   await page.locator('#piMemoryScope').selectOption('1');
   assert.match(await page.locator('#piMessages').innerText(), /Training remembered/);
   assert.doesNotMatch(await page.locator('#piMessages').innerText(), /Town answer/);
@@ -749,7 +828,8 @@ test('butler selects Pi explicitly and scoped conversations stay separate at pho
   await page.locator('#sendPi').click();
   await page.waitForFunction(() => window.scopedChats.length === 1 && !document.getElementById('piMemoryScope').disabled);
   assert.deepEqual(await page.evaluate(() => window.scopedChats[0]), { content: '继续训练平台的要求', taskId: 1 });
-  await page.locator('#openCloudFromButler').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+  await page.locator('#modelAdvanced').evaluate(e => e.open = true);
   await page.locator('#butlerRuntime').selectOption('pi');
   assert.equal(await page.locator('#piRuntimeFields').isVisible(), true);
   await page.locator('#piMachineId').selectOption('1');
@@ -768,7 +848,7 @@ test('chat errors preserve the message and a working retry after a refresh', asy
   await page.getByRole('button', { name: '重试这条消息' }).waitFor();
   assert.equal(await page.locator('#piInput').inputValue(), '请帮我看今天的进展');
   assert.match(await page.locator('#piMessages').textContent(), /HTTP 401/);
-  await page.locator('#refreshButler').click();
+  await openButlerActions(page); await page.locator('#refreshButler').click();
   await page.getByRole('button', { name: '重试这条消息' }).waitFor();
   await page.getByRole('button', { name: '重试这条消息' }).click();
   await page.waitForFunction(() => window.chatCount === 2);
@@ -819,6 +899,7 @@ test('call setup shows missing voice services and stores a separate voice key wi
   await page.locator('#voiceBackdrop').waitFor();
   assert.equal(await page.locator('#callBackdrop').isHidden(), true);
   assert.match(await page.locator('#voiceInputStatus').textContent(), /尚未就绪/);
+  await page.locator('[data-voice-provider="bailian"]').click();
   await page.locator('#voiceApiKey').fill('voice-test-secret');
   await page.locator('#saveVoiceService').click();
   assert.equal(await page.locator('#voiceApiKey').inputValue(), '');
@@ -980,9 +1061,10 @@ test('call mode completes the cloud-recording voice loop', async t => {
 test('voice settings tune TTS rate and pitch and preview through the engine', async t => {
   const page = await openPhone(t, { modelReady: true });
   await page.locator('[data-view="butler"]').click();
-  await page.locator('#openVoiceSettings').click();
+  await openButlerActions(page); await page.locator('#openVoiceSettings').click();
   await page.locator('#voiceBackdrop').waitFor();
   assert.match(await page.locator('#ttsEngineStatus').textContent(), /已就绪/);
+  await page.locator('#voicePlaybackDetails summary').click();
   await page.locator('#voiceRateSetting').fill('1.3');
   await page.locator('#voicePitchSetting').fill('0.9');
   assert.equal(await page.evaluate(() => window.callCalls.some(call =>
@@ -1158,7 +1240,7 @@ test('successful relay shows a past verification time, not a continuous connecti
 });
 
 test('native reply commands do not force bypass and guard the Codex command group', () => {
-  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneBridge.java'), 'utf8');
+  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneController.java'), 'utf8');
   assert.doesNotMatch(source, /--dangerously-skip-permissions/);
   assert.match(source, /&& \{ codex_bin=/);
   assert.match(source, /thread=.*shellQuote\(sessionId\).*message=.*shellQuote\(value\)/s);
@@ -1173,15 +1255,16 @@ test('native reply commands do not force bypass and guard the Codex command grou
 });
 
 test('phone butler calls the model directly and contains no Hub client path', () => {
-  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneBridge.java'), 'utf8');
+  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneController.java'), 'utf8');
+  const transport = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/ChatCompletionClient.java'), 'utf8');
   assert.doesNotMatch(source, /StudioHubClient|saveStudioHub|disconnectStudioHub|beginStudioHub/);
-  assert.match(source, /chat\/completions/);
-  assert.match(source, /Bearer " \+ model\.getString\("apiKey"\)/);
+  assert.match(transport, /chat\/completions/);
+  assert.match(transport, /Bearer " \+ model\.getString\("apiKey"\)/);
   assert.match(source, /不经过 Hub/);
 });
 
 test('discovery collapses duplicate Claude processes and Codex subagents', () => {
-  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneBridge.java'), 'utf8');
+  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneController.java'), 'utf8');
   assert.match(source, /dedupeProcessTasksBySession/);
   assert.match(source, /"claude:" \+ externalSessionId/);
   assert.match(source, /"subagent"\.equals\(threadSource\) \|\| !parentThreadId\.isEmpty\(\)/);
@@ -1194,9 +1277,9 @@ test('discovery collapses duplicate Claude processes and Codex subagents', () =>
 });
 
 test('SSH sockets bypass an always-on VPN through the physical network', () => {
-  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/PhoneBridge.java'), 'utf8');
+  const source = fs.readFileSync(path.resolve(assets, '../java/com/otterview/agentsessionbridge/AndroidSshSocketFactory.java'), 'utf8');
   const manifest = fs.readFileSync(path.resolve(assets, '../AndroidManifest.xml'), 'utf8');
-  assert.match(source, /DirectNetworkSocketFactory/);
+  assert.match(source, /AndroidSshSocketFactory/);
   assert.match(source, /TRANSPORT_VPN/);
   assert.match(source, /TRANSPORT_WIFI/);
   assert.match(source, /network\.bindSocket\(socket\)/);
@@ -1396,7 +1479,7 @@ test('butler and employee replies share safe code, table and list formatting', a
     };
   }, reply);
   await page.locator('[data-view="butler"]').click();
-  await page.locator('#refreshButler').click();
+  await openButlerActions(page); await page.locator('#refreshButler').click();
   await page.locator('#piMessages .messageTable').waitFor();
   const check = async region => {
     assert.equal(await region.locator('.messageCode code').textContent(), code);
@@ -1484,7 +1567,7 @@ test('butler task references open only existing tasks and never send messages', 
     };
   });
   await page.locator('[data-view="butler"]').click();
-  await page.locator('#refreshButler').click();
+  await openButlerActions(page); await page.locator('#refreshButler').click();
   const links = page.locator('.chatTaskLink');
   await links.first().waitFor();
   assert.equal(await links.count(), 1);
@@ -1604,7 +1687,7 @@ test('adapter IDs and record paths stay in raw records while readable progress r
 
 test('phone supervision requires an explicit scope and reply opt-in, preserves jobs while pausing and configures OpenHands separately',async t=>{
  const page=await openPhone(t,{modelReady:true,managedMode:true});
- await page.locator('[data-view="butler"]').click(); await page.locator('#openManaged').click();
+ await page.locator('[data-view="butler"]').click(); await openButlerActions(page); await page.locator('#openManaged').click();
  assert.equal(await page.locator('#managedAllowReplies').isChecked(),false);
  assert.equal(await page.locator('#managedTaskId option').count(),1);
  await page.locator('#newManagedJob summary').click();
@@ -1626,10 +1709,632 @@ test('phone supervision requires an explicit scope and reply opt-in, preserves j
 
 test('English supervision controls keep original user goals unchanged',async t=>{
  const page=await openPhone(t,{language:'en',modelReady:true,managedMode:true,englishSamples:true});
- await page.locator('[data-view="butler"]').click();await page.locator('#openManaged').click();
+ await page.locator('[data-view="butler"]').click();await openButlerActions(page); await page.locator('#openManaged').click();
  assert.match(await page.locator('#managedTitle').innerText(),/Phone task supervision/);
  await page.locator('#newManagedJob summary').click();await page.locator('#managedGoal').fill('原始用户目标');await page.locator('#managedRules').fill('No publishing');
  await page.locator('#managedAllowReplies').check();await page.locator('#managedForm button[type="submit"]').click();
  assert.equal(await page.evaluate(()=>window.managedInputs[0].goal),'原始用户目标');
  assert.equal(await page.evaluate(()=>window.managedInputs[0].allowReplies),true);
+});
+
+test('model settings exposes eight services and keeps membership keys separate', async t => {
+  const page=await openPhone(t);
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+  assert.equal(await page.locator('[data-model-brand]').count(),8);
+  await page.locator('[data-model-brand="kimi"]').click();
+  assert.equal(await page.locator('#modelBaseUrl').inputValue(),'https://api.kimi.com/coding/v1');
+  assert.equal(await page.locator('#modelId').inputValue(),'k3-256k');
+  await page.getByRole('button',{name:'k3',exact:true}).click();
+  assert.equal(await page.locator('#modelId').inputValue(),'k3');
+  assert.equal(await page.getByRole('button',{name:'k3',exact:true}).getAttribute('aria-pressed'),'true');
+  await page.locator('#modelApiKey').fill('test-key-only');
+  await page.locator('#modelVariant').selectOption('kimi-open');
+  assert.equal(await page.locator('#modelBaseUrl').inputValue(),'https://api.moonshot.cn/v1');
+  assert.equal(await page.locator('#modelApiKey').inputValue(),'');
+  assert.match(await page.locator('#modelProviderHint').textContent(),/开放平台/);
+  await page.locator('#modelServiceChoices summary').click();
+  await page.locator('[data-model-brand="volcengine"]').click();
+  assert.equal(await page.locator('#modelId').inputValue(),'');
+  await page.locator('#modelVariant').selectOption('volcengine-plan');
+  assert.equal(await page.locator('#modelBaseUrl').inputValue(),'https://ark.cn-beijing.volces.com/api/coding/v3');
+  assert.equal(await page.evaluate(()=>window.modelSaves.length),0);
+  await page.locator('#modelApiKey').fill('test-ark-only');
+  await page.getByRole('button',{name:'自定义模型',exact:true}).click();
+  assert.equal(await page.locator('#modelBaseUrl').isVisible(),true);
+  assert.equal(await page.locator('#modelBaseUrl').inputValue(),'');
+  assert.equal(await page.locator('#modelApiKey').inputValue(),'');
+  assert.equal(await page.locator('#modelId').inputValue(),'');
+});
+
+test('model settings saves and verifies once, and does not send another provider a saved key',async t=>{
+  const page=await openPhone(t,{modelReady:true});
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+  await page.locator('#modelServiceChoices summary').click();
+  await page.locator('[data-model-brand="deepseek"]').click();
+  await page.locator('#cloudForm button[type="submit"]').click();
+  assert.equal(await page.evaluate(()=>window.modelSaves.length),0);
+  assert.match(await page.locator('#modelKeyHint').textContent(),/请填写/);
+  await page.locator('#modelApiKey').fill('test-deepseek-key');
+  await page.locator('#cloudForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.getElementById('modelConnectionBadge').dataset.state==='verified');
+  assert.equal(await page.evaluate(()=>window.modelSaves.length),1);
+  assert.equal(await page.evaluate(()=>window.modelCheckCount),1);
+  assert.equal(await page.locator('#modelApiKey').inputValue(),'');
+  assert.equal(await page.evaluate(()=>document.body.innerText.includes('test-deepseek-key')),false);
+  await page.locator('#modelId').fill('another-model');
+  assert.equal(await page.locator('#modelConnectionBadge').textContent(),'待保存');
+  assert.match(await page.locator('#modelCheckResult').textContent(),/尚未保存/);
+  assert.equal(await page.locator('#testModelConnection').isDisabled(),true);
+  await page.locator('#modelId').fill('deepseek-flash');
+  assert.equal(await page.locator('#modelConnectionBadge').getAttribute('data-state'),'verified');
+  assert.match(await page.locator('#modelCheckResult').textContent(),/连接正常/);
+});
+
+test('model settings imports JSON into the form, clears the import text, and keeps API errors visible',async t=>{
+  const page=await openPhone(t,{modelCheckFails:true});
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+  await page.locator('#modelAdvanced').evaluate(e=>e.open=true);
+  await page.locator('#modelImport').evaluate(e=>e.open=true);
+  await page.locator('#modelImportText').fill(JSON.stringify({baseUrl:'https://api.deepseek.com/v1',model:'deepseek-flash',apiKey:'test-json-key'}));
+  await page.locator('#applyModelConfig').click();
+  assert.equal(await page.locator('#modelImportText').inputValue(),'');
+  assert.equal(await page.locator('#modelProvider').inputValue(),'deepseek');
+  assert.equal(await page.evaluate(()=>window.modelSaves.length),0);
+  await page.locator('#cloudForm button[type="submit"]').click();
+  await page.waitForFunction(()=>document.getElementById('modelCheckResult').textContent.includes('401'));
+  assert.equal(await page.locator('#modelConnectionBadge').textContent(),'连接失败');
+  assert.equal(await page.locator('#cloudForm button[type="submit"]').isEnabled(),true);
+});
+
+test('model settings remains usable on small phones, with the keyboard, and in English on tablets',async t=>{
+  for(const [label,width,height,language] of [['phone',360,730,'zh-CN'],['keyboard',360,446,'zh-CN'],['tablet-en',768,1024,'en']]){
+    const page=await openPhone(t,{language,modelReady:true});
+    await page.setViewportSize({width,height});
+    await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+    await page.locator('#modelServiceChoices summary').click();
+    await page.locator('[data-model-brand="kimi"]').click();
+    const layout=await page.evaluate(()=>{
+      const sheet=document.querySelector('#cloudBackdrop .sheet').getBoundingClientRect();
+      const button=document.querySelector('#cloudForm button[type=submit]').getBoundingClientRect();
+      const body=document.querySelector('.modelFormScroll');
+      return{overflow:document.documentElement.scrollWidth>innerWidth,sheetLeft:sheet.left,sheetRight:sheet.right,buttonBottom:button.bottom,height:innerHeight,bodyHeight:body.clientHeight,scrollable:body.scrollHeight>=body.clientHeight};
+    });
+    assert.equal(layout.overflow,false,label);assert.ok(layout.sheetLeft>=0 && layout.sheetRight<=width,label);assert.ok(layout.buttonBottom<=height,label);assert.ok(layout.bodyHeight>100 && layout.scrollable,label);
+    if(language==='en')assert.doesNotMatch(await page.locator('#cloudBackdrop').innerText(),/[\u4e00-\u9fff]/);
+    if(process.env.ASB_MODEL_SCREENSHOTS){fs.mkdirSync(process.env.ASB_MODEL_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.ASB_MODEL_SCREENSHOTS,`model-${label}.png`)});}
+    await page.close();
+  }
+});
+
+test('voice providers expose independent credentials, real models and saved-only tests', async t => {
+  const page = await openPhone(t, { voiceUnavailable: true, voicePlaybackAvailable: true });
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openVoiceSettings').click();
+  assert.equal(await page.locator('#voiceProviderChoices button').count(), 6);
+  assert.equal(await page.locator('[data-voice-region="domestic"] [data-voice-provider="bailian"]').count(), 1);
+  assert.equal(await page.locator('[data-voice-region="overseas"] [data-voice-provider="openai"]').count(), 1);
+  assert.match(await page.locator('#voiceInputStatus').innerText(), /本机识别尚未就绪/);
+  await page.locator('[data-voice-provider="openai"]').click();
+  assert.equal(await page.locator('#voiceAsrModel').inputValue(), 'gpt-4o-mini-transcribe');
+  assert.equal(await page.locator('#voiceTtsModel').inputValue(), 'gpt-4o-mini-tts');
+  assert.equal(await page.locator('#voiceBaseUrl').inputValue(), 'https://api.openai.com/v1');
+  assert.equal(await page.locator('#ttsPreview').isDisabled(), true);
+  await page.locator('#voiceApiKey').fill('voice-test-credential');
+  await page.locator('#voiceChoice').selectOption('coral');
+  await page.locator('#saveVoiceService').click();
+  assert.equal(await page.locator('#voiceApiKey').inputValue(), '');
+  assert.equal(await page.locator('#ttsPreview').isEnabled(), true);
+  assert.match(await page.locator('#ttsEngineStatus').innerText(), /待试听/);
+  assert.match(await page.locator('#voiceInputStatus').innerText(), /待测试/);
+  assert.equal(await page.evaluate(() => window.voiceSavedConfig.voice), 'coral');
+  assert.equal(await page.evaluate(() => document.body.innerText.includes('voice-test-credential')), false);
+  await page.locator('[data-voice-provider="custom"]').click();
+  assert.equal(await page.locator('#voiceBaseUrl').inputValue(), '');
+  assert.equal(await page.locator('#voiceApiKey').inputValue(), '');
+  assert.equal(await page.locator('#voiceServiceDetails').getAttribute('open'), '');
+  assert.equal(await page.locator('#voiceAsrTest').isDisabled(), true);
+  await page.locator('[data-voice-region="domestic"] [data-voice-provider="doubao"]').click();
+  assert.equal(await page.locator('#voiceServiceDetails').isVisible(), false);
+  await page.locator('#voiceApiKey').fill('doubao-test-credential');
+  await page.locator('#saveVoiceService').click();
+  assert.match(await page.locator('#voiceInputStatus').innerText(), /云端已配置/);
+  assert.match(await page.locator('#ttsEngineStatus').innerText(), /本机声音已就绪/);
+  assert.equal(await page.locator('#voiceApiKey').inputValue(), '');
+  assert.equal(await page.locator('#voiceAsrTest').isEnabled(), true);
+});
+
+test('voice settings recognition never sends or overwrites the chat draft and cancels late events', async t => {
+  const page = await openPhone(t);
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('保留我的聊天草稿');
+  await openButlerActions(page); await page.locator('#openVoiceSettings').click();
+  await page.locator('#voiceAsrTest').click();
+  assert.equal(await page.evaluate(() => window.voiceCalls.at(-1)[1]), false);
+  assert.equal(await page.locator('#voiceAsrTest').innerText(), '结束录音');
+  assert.equal(await page.locator('#voiceAsrTest').isEnabled(), true);
+  await page.evaluate(() => window.phoneVoice.update({ type: 'partial', text: '设置中的识别测试', autoSend: true }));
+  assert.equal(await page.locator('#piInput').inputValue(), '保留我的聊天草稿');
+  await page.locator('#voiceAsrTest').click();
+  assert.equal(await page.evaluate(() => window.voiceCalls.at(-1)[0]), 'stop');
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '设置中的识别结果', autoSend: true }));
+  assert.equal(await page.locator('#voiceTestResult').innerText(), '设置中的识别结果');
+  assert.equal(await page.locator('#piInput').inputValue(), '保留我的聊天草稿');
+  await page.locator('#voiceAsrTest').click();
+  await page.locator('#voiceTestStop').click();
+  const message = await page.locator('#voiceTestResult').innerText();
+  await page.evaluate(() => window.phoneVoice.update({ type: 'final', text: '迟到的结果', autoSend: true }));
+  assert.equal(await page.locator('#voiceTestResult').innerText(), message);
+  assert.equal(await page.locator('#piInput').inputValue(), '保留我的聊天草稿');
+  await page.locator('#ttsPreview').click();
+  await page.evaluate(() => window.phoneVoice.update({ type: 'speak-error', text: 'HTTP 401' }));
+  assert.equal(await page.locator('#voiceTestResult').innerText(), 'HTTP 401');
+  assert.equal(await page.locator('#voiceTestResult').evaluate(e => e.classList.contains('error')), true);
+  await page.locator('#voiceBackdrop [data-close]').click();
+  assert.equal(await page.evaluate(() => window.voiceCalls.at(-1)[0]), 'cancel');
+});
+
+test('offline voice can replace an unavailable system recognizer without a key', async t => {
+  const page = await openPhone(t, { voiceUnavailable: true, voicePlaybackAvailable: true, offlineVoiceAvailable: true });
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openVoiceSettings').click();
+  assert.equal(await page.locator('#voiceAsrTest').isDisabled(), true);
+  await page.locator('[data-voice-provider="sherpa"]').click();
+  assert.equal(await page.locator('#voiceApiKey').isVisible(), false);
+  await page.locator('#saveVoiceService').click();
+  assert.match(await page.locator('#voiceActiveProvider').innerText(), /本机离线识别/);
+  assert.match(await page.locator('#voiceInputStatus').innerText(), /本机识别可用/);
+  assert.match(await page.locator('#ttsEngineStatus').innerText(), /本机声音已就绪/);
+  await page.locator('#voiceAsrTest').click();
+  await page.evaluate(() => window.phoneVoice.update({type:'final',text:'离线测试通过'}));
+  assert.equal(await page.locator('#voiceTestResult').innerText(), '离线测试通过');
+  const previous = await page.evaluate(() => window.voiceCalls.length);
+  await page.locator('#voiceAsrTest').click();
+  assert.equal(await page.evaluate(n => window.voiceCalls.slice(n).length, previous), 1);
+  await page.evaluate(() => window.phoneVoice.update({type:'final',text:'连续识别通过'}));
+  assert.equal(await page.locator('#voiceTestResult').innerText(), '连续识别通过');
+});
+
+test('offline voice downloads on demand, retries and enables the selected model when installed', async t => {
+  const page = await openPhone(t, { offlineVoiceAvailable: true, offlineVoiceInstalled: false, voiceUnavailable: true });
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openVoiceSettings').click();
+  await page.locator('[data-voice-provider="sherpa"]').click();
+  await page.locator('#saveVoiceService').click();
+  const status = page.locator('#offlineVoiceModelStatus');
+  const download = page.locator('#downloadOfflineVoice');
+  const testInput = page.locator('#voiceAsrTest');
+  assert.match(await status.innerText(), /129 MB/);
+  assert.equal(await testInput.isDisabled(), true);
+  assert.equal(await page.evaluate(() => window.offlineFixtureState), undefined);
+  await download.click();
+  assert.match(await status.innerText(), /47%/);
+  assert.equal(await download.isDisabled(), true);
+  await page.evaluate(() => { window.offlineFixtureState = 'error'; });
+  await page.waitForFunction(() => document.querySelector('#downloadOfflineVoice').textContent === '重试下载');
+  assert.equal(await testInput.isDisabled(), true);
+  await download.click();
+  await page.evaluate(() => { window.offlineFixtureState = 'ready'; });
+  await page.waitForFunction(() => !document.querySelector('#voiceAsrTest').disabled);
+  assert.match(await status.innerText(), /可断网使用/);
+  assert.equal(await download.isVisible(), false);
+});
+
+test('voice sheet fits phone, keyboard and tablet in both languages', async t => {
+  for (const [language, width, height] of [['zh',360,730],['zh',360,446],['en',360,730],['zh',768,1024]]) {
+    const page = await openPhone(t, { language });
+    await page.setViewportSize({ width, height });
+    await page.locator('[data-view="butler"]').click();
+    await openButlerActions(page); await page.locator('#openVoiceSettings').click();
+    await page.locator('[data-voice-provider="openai"]').click();
+    const geometry = await page.locator('#voiceBackdrop .voiceSettingsSheet').evaluate(e => {
+      const r=e.getBoundingClientRect(), footer=e.querySelector('footer').getBoundingClientRect();
+      return {x:r.x,right:r.right,bottom:r.bottom,footerBottom:footer.bottom,overflow:e.scrollWidth>e.clientWidth};
+    });
+    assert.ok(geometry.x>=-1 && geometry.right<=width+1 && geometry.bottom<=height+1 && geometry.footerBottom<=height+1);
+    assert.equal(geometry.overflow,false);
+    if (language === 'en') {
+      const visible=await page.locator('#voiceBackdrop').innerText();
+      assert.equal(/[\u3400-\u9fff]/.test(visible),false,visible);
+      assert.deepEqual(await page.locator('[data-voice-region]').evaluateAll(nodes => nodes.map(e => e.dataset.voiceRegion)), ['overseas','domestic']);
+    }
+    if (process.env.VOICE_QA_DIR) await page.screenshot({path:path.join(process.env.VOICE_QA_DIR,`voice-${language}-${width}x${height}.png`)});
+  }
+});
+
+test('butler quota failures stay readable, retain raw details and leave room for conversation', async t => {
+  const diagnostic = `模型返回 HTTP 403：{"error":{"message":"You've reached your 5-hour usage limit. Your quota will reset when the current 5-hour window ends. <img src=x onerror=alert(1)>"}}`;
+  const page = await openPhone(t, { modelReady:true, modelCheckFails:true, modelCheckError:diagnostic,
+    butlerMessages:[{role:'assistant',content:'这是原有对话记录。'}] });
+  await page.setViewportSize({width:360,height:730});
+  await page.locator('[data-view="butler"]').click();
+  await openButlerActions(page); await page.locator('#openCloudFromButler').click();
+  await page.locator('#testModelConnection').click();
+  await page.waitForFunction(()=>document.querySelector('#butlerConnectionTitle').textContent.includes('额度'));
+  await page.locator('#cloudBackdrop [data-close]').click();
+  assert.match(await page.locator('#butlerConnectionText').innerText(),/5 小时/);
+  assert.doesNotMatch(await page.locator('#butlerConnectionText').innerText(),/API Key|\{"error/);
+  assert.equal(await page.locator('#butlerConnectionRaw').isVisible(),false);
+  const geometry=await page.evaluate(()=>({chat:document.querySelector('#piMessages').clientHeight,dock:document.querySelector('#butlerChatDock').getBoundingClientRect().height}));
+  assert.doesNotMatch(await page.locator('#toast').textContent(),/\{\"error|<img/);
+  if(process.env.BUTLER_QA_DIR) { await page.locator('#toast').waitFor({state:'hidden'}); await page.screenshot({path:path.join(process.env.BUTLER_QA_DIR,'butler-quota-360x730.png')}); }
+  assert.equal(await page.locator('.connectorEntry').isVisible(),false,'connector entry leaves room for the butler conversation');
+  assert.ok(geometry.chat>=180,JSON.stringify(geometry));
+  assert.ok(geometry.dock<=124,JSON.stringify(geometry));
+  await page.locator('#butlerConnectionDetails > summary').click();
+  assert.equal(await page.locator('#butlerConnectionRaw').innerText(),diagnostic);
+  assert.equal(await page.locator('#butlerConnectionRaw img').count(),0);
+  assert.equal(await page.evaluate(()=>window.chatCount),0);
+});
+
+test('butler composer options preserve scope, preferences and draft while making chat primary', async t => {
+  const page=await openPhone(t,{modelReady:true,scopedMemory:true});
+  await page.locator('[data-view="butler"]').click();
+  assert.equal(await page.locator('#butlerComposerOptions').getAttribute('open'),null);
+  await openButlerActions(page); await page.locator('#butlerComposerOptions > summary').click();
+  await page.locator('#voiceAutoSend').click();
+  await page.locator('#piMemoryScope').selectOption('1');
+  assert.match(await page.locator('#butlerScopePreview').textContent(),/S-1/);
+  await page.locator('#piInput').fill('保留这个草稿，不要发送');
+  assert.equal(await page.locator('#butlerComposerOptions').getAttribute('open'),null);
+  assert.equal(await page.locator('#piMemoryScope').inputValue(),'1');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('voiceAutoSend')),'false');
+  assert.equal(await page.evaluate(()=>window.scopedChats.length),0);
+  await openButlerActions(page); await page.locator('#butlerComposerOptions > summary').click();
+  assert.equal(await page.locator('#piInput').inputValue(),'保留这个草稿，不要发送');
+  assert.equal(await page.locator('#voiceAutoSend').getAttribute('aria-pressed'),'false');
+});
+
+test('butler refinement fits real phone sizes, keyboards, landscape and English', async t => {
+  const examples=[{role:'user',content:'示例：今天先处理哪件事？'},{role:'assistant',content:'先看需要你确认的任务。\n\n**下一步**\n- 打开任务，确认本次测试范围。\n- 回复后再继续安排。\n\n可以点击任务编号查看原始记录。'}];
+  const cases=[['zh',360,730,'chat'],['zh',320,700,'empty'],['zh',360,446,'chat'],['zh',730,360,'chat'],['en',360,730,'chat'],['en',768,1024,'chat']];
+  const layouts=[];
+  for(const [language,width,height,mode] of cases){
+    const page=await openPhone(t,{language,modelReady:mode==='chat',butlerMessages:mode==='chat'?examples:[]});
+    await page.setViewportSize({width,height});
+    await page.locator('[data-view="butler"]').click();
+    await page.waitForFunction(()=>document.querySelector('#piMessages').getBoundingClientRect().height>50);
+    const layout=await page.evaluate(()=>{const r=id=>{const b=document.querySelector(id).getBoundingClientRect();return{x:b.x,y:b.y,right:b.right,bottom:b.bottom,height:b.height};};return{messages:r('#piMessages'),dock:r('#butlerChatDock'),overflow:document.documentElement.scrollWidth>innerWidth,targets:['#startCall','#butlerActions > summary'].map(id=>r(id)),sprite:getComputedStyle(document.querySelector('#piAvatar .gameSprite')).backgroundImage};});
+    assert.equal(layout.overflow,false,JSON.stringify(layout));
+    assert.ok(layout.messages.bottom<=layout.dock.y+1,JSON.stringify(layout));
+    assert.ok(layout.targets.every(r=>r.right-r.x>=44&&r.height>=48),JSON.stringify(layout));
+    assert.match(layout.sprite,/butler-reception\.png/);
+    if(height>=700) assert.ok(layout.messages.height>=height*0.58,JSON.stringify(layout));
+    if(language==='en') assert.equal(await page.locator('#startCall').innerText(),'Call');
+    layouts.push({language,width,height,mode,...layout});
+    if(process.env.BUTLER_QA_DIR) await page.screenshot({path:path.join(process.env.BUTLER_QA_DIR,`butler-${language}-${width}x${height}-${mode}.png`)});
+  }
+  if(process.env.BUTLER_QA_DIR)fs.writeFileSync(path.join(process.env.BUTLER_QA_DIR,'layouts.json'),JSON.stringify(layouts,null,2));
+});
+
+test('pending queue separates saved requests, cleans display markers and opens the exact task without sending', async t => {
+  const original='**是否只补测试？** 请核对 [说明](https://example.test/spec)，再决定。 <img src=x onerror=alert(1)>';
+  const page=await openPhone(t,{offlinePending:true,taskPreviewRecords:{title:'Codex · 核对移动端测试',requiredInput:original}});
+  await page.locator('[data-view="todo"]').click();
+  assert.equal(await page.locator('#todo .todoCard').count(),3);
+  assert.equal(await page.locator('.todoGroup[data-record="false"] .todoCard').count(),2);
+  assert.equal(await page.locator('.todoGroup[data-record="true"] .todoCard').count(),1);
+  const card=page.locator('.todoCard[data-todo-task-id="1"]');
+  assert.equal(await card.locator('.todoTaskTitle').textContent(),'核对移动端测试');
+  assert.doesNotMatch(await card.locator('.todoNeed').textContent(),/\*\*|https:\/\/example/);
+  assert.equal(await card.locator('img').count(),0);
+  assert.equal(await page.locator('.summary').isVisible(),false);
+  assert.equal(await page.locator('#openAdd').isVisible(),false);
+  assert.match(await page.locator('.todoGroup[data-record="true"] .todoOpen').textContent(),/查看上次记录/);
+  await card.click();
+  assert.match(await page.locator('#taskTitle').textContent(),/核对移动端测试/);
+  assert.equal(await page.locator('#taskNeed').textContent(),`需要你确认：${original}`);
+  assert.equal(await page.evaluate(()=>window.sendCount),0);
+});
+
+test('butler pending shortcut opens the same queue and preserves the chat draft', async t => {
+  const page=await openPhone(t,{modelReady:true});
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('保留我的聊天草稿');
+  await openButlerActions(page); await page.locator('#butlerEmployeeName').click();
+  assert.equal(await page.locator('#todoTab').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('.todoCard').count(),1);
+  await page.locator('[data-view="butler"]').click();
+  assert.equal(await page.locator('#piInput').inputValue(),'保留我的聊天草稿');
+  assert.equal(await page.evaluate(()=>window.chatCount),0);
+});
+
+test('empty pending queue gives an honest refresh route and a QR connection route', async t => {
+  const page=await openPhone(t,{empty:true});
+  await page.locator('[data-view="todo"]').click();
+  assert.match(await page.locator('.todoEmpty').innerText(),/暂无待输入记录/);
+  assert.doesNotMatch(await page.locator('.todoEmpty').innerText(),/全部完成|全部处理完/);
+  assert.equal(await page.locator('.todoEmptyActions button').count(),2);
+  await page.locator('.todoEmptyActions').getByRole('button',{name:'扫码连接电脑',exact:true}).click();
+  assert.equal(await page.locator('#connectorBackdrop').isVisible(),true);
+  assert.equal(await page.locator('#machineBackdrop').isVisible(),false);
+  assert.equal(await page.evaluate(()=>window.sendCount),0);
+});
+
+test('paired butler and pending layouts fit narrow phones, history, long questions and English', async t => {
+  const cases=[['zh',360,730,'mixed'],['zh',320,700,'long'],['en',360,730,'mixed'],['zh',730,360,'mixed'],['en',768,1024,'mixed'],['zh',360,730,'empty']];
+  const layouts=[];
+  for(const [language,width,height,kind] of cases){
+    const english=language==='en';
+    const question=english?'Should we keep the current implementation and add only the missing regression tests?':'是否保留当前实现，只补缺少的回归测试？';
+    const page=await openPhone(t,{language,englishSamples:english,empty:kind==='empty',modelReady:true,offlinePending:kind!=='empty',longText:kind==='long',taskPreviewRecords:{requiredInput:kind==='long'?question.repeat(30):question}});
+    await page.setViewportSize({width,height});
+    await page.locator('[data-view="todo"]').click();
+    const metrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,cards:[...document.querySelectorAll('#todo .todoCard')].map(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height,opacity:getComputedStyle(e).opacity,fontSize:getComputedStyle(e.querySelector('.todoNeed')).fontSize})),summaryHidden:getComputedStyle(document.querySelector('.summary')).display==='none',machineActionsHidden:!document.querySelector('#openAdd').getClientRects().length}));
+    assert.equal(metrics.overflow,false,JSON.stringify(metrics));
+    assert.equal(metrics.summaryHidden,true);
+    assert.equal(metrics.machineActionsHidden,true);
+    assert.ok(metrics.cards.every(e=>e.opacity==='1'&&parseFloat(e.fontSize)>=14),JSON.stringify(metrics));
+    layouts.push({language,width,height,kind,...metrics});
+    if(process.env.PAIRED_QA_DIR)await page.screenshot({path:path.join(process.env.PAIRED_QA_DIR,`pending-${language}-${width}x${height}-${kind}.png`)});
+    if(width===360&&height===730&&kind==='mixed'){
+      await page.locator('[data-view="butler"]').click();
+      await openButlerActions(page);
+      const taskTarget=await page.locator('#butlerEmployeeName').boundingBox();
+      assert.ok(taskTarget.height>=48);
+      if(process.env.PAIRED_QA_DIR)await page.screenshot({path:path.join(process.env.PAIRED_QA_DIR,`butler-${language}-${width}x${height}.png`)});
+    }
+  }
+  if(process.env.PAIRED_QA_DIR)fs.writeFileSync(path.join(process.env.PAIRED_QA_DIR,'layouts.json'),JSON.stringify(layouts,null,2));
+});
+
+test('butler and pending text stays legible with readable sizes, contrast and no fading', async t => {
+  const page=await openPhone(t,{modelReady:true,offlinePending:true,
+    butlerMessages:[{role:'assistant',content:'先核对需要确认的问题，再决定下一步。'},{role:'user',content:'保留这段对话。'}]});
+  const results=[];
+  for(const view of ['todo','butler']){
+    await page.locator(`[data-view="${view}"]`).click();
+    const metrics=await page.evaluate(view=>{
+      const rgb=s=>s.match(/[\d.]+/g).map(Number);
+      const luminance=c=>c.slice(0,3).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((s,x,i)=>s+x*[.2126,.7152,.0722][i],0);
+      const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+      const selectors=view==='todo'?'.todoPageHeader p,.todoGroupTitle,.todoGroupHint,.todoTaskTitle,.todoSource,.todoNeed,.todoRecordTag,.todoTaskRef,.todoOpen':'.butlerHeroHeader p,.butlerToolbar .actionLabel,#butlerEmployeeName,.piMessage,.piMessageAuthor,#butlerComposerOptions > summary,#piInput';
+      return [...document.querySelectorAll(selectors)].filter(e=>e.getBoundingClientRect().height>0).map(e=>{
+        const style=getComputedStyle(e);let ancestor=e,background;
+        while(ancestor){background=rgb(getComputedStyle(ancestor).backgroundColor);if(background.length===3||background[3]===1)break;ancestor=ancestor.parentElement;}
+        return{selector:e.id||e.className,size:parseFloat(style.fontSize),contrast:contrast(rgb(style.color),background),opacity:style.opacity,animation:style.animationName};
+      });
+    },view);
+    assert.ok(metrics.length>5);
+    for(const m of metrics){assert.ok(m.size>=14,JSON.stringify(m));assert.ok(m.contrast>=4.5,JSON.stringify(m));assert.equal(m.opacity,'1',JSON.stringify(m));}
+    const main=await page.locator(view==='todo'?'.todoNeed':'.piMessage').first().evaluate(e=>({size:parseFloat(getComputedStyle(e).fontSize),animation:getComputedStyle(e).animationName}));
+    assert.ok(main.size>=16);assert.equal(main.animation,'none');results.push({view,metrics});
+  }
+  if(process.env.PAIRED_QA_DIR)fs.writeFileSync(path.join(process.env.PAIRED_QA_DIR,'readability.json'),JSON.stringify(results,null,2));
+});
+
+test('town themes carry from offices to reception and pending desks without changing task bindings', async t => {
+  const page=await openPhone(t,{modelReady:true,offlinePending:true,taskPreviewRecords:{requiredInput:'是否保留当前实现，只补缺少的回归测试？'},
+    butlerMessages:[{role:'user',content:'示例：先看哪些任务？'},{role:'assistant',content:'先核对需要确认的问题，再到任务里回复。'}]});
+  await page.setViewportSize({width:360,height:730});
+  await page.locator('[data-view="butler"]').click();
+  await page.locator('#piInput').fill('保留草稿，不发送');
+  for(const [scene,asset] of [['floors','floor-room.png'],['workstations','focus-room.png'],['map','town-ground.png']]){
+    await page.locator('#openAppearance').click();
+    await page.locator(`[data-scene-choice="${scene}"]`).click();
+    await page.locator('#appearanceBackdrop [data-close]').click();
+    assert.equal(await page.evaluate(()=>localStorage.getItem('officeSceneV1')),scene);
+    for(const view of ['offices','butler','todo']){
+      await page.locator(`[data-view="${view}"]`).click();
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      if(view==='butler'){
+        // Conversation text now sits on quiet paper; the theme remains on the office and pending scenes.
+        assert.equal(await page.locator('#piMessages').evaluate(e=>getComputedStyle(e).backgroundColor), 'rgb(255, 250, 240)');
+        assert.match(await page.locator('#piAvatar .gameSprite').evaluate(e=>getComputedStyle(e).backgroundImage), /butler-reception\.png/);
+        assert.equal(await page.locator('#piInput').inputValue(),'保留草稿，不发送');
+        assert.equal(await page.locator('.butlerHero').evaluate(e=>getComputedStyle(e).borderColor),await page.locator('.gameOffice').first().evaluate(e=>getComputedStyle(e).borderColor));
+      }
+      if(view==='todo'){
+        const cards=await page.locator('#todo .todoCard').evaluateAll(nodes=>nodes.map(e=>({task:e.dataset.todoTaskId,machine:e.dataset.machineId,role:e.querySelector('.gameSprite').dataset.role,room:getComputedStyle(e.querySelector('.todoCardHeader')).backgroundImage})));
+        assert.deepEqual(cards.map(({task,machine,role})=>({task,machine,role})),[{task:'1',machine:'1',role:'codex'},{task:'2',machine:'1',role:'claude'},{task:'3',machine:'2',role:'codex'}]);
+        assert.ok(cards.every(e=>e.room.includes(asset)));
+      }
+      if(process.env.PAIRED_QA_DIR)await page.screenshot({path:path.join(process.env.PAIRED_QA_DIR,`town-${scene}-${view}.png`)});
+    }
+  }
+  assert.equal(await page.evaluate(()=>window.sendCount),0);
+  assert.equal(await page.evaluate(()=>window.chatCount),0);
+});
+
+test('OpenCode cards use the server capability and block busy or disconnected replies', async t => {
+  for (const canReply of [true, false]) {
+    const page = await openPhone(t, { taskPreviewRecords: {
+      agentType: 'opencode', controlMode: 'opencode', externalSessionId: 'ses_fixture_123',
+      canReply, status: canReply ? 'idle' : 'running', requiredInput: '',
+    }});
+    await page.locator('[data-task-id="1"]').click();
+    assert.match(await page.locator('#taskMeta').textContent(), /OpenCode 服务/);
+    assert.doesNotMatch(await page.locator('#taskMeta').textContent(), /tmux|无会话 ID/);
+    assert.equal(await page.locator('#sendTask').isEnabled(), canReply);
+    assert.equal(await page.evaluate(() => window.sendCount), 0);
+  }
+});
+
+test('English OpenCode settings keep the saved password blank and display connection failures', async t => {
+  const page = await openPhone(t, { language: 'en', englishSamples: true, openCodeMachine: {
+    opencodePort: 4096, opencodeUsername: 'opencode', hasOpenCodePassword: true,
+    opencodeError: 'OpenCode HTTP 503'
+  }});
+  assert.match(await page.locator('.gameOffice').first().textContent(), /OpenCode disconnected: OpenCode HTTP 503/);
+  await page.locator('.gameOffice').first().getByRole('button', { name: 'More', exact: true }).click();
+  await page.locator('.gameOffice').first().getByRole('button', { name: 'Edit', exact: true }).click();
+  assert.equal(await page.locator('#machineOpenCodePort').inputValue(), '4096');
+  assert.equal(await page.locator('#machineOpenCodeUsername').inputValue(), 'opencode');
+  assert.equal(await page.locator('#machineOpenCodePassword').inputValue(), '');
+  assert.equal(await page.locator('#machineOpenCodePassword').getAttribute('placeholder'), 'Saved. Leave blank to not modify.');
+  assert.match(await page.locator('#openCodeSettings').textContent(), /V2 is not supported yet/);
+});
+
+test('OpenCode displays structured latest messages and a model error instead of an old transcript', async t => {
+  const page = await openPhone(t, { taskPreviewRecords: {
+    agentType: 'opencode', controlMode: 'opencode', externalSessionId: 'ses_fixture_123',
+    status: 'error', canReply: true, latestUserText: '手机发来的新消息',
+    latestAssistantText: 'OpenCode 模型请求失败 (HTTP 403)', lastOutput: 'User: 旧消息'
+  }});
+  await page.locator('[data-task-id="1"]').click();
+  assert.equal(await page.locator('.conversationTurn.user .conversationBody').textContent(), '手机发来的新消息');
+  assert.match(await page.locator('.conversationTurn.assistant .conversationBody').textContent(), /HTTP 403/);
+  assert.doesNotMatch(await page.locator('#conversationTimeline').textContent(), /旧消息/);
+});
+
+test('disconnected OpenCode records stay historical even when SSH is online', async t => {
+  const page = await openPhone(t, { taskPreviewRecords: {
+    agentType: 'opencode', controlMode: 'opencode', externalSessionId: 'ses_fixture_123',
+    status: 'unknown', canReply: false, opencodeConnected: false, latestUserText: '上次消息',
+    latestAssistantText: '上次回复', lastOutput: '上次回复'
+  }});
+  await page.locator('[data-task-id="1"]').click();
+  assert.match(await page.locator('#conversationTimeline').textContent(), /上次同步记录/);
+  assert.doesNotMatch(await page.locator('#conversationTimeline').textContent(), /来自当前会话/);
+  assert.equal(await page.locator('#sendTask').isEnabled(), false);
+});
+
+test('assistant picker and message actions preserve drafts and treat model output as text', async t => {
+  const page = await openPhone(t, {modelReady:true, butlerMessages:[{role:'assistant', content:'<think>先检查 <img src=x onerror=alert(1)></think>结果明确。\n\n```js\nconst answer = 42;\n```'}]});
+  await page.locator('[data-view="butler"]').click();
+  assert.equal(await page.locator('.messageReasoning').getAttribute('open'), null);
+  assert.equal(await page.locator('#piMessages img').count(), 0);
+  assert.match(await page.locator('#piMessages .messageRich').last().innerText(), /结果明确/);
+  await page.evaluate(() => { window.copiedMessage = ''; Object.defineProperty(navigator, 'clipboard', {configurable:true,value:{writeText:async value => {window.copiedMessage=value;}}}); });
+  await page.locator('#piMessages .messageCodeHeader button').click();
+  assert.equal(await page.evaluate(() => window.copiedMessage), 'const answer = 42;');
+  await page.locator('#piInput').fill('保留草稿');
+  await page.locator('#piMessages .messageActions button').filter({hasText:'引用'}).click();
+  assert.match(await page.locator('#piInput').inputValue(), /^保留草稿\n\n> <think>/);
+  await page.locator('#butlerAssistantPicker').click();
+  assert.equal(await page.locator('#butlerAssistantDialog').evaluate(e=>e.open), true);
+  if (process.env.BUTLER_QA_DIR) await page.screenshot({path:path.join(process.env.BUTLER_QA_DIR,'butler-assistant-picker.png')});
+  await page.locator('#butlerAssistantSearch').fill('不存在的工具');
+  assert.match(await page.locator('#butlerAssistantList').innerText(), /没有匹配/);
+  await page.locator('#butlerAssistantSearch').fill('');
+  await page.locator('.assistantChoice').first().click();
+  assert.match(await page.locator('#piInput').inputValue(), /^保留草稿/);
+  await page.locator('#butlerAssistantPicker').click();
+  await page.locator('#butlerAssistantConfigure').click();
+  await page.locator('#cloudBackdrop').waitFor({state:'visible'});
+});
+
+test('model library searches, favorites, switches and requires a separate key for a new profile', async t => {
+ const page=await openPhone(t,{modelReady:true,modelProfiles:[
+  {profileId:'one',name:'日常',modelId:'fast-model',baseUrl:'https://one.example/v1',hasApiKey:true,favorite:false},
+  {profileId:'two',name:'代码',modelId:'code-model',baseUrl:'https://two.example/v1',hasApiKey:true,favorite:true}
+ ]});
+ await page.locator('[data-view="butler"]').click();
+ await page.locator('#butlerAssistantPicker').click();await page.locator('#butlerAssistantConfigure').click();
+ if(process.env.BUTLER_QA_DIR)await page.screenshot({path:path.join(process.env.BUTLER_QA_DIR,'model-library.png')});
+ const rows=page.locator('.modelLibraryRow');assert.equal(await rows.count(),2);
+ assert.match(await rows.first().innerText(),/代码/);
+ await page.locator('.modelLibraryControls input[type=checkbox]').check();assert.equal(await rows.count(),1);
+ await rows.first().getByRole('button',{name:'使用',exact:true}).click();
+ await page.waitForFunction(()=>document.querySelector('#modelId').value==='code-model');
+ assert.equal(await page.locator('#modelId').inputValue(),'code-model');
+ assert.equal(await page.locator('#modelApiKey').inputValue(),'');
+ await rows.first().getByRole('button',{name:'取消收藏',exact:true}).click();await page.waitForFunction(()=>document.querySelectorAll('.modelLibraryRow').length===0);
+ await page.locator('.modelLibraryControls input[type=checkbox]').uncheck();
+ await page.locator('.modelLibraryControls input[type=search]').fill('fast');assert.equal(await rows.count(),1);
+ await page.locator('#newModelProfile').click();
+ await page.locator('#modelBaseUrl').fill('https://two.example/v1');await page.locator('#modelId').fill('another');
+ await page.locator('#saveModelOnly').click();assert.equal(await page.evaluate(()=>window.modelSaves.length),0);
+ await page.locator('#modelApiKey').fill('new-test-key');await page.locator('#saveModelOnly').click();
+ await page.waitForFunction(()=>window.modelSaves.length===1);
+ assert.equal(await page.evaluate(()=>window.modelSaves[0].newProfile),true);
+});
+
+test('latest phone turn edits and regenerates through an explicit revision and preserves composer draft', async t=>{
+ const page=await openPhone(t,{modelReady:true,butlerMessages:[{id:'u',role:'user',content:'原始问题'},{id:'a',role:'assistant',content:'原回复'}]});
+ await page.evaluate(()=>{window.revisionRequests=[];AgentBridge.beginScopedStudioMessage=raw=>{const input=JSON.parse(raw);window.revisionRequests.push(input);return AgentBridge.beginStudioMessage(input.content);};});
+ await page.locator('[data-view="butler"]').click();
+ await page.locator('#piInput').fill('尚未发送的草稿');
+ await page.getByRole('button',{name:'编辑问题',exact:true}).click();
+ await page.locator('.messageEditArea textarea').fill('修改后的问题');
+ if(process.env.BUTLER_QA_DIR)await page.screenshot({path:path.join(process.env.BUTLER_QA_DIR,'message-editor.png')});
+ await page.getByRole('button',{name:'保存并重新生成',exact:true}).click();
+ await page.waitForFunction(()=>window.revisionRequests.length===1&&document.querySelector('#piInput').value==='尚未发送的草稿');
+ assert.deepEqual(await page.evaluate(()=>window.revisionRequests),[{content:'修改后的问题',taskId:0,revisionId:'a'}]);
+ assert.equal(await page.evaluate(()=>window.chatCount),1);
+});
+
+test('failed regeneration retains the original answer and unrelated draft without an implicit second request',async t=>{
+ const page=await openPhone(t,{modelReady:true,chatFails:true,butlerMessages:[{id:'u',role:'user',content:'原始问题'},{id:'a',role:'assistant',content:'必须保留的原回复'}]});
+ await page.evaluate(()=>{window.revisionRequests=[];AgentBridge.beginScopedStudioMessage=raw=>{window.revisionRequests.push(JSON.parse(raw));return AgentBridge.beginStudioMessage(JSON.parse(raw).content);};});
+ await page.locator('[data-view="butler"]').click();await page.locator('#piInput').fill('保留的草稿');
+ await page.getByRole('button',{name:'重新生成',exact:true}).click();
+ await page.waitForFunction(()=>window.chatCount===1&&document.querySelector('#piInput').value==='保留的草稿');
+ assert.match(await page.locator('#piMessages').innerText(),/必须保留的原回复/);
+ assert.equal(await page.evaluate(()=>window.revisionRequests[0].revisionId),'a');
+ assert.equal(await page.evaluate(()=>window.chatCount),1);
+});
+
+test('favorite phone models can be selected directly from the assistant picker without opening settings',async t=>{
+ const page=await openPhone(t,{modelReady:true,modelProfiles:[{profileId:'one',name:'日常',modelId:'fast-model',hasApiKey:true},{profileId:'two',name:'代码',modelId:'code-model',hasApiKey:true,favorite:true}]});
+ await page.locator('[data-view="butler"]').click();await page.locator('#piInput').fill('保留草稿');
+ await page.locator('#butlerAssistantPicker').click();
+ await page.locator('#butlerAssistantSearch').fill('代码');
+ await page.locator('.assistantChoice').filter({hasText:'代码'}).click();
+ await page.waitForFunction(()=>!document.querySelector('#butlerAssistantDialog').open);
+ assert.equal(await page.locator('#cloudBackdrop').isVisible(),false);
+ assert.match(await page.locator('#piMeta').textContent(),/code-model/);
+ assert.equal(await page.locator('#piInput').inputValue(),'保留草稿');
+ assert.deepEqual(await page.evaluate(()=>window.modelProfileActions),[{action:'select',id:'two'}]);
+});
+
+test('fresh phone command bypasses missing model setup and shows native action outcome without regeneration',async t=>{
+ const page=await openPhone(t,{empty:true});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{
+  window.phoneCommands=[];window.modelInvocations=0;AgentBridge.beginStudioMessage=()=>{modelInvocations++;throw new Error('No model should be called');};
+  AgentBridge.beginPhoneCommand=payload=>{phoneCommands.push(JSON.parse(payload));return JSON.stringify({ok:true,data:{handled:true,operation:{id:801,state:'running'}}});};
+  AgentBridge.operationState=()=>JSON.stringify({ok:true,data:{operation:{id:801,state:'succeeded',studio:{model:{ready:false},messages:[{id:'studio-801-user',role:'user',content:'打开浏览器搜索天气',phoneAction:true},{id:'studio-801-assistant',role:'assistant',content:'手机操作 · 浏览器\n已提交搜索请求，请在 App 查看结果',phoneAction:true}]}}}});
+ });
+ await page.locator('#piInput').fill('打开浏览器搜索天气');await page.locator('#sendPi').click();
+ await page.waitForFunction(()=>document.querySelector('#piMessages').textContent.includes('已提交搜索请求'));
+ assert.equal(await page.evaluate(()=>modelInvocations),0);assert.deepEqual(await page.evaluate(()=>phoneCommands),[{content:'打开浏览器搜索天气',taskId:0}]);
+ assert.equal(await page.locator('#cloudSheet').isVisible(),false);assert.equal(await page.locator('#piMessages .messageEditArea').count(),0);assert.equal(await page.locator('#piMessages').getByRole('button',{name:'重新生成',exact:true}).count(),0);
+ assert.equal(await page.locator('#piInput').inputValue(),'');
+});
+
+test('ordinary chat still uses configured model and regeneration never replays a phone command',async t=>{
+ const page=await openPhone(t,{modelReady:true,butlerMessages:[{id:'u',role:'user',content:'看下项目'},{id:'a',role:'assistant',content:'项目进展如下'}]});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{window.phoneCommands=[];AgentBridge.beginPhoneCommand=raw=>{phoneCommands.push(JSON.parse(raw));return JSON.stringify({ok:true,data:{handled:false}});};AgentBridge.beginScopedStudioMessage=raw=>AgentBridge.beginStudioMessage(JSON.parse(raw).content);});
+ await page.locator('#piMessages').getByRole('button',{name:'重新生成',exact:true}).click();await page.waitForFunction(()=>chatCount===1);assert.deepEqual(await page.evaluate(()=>phoneCommands),[]);
+ await page.waitForFunction(()=>!document.querySelector('#piInput').disabled);await page.locator('#piInput').fill('项目怎么样');await page.locator('#sendPi').click();await page.waitForFunction(()=>chatCount===2);assert.equal((await page.evaluate(()=>phoneCommands)).length,1);
+});
+
+test('ambiguous phone action result stays in chat without model invocation or fabricated execution',async t=>{
+ const page=await openPhone(t,{empty:true});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{
+  AgentBridge.beginPhoneCommand=()=>JSON.stringify({ok:true,data:{handled:true,operation:{id:802,state:'running'}}});
+  AgentBridge.operationState=()=>JSON.stringify({ok:true,data:{operation:{id:802,state:'succeeded',studio:{model:{ready:false},messages:[{id:'studio-802-user',role:'user',content:'打开浏览器搜索天气',phoneAction:true},{id:'studio-802-assistant',role:'assistant',content:'找到多个匹配的 App，尚未执行。请用完整名称重新发送：浏览器 A、浏览器 B。',phoneAction:true}]}}}});
+ });
+ await page.locator('#piInput').fill('打开浏览器搜索天气');await page.locator('#sendPi').click();await page.waitForFunction(()=>document.querySelector('#piMessages').textContent.includes('尚未执行'));assert.equal(await page.evaluate(()=>chatCount),0);
+});
+
+test('note command routes once before phone and ordinary model chat and renders saved draft and reminder',async t=>{
+ const page=await openPhone(t,{modelReady:true});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{
+  window.noteCommands=[];window.phoneAttempts=0;
+  AgentBridge.beginNoteCommand=raw=>{noteCommands.push(JSON.parse(raw));return JSON.stringify({ok:true,data:{handled:true,operation:{id:901,state:'running'}}});};
+  AgentBridge.beginPhoneCommand=()=>{phoneAttempts++;throw new Error('must not also run a phone command');};
+  AgentBridge.operationState=()=>JSON.stringify({ok:true,data:{operation:{id:901,state:'succeeded',studio:{model:{ready:true},messages:[{id:'studio-901-user',role:'user',content:'写小红书文案，配图，明天八点提醒',phoneAction:true},{id:'studio-901-assistant',role:'assistant',content:'已保存本机草稿\n深圳咖啡店\n正文\n已选 1 张图片\n提醒时间：2026-11-06 08:00\n尚未发布',phoneAction:true}]}}}});
+ });
+ await page.locator('#piInput').fill('写小红书文案，配图，明天八点提醒');await page.locator('#sendPi').click();
+ await page.waitForFunction(()=>document.querySelector('#piMessages').textContent.includes('已保存本机草稿'));
+ assert.equal(await page.evaluate(()=>phoneAttempts),0);assert.equal(await page.evaluate(()=>chatCount),0);assert.deepEqual(await page.evaluate(()=>noteCommands),[{content:'写小红书文案，配图，明天八点提醒',taskId:0}]);
+ assert.match(await page.locator('#piMessages').innerText(),/尚未发布/);assert.equal(await page.locator('#piMessages').getByRole('button',{name:'重新生成',exact:true}).count(),0);
+});
+
+test('note validation error preserves composer without fallback generation or phone execution',async t=>{
+ const page=await openPhone(t,{modelReady:true});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{window.phoneAttempts=0;AgentBridge.beginNoteCommand=()=>JSON.stringify({ok:false,error:'请只指定一个提醒时间'});AgentBridge.beginPhoneCommand=()=>{phoneAttempts++;return JSON.stringify({ok:true,data:{handled:false}});};});
+ await page.locator('#piInput').fill('写小红书，明天8点或9点提醒');await page.locator('#sendPi').click();
+ assert.equal(await page.locator('#piInput').inputValue(),'写小红书，明天8点或9点提醒');assert.equal(await page.evaluate(()=>chatCount),0);assert.equal(await page.evaluate(()=>phoneAttempts),0);
+});
+
+test('ordinary messages pass note preflight while regeneration never submits a new note',async t=>{
+ const page=await openPhone(t,{modelReady:true,butlerMessages:[{id:'u',role:'user',content:'问题'},{id:'a',role:'assistant',content:'回答'}]});await page.locator('[data-view="butler"]').click();
+ await page.evaluate(()=>{window.noteAttempts=[];AgentBridge.beginNoteCommand=raw=>{noteAttempts.push(JSON.parse(raw));return JSON.stringify({ok:true,data:{handled:false}});};AgentBridge.beginScopedStudioMessage=raw=>AgentBridge.beginStudioMessage(JSON.parse(raw).content);});
+ await page.locator('#piMessages').getByRole('button',{name:'重新生成',exact:true}).click();await page.waitForFunction(()=>chatCount===1);assert.deepEqual(await page.evaluate(()=>noteAttempts),[]);
+ await page.waitForFunction(()=>!document.querySelector('#piInput').disabled);await page.locator('#piInput').fill('项目进度如何');await page.locator('#sendPi').click();await page.waitForFunction(()=>chatCount===2);assert.equal((await page.evaluate(()=>noteAttempts)).length,1);
 });

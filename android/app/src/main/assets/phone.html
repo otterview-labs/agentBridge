@@ -8,6 +8,13 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob:; font-src 'self' file: data:; media-src 'self' file: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'">
   <title>agentBridge</title>
   <link rel="stylesheet" href="./phone.css">
+  <link rel="stylesheet" href="./phone-actions.css">
+  <link rel="stylesheet" href="./game-scenes.css">
+  <link rel="stylesheet" href="./butler-scenes.css">
+  <link rel="stylesheet" href="./todo-scenes.css">
+<link rel="stylesheet" href="./model-settings.css">
+<link rel="stylesheet" href="./voice-settings.css">
+  <link rel="stylesheet" href="./butler-workspace.css">
 </head>
 <body>
 <div class="app">
@@ -22,9 +29,22 @@
       <button class="cloudState" id="backgroundState" type="button">后台</button>
       <button class="cloudState" id="cloudState" type="button">未连接</button>
       <button class="iconButton" id="refreshAll" title="刷新"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg></button>
+      <button class="iconButton" id="openAppearance" type="button" aria-label="设置" title="设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 3-.7 2.5-2.2 1.3L3.6 7 2 10l1.8 1.8v2.5L2 16l1.6 3 2.5-.8 2.2 1.3L9 22h4l.7-2.5 2.2-1.3 2.5.8 1.6-3-1.8-1.7v-2.5L20 10l-1.6-3-2.5.8-2.2-1.3L13 3z"/><circle cx="11" cy="12.5" r="3"/></svg></button>
     </div>
   </header>
 
+  <div class="connectorEntry">
+    <button id="openConnector" type="button" aria-label="扫码连接电脑">
+      <svg class="connectorEntryIcon uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/><path d="M8 8h3v3H8zm5 5h3v3h-3zm0-5h3m-8 5v3"/></svg>
+      <span class="connectorEntryText"><strong id="connectorEntryTitle">扫码连接电脑</strong><span id="connectorEntryDescription">在手机查看和回复电脑会话</span></span>
+      <svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+    </button>
+  </div>
+  <button class="townButler" id="openTownButler" type="button" aria-controls="butler">
+    <span class="townButlerAvatar" id="townButlerAvatar" aria-hidden="true"></span>
+    <span class="townButlerText"><strong>和管家聊天</strong><span>问进度、聊任务</span></span>
+    <svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+  </button>
   <section class="summary" id="summary">
     <div class="townScene" aria-hidden="true"><i class="townWindow"></i><i class="townPlant"></i><i class="townDesk"></i></div>
     <div class="summaryMain">
@@ -35,43 +55,68 @@
   </section>
 
   <nav class="tabs" aria-label="视图">
-    <button class="tab" data-view="butler" aria-pressed="false">管家</button>
-    <button class="tab active" data-view="offices" aria-pressed="true">办公室</button>
-    <button class="tab" data-view="todo" id="todoTab" aria-pressed="false">待输入</button>
-    <button class="tab" data-view="public" aria-pressed="false">公网</button>
+    <button class="tab" data-view="butler" aria-controls="butler" aria-pressed="false"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10h10M8 6V4m8 2V4"/><rect x="4" y="6" width="16" height="14" rx="4"/><path d="M8 15h.01M16 15h.01"/></svg><span>管家聊天</span></button>
+    <button class="tab active" data-view="offices" aria-pressed="true"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h1m4 0h1M9 11h1m4 0h1M10 21v-5h4v5"/></svg><span>办公室</span></button>
+    <button class="tab" data-view="todo" id="todoTab" aria-pressed="false"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6M9 4a2 2 0 0 0-2 2H5v15h14V6h-2a2 2 0 0 0-2-2"/><path d="m8 13 3 3 5-6"/></svg><span id="todoTabLabel">待输入</span></button>
+    <button class="tab" data-view="public" aria-pressed="false"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18"/></svg><span>公网</span></button>
   </nav>
 
   <main id="main">
     <section id="butler" class="view hidden">
       <article class="butlerHero">
-        <header class="butlerHeroHeader">
-          <div>
-            <h2 id="piSheetTitle">聊聊任务</h2>
-            <p id="piMeta">模型未连接</p>
-          </div>
-          <div class="officeActions">
-            <button class="smallAction" type="button" id="openManaged">跟进</button>
-            <button class="smallAction" type="button" id="openCloudFromButler">配置模型</button>
-            <button class="callToggle" type="button" id="startCall">通话</button>
-            <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg></button>
-          </div>
-        </header>
         <div class="butlerHeroBody">
           <span class="employeeStage" id="piAvatar" aria-hidden="true"></span>
+          <header class="butlerHeroHeader">
+            <h2 id="piSheetTitle">小镇管家</h2>
+            <p id="piMeta">模型未连接</p>
+          </header>
+          <button class="callToggle" type="button" id="startCall" aria-controls="desktopCallChoice" aria-expanded="false"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-2 2a14 14 0 0 1-7-7l2-2-2-5Z"/></svg><span class="actionLabel">打电话</span></button>
+        </div>
+        <details id="butlerActions" class="butlerActions">
+          <summary aria-label="更多操作" title="更多操作"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></summary>
+          <div class="officeActions butlerToolbar" role="group" aria-label="管家操作">
+            <button class="smallAction" type="button" id="openPhoneActions" aria-haspopup="dialog"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/></svg><span class="actionLabel">手机操作</span></button>
+            <button class="smallAction" type="button" id="openManaged"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 2 2 3-4M11 6h10M3 14h5m3 0h10M3 21h5m3 0h10"/></svg><span class="actionLabel">跟进</span></button>
+            <button class="smallAction" type="button" id="openCloudFromButler"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4"/></svg><span class="actionLabel">配置模型</span></button>
+            <button class="smallAction" type="button" id="openVoiceSettings" aria-label="语音设置" title="语音设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h7m6 0h3M4 17h3m6 0h7"/><circle cx="14" cy="7" r="3"/><circle cx="10" cy="17" r="3"/></svg><span class="actionLabel">语音设置</span></button>
+            <button class="smallAction" type="button" id="refreshButler" aria-label="刷新管家状态"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.6-2L20 9M4 15l2.3 3A7 7 0 0 0 17.9 16"/></svg><span class="actionLabel">刷新</span></button>
+          </div>
           <div class="butlerAdvice">
-            <strong id="butlerEmployeeName">正在查看任务</strong>
+            <button type="button" id="butlerEmployeeName">正在查看任务</button>
             <p id="butlerEmployeeSub">配置模型后，就能聊聊任务。</p>
           </div>
+          <details id="butlerComposerOptions" class="butlerComposerOptions">
+            <summary><span>对话设置</span><span id="butlerScopePreview">整个小镇</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></summary>
+            <div class="butlerComposerPanel">
+              <div class="chatQuickRow" aria-label="快捷提问">
+                <button type="button" data-quick-prompt="今天最应该先处理哪件事？">今天先处理哪件？</button>
+                <button type="button" data-quick-prompt="请总结今日进展和风险。">总结今日进展</button>
+                <button type="button" data-quick-prompt="帮我安排明天的优先级。">安排明日</button>
+              </div>
+              <label id="piMemoryScopeRow" class="piMemoryScope hidden">记忆范围<select id="piMemoryScope"><option value="0">整个小镇</option></select></label>
+              <div class="voiceOptions">
+                <button type="button" id="voiceAutoSend" class="active" aria-pressed="true"><svg class="voicePreferenceMark" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="3"/><path class="preferenceCheck" d="m6 10 3 3 5-6"/></svg><span>说完自动发送</span></button>
+                <button type="button" id="voiceSpeakReply" class="active" aria-pressed="true"><svg class="voicePreferenceMark" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="3"/><path class="preferenceCheck" d="m6 10 3 3 5-6"/></svg><span>语音播报</span></button>
+                <span id="voiceStateText">点击麦克风开始说话</span>
+              </div>
+            </div>
+          </details>
+        </details>
+        <div class="desktopCallChoice" id="desktopCallChoice" hidden>
+          <p>打电话使用手机管家，当前电脑会话会保留。</p>
+          <button class="smallAction" id="desktopCallContinue" type="button">切换并通话</button>
+          <button class="smallAction" id="desktopCallCancel" type="button">继续文字聊天</button>
         </div>
       </article>
+      <button type="button" id="butlerAssistantPicker" aria-haspopup="dialog">选择助手</button>
+      <label id="butlerSourceRow" class="butlerSource" hidden>使用的助手<select id="butlerSource"></select></label>
 
-      <div class="connectionHint" id="connectionHint">
-        <span id="butlerConnectionText">先配置模型，再开始聊天。</span>
+      <div class="connectionHint" id="connectionHint" role="status">
+        <details id="butlerConnectionDetails"><summary aria-label="查看错误详情"><div class="connectionMessage"><strong id="butlerConnectionTitle" class="hidden"></strong><span id="butlerConnectionText">先配置模型，再开始聊天。</span></div><svg class="connectionChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></summary><pre id="butlerConnectionRaw" class="hidden"></pre></details>
         <button type="button" id="checkButlerModel">验证连接</button>
       </div>
 
       <section class="butlerSection butlerConversation">
-        <header><h3>和管家聊聊</h3><small id="butlerMessageLabel">未配置</small></header>
         <div id="piMessages" class="piMessages" role="log" aria-live="polite" aria-label="管家对话"></div>
       </section>
 
@@ -112,10 +157,31 @@
     <section id="public" class="view hidden"></section>
   </main>
 
-  <footer class="bottomBar safe">
-    <button class="ghostAction" id="openScan">发现机器</button>
-    <button class="primaryAction" id="openAdd">添加 SSH</button>
-  </footer>
+</div>
+
+<div class="sheetBackdrop hidden" id="appearanceBackdrop">
+  <section class="sheet appearanceSheet" role="dialog" aria-modal="true" aria-labelledby="appearanceTitle">
+    <header><h2 id="appearanceTitle">设置</h2><button class="iconButton subtle" type="button" data-close="appearanceBackdrop" aria-label="关闭设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+    <button class="settingsJobs settingsConnector" type="button" id="openConnectorFromSettings">扫码连接电脑</button>
+    <p class="appearanceHint">连接桌面客户端，查看和回复电脑授权的会话，无需配置 SSH。</p>
+    <h3>界面风格</h3>
+    <p class="appearanceHint">切换展示方式，电脑和任务保持对应。选择后立即生效。</p>
+    <div class="sceneOptions" role="group" aria-label="界面风格">
+      <button class="sceneOption" type="button" data-scene-choice="floors" aria-pressed="false"><span class="sceneThumb sceneThumbFloors" aria-hidden="true"></span><span class="sceneOptionText"><strong>双层办公室</strong><small>按电脑分层，员工坐在各自工位。</small></span><span class="sceneSelection" aria-hidden="true"></span></button>
+      <button class="sceneOption" type="button" data-scene-choice="map" aria-pressed="false"><span class="sceneThumb sceneThumbMap" aria-hidden="true"></span><span class="sceneOptionText"><strong>小镇地图</strong><small>每台电脑是一栋楼，点击查看员工。</small></span><span class="sceneSelection" aria-hidden="true"></span></button>
+      <button class="sceneOption" type="button" data-scene-choice="workstations" aria-pressed="false"><span class="sceneThumb sceneThumbFocus" aria-hidden="true"></span><span class="sceneOptionText"><strong>单间工位</strong><small>进入一台电脑，专注查看它的任务。</small></span><span class="sceneSelection" aria-hidden="true"></span></button>
+    </div>
+    <p id="appearanceFeedback" class="appearanceFeedback" role="status" aria-live="polite"></p>
+    <details id="connectionAdvanced" class="connectionAdvanced">
+      <summary>高级设置</summary>
+      <p class="appearanceHint">SSH 直连适用于未安装桌面客户端的电脑或服务器，与扫码连接分别管理。</p>
+      <div class="advancedConnectionActions">
+        <button class="settingsJobs" type="button" id="openAdd">添加 SSH 机器</button>
+        <button class="settingsJobs" type="button" id="openScan">发现局域网 SSH 机器</button>
+      </div>
+    </details>
+    <button class="settingsJobs" type="button" id="openJobsFromSettings">查看后台任务</button>
+  </section>
 </div>
 
 <div class="sheetBackdrop hidden" id="machineBackdrop">
@@ -124,8 +190,10 @@
       <div>
         <h2 id="machineSheetTitle">添加 SSH 机器</h2>
       </div>
-      <button class="iconButton subtle" data-close="machineBackdrop" aria-label="关闭机器设置">✕</button>
+      <button class="iconButton subtle" data-close="machineBackdrop" aria-label="关闭机器设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </header>
+    <details id="scanDetails" class="setupDetails">
+      <summary>从局域网发现电脑</summary>
     <div id="scanBlock" class="scanBlock">
       <label>局域网网段</label>
       <div class="inline">
@@ -134,22 +202,38 @@
       </div>
       <div id="scanResult" class="scanResult"></div>
     </div>
+    </details>
     <form id="machineForm">
       <input type="hidden" id="machineId">
-      <label>办公室名称<input id="machineName" placeholder="Mac Pro" required></label>
-      <label>SSH 地址<input id="machineHost" placeholder="192.168.1.8" required></label>
-      <div class="two">
-        <label>用户<input id="machineUsername" placeholder="root" required></label>
-        <label>端口<input id="machinePort" inputmode="numeric" value="22"></label>
-      </div>
+      <p class="formNote">手机和电脑先连同一网络。Mac 开启「远程登录」；Linux 开启 SSH 服务。</p>
+      <label>电脑地址或 SSH 命令<input id="machineHost" placeholder="ssh 你的账号@192.168.1.8" autocapitalize="none" spellcheck="false" maxlength="2048" required aria-describedby="machineSetupHint"></label>
+      <p class="formNote" id="machineSetupHint" role="status">粘贴电脑显示的 ssh 连接命令，可自动填写账号和端口。</p>
+      <label>电脑登录账号<input id="machineUsername" placeholder="电脑终端运行 whoami 可查看" autocapitalize="none" spellcheck="false" required></label>
       <div class="authRow">
         <button type="button" class="chip active" data-auth="password">密码</button>
         <button type="button" class="chip" data-auth="key">私钥</button>
       </div>
       <label id="passwordLabel">SSH 密码<input id="machinePassword" type="password" autocomplete="off"></label>
       <label id="keyLabel" class="hidden">私钥内容<textarea id="machineKey" rows="6" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"></textarea></label>
+      <details class="setupDetails" id="machineAdvanced">
+        <summary>名称与端口（可选）</summary>
+        <div class="setupFields">
+          <label>办公室名称<input id="machineName" placeholder="留空时按电脑地址命名"></label>
+          <label>SSH 端口<input id="machinePort" type="number" min="1" max="65535" inputmode="numeric" value="22" required></label>
+        </div>
+      </details>
+      <details class="setupDetails" id="openCodeSettings">
+        <summary>OpenCode（试用）</summary>
+        <div class="setupFields">
+          <p class="formNote">连接电脑上已有的 OpenCode V1 服务。桌面端和 CLI 需连接同一服务；手机通过 SSH 隧道访问，无需开放公网端口。V2 暂未适配。</p>
+          <label>OpenCode 服务端口（留空关闭）<input id="machineOpenCodePort" type="number" min="1" max="65535" inputmode="numeric" placeholder="例如 4096"></label>
+          <label>OpenCode 服务账号<input id="machineOpenCodeUsername" value="opencode" autocapitalize="none" spellcheck="false" maxlength="128"></label>
+          <label>OpenCode 服务密码<input id="machineOpenCodePassword" type="password" autocomplete="off"></label>
+          <p class="formNote">填写 OpenCode 服务的连接密码，和模型 API Key、SSH 密码分别配置。权限和问题确认暂时需要回到 OpenCode 处理。</p>
+        </div>
+      </details>
       <p class="formNote">凭据只保存在这台手机的应用私有存储；首次连接会记录机器指纹，指纹变化会拒绝连接。</p>
-      <button class="primaryAction wide" type="submit">保存办公室</button>
+      <button class="primaryAction wide" id="saveMachineButton" type="submit">连接并找任务</button>
     </form>
   </section>
 </div>
@@ -160,7 +244,7 @@
       <div>
         <h2 id="frpSheetTitle">公网安全入口</h2>
       </div>
-      <button class="iconButton subtle" data-close="frpBackdrop" aria-label="关闭公网设置">✕</button>
+      <button class="iconButton subtle" data-close="frpBackdrop" aria-label="关闭公网设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </header>
     <form id="frpForm">
       <input type="hidden" id="frpMachineId">
@@ -207,7 +291,7 @@
           <p class="taskMetaLine" id="taskMeta"></p>
         </div>
       </div>
-      <button class="iconButton subtle" data-close="taskBackdrop" aria-label="关闭任务详情">✕</button>
+      <button class="iconButton subtle" data-close="taskBackdrop" aria-label="关闭任务详情"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </header>
     <div class="taskBody">
       <div class="taskStatusCard" id="taskStatusCard"></div>
@@ -242,7 +326,7 @@
 
 <div class="sheetBackdrop hidden" id="managedBackdrop">
   <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="managedTitle">
-    <header><h2 id="managedTitle">手机持续跟进</h2><button class="iconButton subtle" data-close="managedBackdrop" aria-label="关闭跟进设置">✕</button></header>
+    <header><h2 id="managedTitle">手机持续跟进</h2><button class="iconButton subtle" data-close="managedBackdrop" aria-label="关闭跟进设置"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
     <div class="managedBody">
       <p id="managedStatus" role="status">尚未启动</p>
       <div class="managedControls"><button type="button" class="primaryAction" id="toggleManaged">启动手机管家</button><button type="button" class="ghostAction" id="refreshManaged">刷新</button></div>
@@ -272,72 +356,106 @@
 </div>
 
 <div class="sheetBackdrop hidden" id="cloudBackdrop">
-  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="cloudSheetTitle">
-    <header>
-      <div>
-        <h2 id="cloudSheetTitle">管家模型</h2>
-      </div>
-      <button class="iconButton subtle" data-close="cloudBackdrop" aria-label="关闭模型设置">✕</button>
+  <section class="sheet modelSettingsSheet" role="dialog" aria-modal="true" aria-labelledby="cloudSheetTitle">
+    <header class="modelSettingsHeader">
+      <div class="modelSettingsHeading"><h2 id="cloudSheetTitle">管家模型</h2></div>
+      <button class="iconButton subtle" data-close="cloudBackdrop" aria-label="关闭模型设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </header>
     <form id="cloudForm">
-      <label>管家运行方式<select id="butlerRuntime"><option value="phone">手机直接聊天</option><option value="pi">电脑端 Pi + 记忆</option></select></label>
-      <div id="piRuntimeFields" class="hidden">
-        <label>运行 Pi 的电脑<select id="piMachineId"></select></label>
-        <label>Pi 脚本完整路径<input id="piWorkerPath" placeholder="/你的目录/agentBridge/tools/pi-butler/worker.mjs"></label>
-        <p class="formNote">先在电脑上安装配套脚本。该模式会通过 SSH 传递模型配置和所选范围的任务记录，记忆保存在电脑上。</p>
+      <div class="modelFormScroll">
+        <label id="modelProfileNameLabel">配置名称<input id="modelProfileName" maxlength="120" placeholder="例如：日常聊天、代码助手"></label>
+        <section aria-labelledby="modelServiceTitle">
+          <div class="modelSectionHeading"><h3 id="modelServiceTitle">模型服务</h3><span class="modelConnectionBadge" id="modelConnectionBadge" role="status">未配置</span></div>
+          <select id="modelProvider" class="hidden" tabindex="-1" aria-hidden="true"></select>
+          <details id="modelServiceChoices" class="modelServiceChoices" open>
+            <summary><span id="modelSelectedService">选择服务商</span></summary>
+            <div class="modelProviderChoices" id="modelProviderChoices" role="group" aria-label="模型服务商"></div>
+          </details>
+          <button type="button" id="modelCustomChoice" class="modelCustomChoice" data-model-brand="custom" aria-pressed="false">自定义模型</button>
+          <label class="modelVariantRow hidden" id="modelVariantRow">接入方式<select id="modelVariant"></select></label>
+          <p class="modelProviderHint" id="modelProviderHint"></p>
+        </section>
+        <details class="modelEndpointDetails" id="modelEndpointDetails">
+          <summary>连接地址<span class="modelEndpointHost" id="modelEndpointHost"></span></summary>
+          <div class="modelExtraFields"><label>服务地址（Base URL）<input id="modelBaseUrl" type="url" placeholder="https://服务商地址/v1" autocapitalize="none" spellcheck="false" required></label><p class="formNote" id="modelNetworkHint">手机直接连接模型服务。API Key 保存在 App 内，不会在页面显示。</p></div>
+        </details>
+        <section class="modelCredentials" aria-label="模型凭据">
+          <div>
+            <label>模型名称<input id="modelId" placeholder="填写已开通的模型 ID" autocapitalize="none" spellcheck="false" maxlength="160" required></label>
+            <div id="modelSuggestions" class="modelSuggestions hidden" role="group" aria-label="常用模型"></div>
+          </div>
+          <div><label>API Key<input id="modelApiKey" type="password" autocomplete="off" placeholder="粘贴所选服务的 API Key" aria-describedby="modelKeyHint"></label><p class="modelKeyHint" id="modelKeyHint"></p></div>
+        </section>
+        <details class="modelAdvancedDetails" id="modelAdvanced">
+          <summary>更多设置与配置导入</summary>
+          <div class="modelExtraFields">
+            <label>管家运行方式<select id="butlerRuntime"><option value="phone">手机直接聊天</option><option value="pi">电脑端 Pi + 记忆</option></select></label>
+            <div id="piRuntimeFields" class="hidden modelExtraFields"><label>运行 Pi 的电脑<select id="piMachineId"></select></label><label>Pi 脚本完整路径<input id="piWorkerPath" placeholder="/你的目录/agentBridge/tools/pi-butler/worker.mjs"></label><p class="formNote">先在电脑上安装配套脚本。该模式会通过 SSH 传递模型配置和所选范围的任务记录，记忆保存在电脑上。</p></div>
+            <details id="modelImport"><summary>从 JSON 配置导入</summary><div class="modelExtraFields"><label>模型 JSON 配置<textarea id="modelImportText" rows="3" maxlength="16000" spellcheck="false" autocomplete="off" placeholder='{"baseUrl":"https://服务商地址/v1","model":"模型名","apiKey":"你的密钥"}'></textarea></label><button class="smallAction" id="applyModelConfig" type="button">填入配置</button><p class="formNote" id="modelImportResult" role="status">只填入表单，确认后再保存和连接。</p></div></details>
+          </div>
+        </details>
       </div>
-      <div class="modelFields">
-        <p class="formNote">填写你的模型服务</p>
-        <label>Base URL<input id="modelBaseUrl" type="url" placeholder="https://服务商地址/v1" required></label>
-        <label>Model<input id="modelId" placeholder="glm-5.3" required></label>
-        <label>API Key<input id="modelApiKey" type="password" autocomplete="off" placeholder="已保存时可不填"></label>
-      </div>
-      <p class="formNote">地址通常以 /v1 结尾，也可粘贴完整的 /chat/completions 地址。模型名称需与服务商后台一致。</p>
-      <p class="formNote">手机直接连接模型服务。API Key 保存在 App 内，不会在页面显示。</p>
-      <button class="primaryAction wide" type="submit">保存模型配置</button>
-      <button class="ghostAction wide" type="button" id="testModelConnection">验证连接</button>
-      <p class="connectionResult" id="modelCheckResult" role="status">保存后，点「验证连接」试一下。</p>
+      <footer class="modelSettingsActions">
+        <button class="primaryAction wide" type="submit">保存并验证连接</button>
+        <p class="connectionResult modelCheckFeedback" id="modelCheckResult" role="status" aria-live="polite">验证会发送一条短测试消息。</p>
+        <div class="modelSecondaryActions"><button type="button" id="saveModelOnly">仅保存</button><button type="button" id="testModelConnection">重新验证已保存配置</button></div>
+      </footer>
     </form>
   </section>
 </div>
 
 <div class="sheetBackdrop hidden" id="voiceBackdrop">
-  <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="voiceSheetTitle">
-    <header>
-      <div>
-        <h2 id="voiceSheetTitle">语音设置</h2>
-      </div>
-      <button type="button" class="iconButton subtle" data-close="voiceBackdrop" aria-label="关闭语音设置">✕</button>
+  <section class="sheet voiceSettingsSheet" role="dialog" aria-modal="true" aria-labelledby="voiceSheetTitle">
+    <header class="voiceSettingsHeader">
+      <div><h2 id="voiceSheetTitle">语音设置</h2><p>选好声音，也让管家听懂你。</p></div>
+      <button type="button" class="iconButton subtle" data-close="voiceBackdrop" aria-label="关闭语音设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
     </header>
     <form id="voiceForm" onSubmit="return false">
-      <p class="formNote" id="ttsEngineStatus">正在读取本机语音引擎…</p>
-      <p class="formNote" id="voiceInputStatus">正在读取识别与麦克风状态…</p>
-      <details class="voiceServiceDetails" id="voiceServiceDetails">
-        <summary>云端语音配置 <small id="voiceServiceState">可单独配置</small></summary>
-        <label>百炼 API Key（北京地域）<input id="voiceApiKey" type="password" autocomplete="off" placeholder="已有密钥可留空"></label>
-        <p class="formNote">供语音识别和播报使用，可与聊天模型不同。使用北京地域百炼聊天模型时，未单独配置会沿用模型密钥。录音和播报文字会发送到百炼。</p>
-        <div class="voiceServiceActions"><button type="button" class="smallAction dark" id="saveVoiceService">保存语音密钥</button><button type="button" class="smallAction" id="clearVoiceService">清除独立密钥</button></div>
-      </details>
-      <div class="voiceSettingRow">
-        <span>语音播报</span>
-        <label class="miniSwitch"><input type="checkbox" id="voiceSpeakReplySetting" checked><i></i></label>
+      <div class="voiceFormScroll">
+        <fieldset class="voiceProviderField"><legend>选择语音服务</legend><div id="voiceProviderChoices" class="voiceProviderChoices" aria-label="语音服务商">
+          <button type="button" class="voiceCommonChoice" data-voice-provider="system" aria-pressed="true">本机语音<small>无需密钥</small></button>
+          <button type="button" class="voiceCommonChoice" data-voice-provider="sherpa" aria-pressed="false">本机离线识别<small>中英混说 · 下载后离线</small></button>
+          <section class="voiceRegionGroup" data-voice-region="domestic"><h3>国内服务</h3><button type="button" data-voice-provider="doubao" aria-pressed="false">火山引擎 · 豆包语音<small>按量付费 · 语音识别</small></button><button type="button" data-voice-provider="bailian" aria-pressed="false">阿里云百炼<small>北京地域 · Cherry</small></button></section>
+          <section class="voiceRegionGroup" data-voice-region="overseas"><h3>海外服务</h3><button type="button" data-voice-provider="openai" aria-pressed="false">OpenAI<small>多语言 · 多音色</small></button></section>
+          <button type="button" class="voiceCommonChoice" data-voice-provider="custom" aria-pressed="false">自定义兼容接口<small>国内、海外均可 · 按实际地址接入</small></button>
+        </div></fieldset>
+        <p id="voiceProviderHint" class="voiceHint"></p>
+        <div id="offlineVoiceModel" class="voiceCapabilities hidden">
+          <div><strong>离线模型</strong><span id="offlineVoiceModelStatus" role="status" aria-live="polite"></span></div>
+          <progress id="offlineVoiceProgress" class="hidden" value="0" max="100" aria-label="模型下载进度"></progress>
+          <button id="downloadOfflineVoice" type="button" class="secondaryAction">下载离线模型</button>
+        </div>
+        <div class="voiceCapabilities" aria-label="已保存配置状态">
+          <p id="voiceActiveProvider" class="voiceActiveProvider"></p>
+          <div><strong>语音输入</strong><span id="voiceInputStatus">正在读取识别与麦克风状态…</span></div>
+          <div><strong>声音播报</strong><span id="ttsEngineStatus">正在读取本机语音引擎…</span></div>
+        </div>
+        <div id="voiceCloudFields" class="voiceCloudFields hidden">
+          <label>语音 API Key<input id="voiceApiKey" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="填入所选服务的密钥"></label>
+          <p id="voiceServiceState" class="voiceHint">可单独配置</p>
+          <label id="voiceChoiceLabel">播报音色<select id="voiceChoice"><option value="alloy">Alloy</option><option value="coral">Coral</option><option value="echo">Echo</option></select></label>
+          <details id="voiceServiceDetails"><summary>服务地址与语音模型</summary><div class="voiceExtraFields">
+            <label>服务地址（Base URL）<input id="voiceBaseUrl" type="url" spellcheck="false" autocomplete="off" placeholder="https://your-service.example/v1"></label>
+            <label>识别模型（ASR）<input id="voiceAsrModel" type="text" spellcheck="false" autocomplete="off"></label>
+            <label>播报模型（TTS）<input id="voiceTtsModel" type="text" spellcheck="false" autocomplete="off"></label>
+            <label id="voiceCustomVoiceLabel">音色名称<input id="voiceCustomVoice" type="text" spellcheck="false" autocomplete="off"></label>
+          </div></details>
+          <button type="button" class="voiceClear" id="clearVoiceService">清除该服务密钥</button>
+        </div>
+        <details id="voicePlaybackDetails"><summary>播报偏好与本机调音</summary><div class="voiceExtraFields">
+          <div class="voiceSettingRow"><span>自动播报回复</span><label class="miniSwitch"><input type="checkbox" id="voiceSpeakReplySetting" checked aria-label="自动播报回复"><i></i></label></div>
+          <div class="hidden"><input type="checkbox" id="voicePreferCloudSetting"></div>
+          <div class="voiceSettingRow"><label for="voiceRateSetting">本机语速</label><input type="range" id="voiceRateSetting" min="0.7" max="1.5" step="0.05" value="1"><strong id="voiceRateEcho">1.00×</strong></div>
+          <div class="voiceSettingRow"><label for="voicePitchSetting">本机音调</label><input type="range" id="voicePitchSetting" min="0.8" max="1.2" step="0.05" value="1"><strong id="voicePitchEcho">1.00</strong></div>
+          <p class="voiceHint">语速和音调仅影响本机声音。</p>
+        </div></details>
       </div>
-      <div class="voiceSettingRow">
-        <span>云端语音优先</span>
-        <label class="miniSwitch"><input type="checkbox" id="voicePreferCloudSetting"><i></i></label>
-      </div>
-      <div class="voiceSettingRow">
-        <span>语速</span>
-        <input type="range" id="voiceRateSetting" min="0.7" max="1.5" step="0.05" value="1">
-        <strong id="voiceRateEcho">1.00×</strong>
-      </div>
-      <div class="voiceSettingRow">
-        <span>音调</span>
-        <input type="range" id="voicePitchSetting" min="0.8" max="1.2" step="0.05" value="1">
-        <strong id="voicePitchEcho">1.00</strong>
-      </div>
-      <button type="button" class="primaryAction wide" id="ttsPreview">试听管家声音</button>
-      <p class="formNote">先试听，再轻点聊天框旁的麦克风测试识别，两项正常后即可通话。语速和音调仅对本机声音生效。</p>
+      <footer class="voiceSettingsActions">
+        <button type="button" class="primaryAction wide" id="saveVoiceService">保存语音配置</button>
+        <div class="voiceTestActions"><button type="button" id="ttsPreview">试听声音</button><button type="button" id="voiceAsrTest">测试识别</button><button type="button" id="voiceTestStop" disabled>停止</button></div>
+        <p id="voiceTestResult" class="voiceTestResult" role="status" aria-live="polite">测试已保存的配置；识别结果仅显示在这里。</p>
+        <small class="voiceDisclosure">云端服务会接收录音或播报文字。试听为 AI 合成声音。</small>
+      </footer>
     </form>
   </section>
 </div>
@@ -371,27 +489,42 @@
       <small id="voicePanelHint">松开后转文字并发送 · 上滑取消</small>
     </div>
   </div>
-  <div class="chatQuickRow" aria-label="快捷提问">
-    <button type="button" data-quick-prompt="今天最应该先处理哪件事？">今天先处理哪件？</button>
-    <button type="button" data-quick-prompt="请总结今日进展和风险。">总结今日进展</button>
-    <button type="button" data-quick-prompt="帮我安排明天的优先级。">安排明日</button>
-  </div>
-  <label id="piMemoryScopeRow" class="piMemoryScope hidden">记忆范围<select id="piMemoryScope"><option value="0">整个小镇</option></select></label>
   <div class="chatInputRow">
     <button class="voiceButton" id="voiceButton" type="button" aria-label="按住说话，也可以轻点开始或结束"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg></button>
     <label class="sr-only" for="piInput">问管家安排</label>
     <textarea id="piInput" rows="1" maxlength="4000" placeholder="说说你想做的事…"></textarea>
     <button class="sendButton" id="sendPi" type="button" aria-label="发送"><svg class="uiIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19 0-14M6 11l6-6 6 6"/></svg></button>
   </div>
-  <div class="voiceOptions">
-    <button type="button" id="voiceAutoSend" class="active" aria-pressed="true">说完自动发送</button>
-    <button type="button" id="voiceSpeakReply" class="active" aria-pressed="true">语音播报</button>
-    <button type="button" id="openVoiceSettings">语音设置</button>
-
-    <span id="voiceStateText">点击麦克风开始说话</span>
-  </div>
 </div>
 
+<div class="sheetBackdrop hidden" id="connectorBackdrop">
+  <section class="sheet connectorSheet" role="dialog" aria-modal="true" aria-labelledby="connectorTitle">
+    <header><div><h2 id="connectorTitle" tabindex="-1">连接电脑</h2><p>在手机查看和回复电脑授权的会话。</p></div><button class="iconButton subtle" data-close="connectorBackdrop" aria-label="关闭电脑连接">✕</button></header>
+    <section class="connectorState" aria-labelledby="connectorComputer">
+      <h3 id="connectorComputer">先在电脑打开二维码</h3>
+      <p id="connectorStatus" role="status" aria-live="polite">尚未配对</p>
+      <ol id="connectorGuide" class="connectorGuide">
+        <li>在电脑打开 AgentHarbor 的手机连接页面。</li>
+        <li>在电脑生成配对二维码。</li>
+        <li>用下面的按钮扫码，再到电脑允许连接。</li>
+      </ol>
+      <p id="connectorPairCode" class="connectorPairCode" hidden></p>
+      <p id="connectorNext" hidden></p>
+      <div class="connectorActions connectorMainActions"><button class="smallAction dark" id="connectorScan">扫码连接电脑</button><button class="smallAction" id="connectorRefresh" hidden>刷新连接</button></div>
+    </section>
+    <section id="connectorSessionList" hidden aria-labelledby="connectorSessionsTitle"><h3 id="connectorSessionsTitle">选择要查看的会话</h3><p id="connectorCount"></p><div id="connectorSessions" class="connectorSessions"></div></section>
+    <section id="connectorConversation" hidden><h3 id="connectorSessionTitle"></h3><p id="connectorSessionMeta"></p><div id="connectorMessages" class="connectorMessages"></div><p id="connectorMore"></p><label>回复此会话<textarea id="connectorReply" rows="3" maxlength="16000"></textarea></label><div class="connectorActions"><button class="smallAction dark" id="connectorSend">发送回复</button><button class="smallAction" id="connectorResolve" hidden>已核实，开始新回复</button></div><p id="connectorOperation" role="status" aria-live="polite"></p></section>
+    <details id="connectorSettings" class="connectorSettings"><summary>连接设置与帮助</summary>
+      <p id="connectorTransportNote">扫码后会自动选择二维码提供的连接方式。</p>
+      <p id="connectorDiagnostics"></p>
+      <label id="connectorPairingCompatibilityRow"><input type="checkbox" id="connectorPairingCompatibility"><span>新配对使用网络兼容模式</span><small>扫码一直无法连接时可开启，再重新扫码。本次配对成功后仅对这台电脑生效；不关闭加密验证。</small></label>
+      <label id="connectorCompatibilityRow" hidden><input type="checkbox" id="connectorCompatibility"><span>网络兼容模式</span><small>仅用于这台电脑。切网或 VPN 变化后请刷新连接；不会自动重发回复。</small></label>
+      <button class="smallAction" id="connectorRescan" hidden>重新扫码配对</button>
+      <details id="connectorImport"><summary>手动导入配对链接（开发调试）</summary><label>电脑生成的配对链接<input id="connectorUri" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="agentbridge://pair?..."></label><button class="smallAction" id="connectorImportButton">导入并请求配对</button><p>USB 调试连接不代表局域网或真实相机已验证。</p></details>
+      <div id="connectorForgetArea" hidden><p>移除仅清理手机记录；撤销电脑端授权请在电脑连接器中操作。</p><button class="smallAction" id="connectorForget">移除本机配对记录</button></div>
+    </details>
+  </section>
+</div>
 <div class="busy hidden" id="busy">
   <div><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
   <p id="busyText">正在连接机器…</p>
@@ -399,9 +532,42 @@
   <p class="busyElapsed" id="busyElapsed"></p>
 </div>
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+<dialog id="butlerAssistantDialog" aria-labelledby="butlerAssistantTitle">
+  <div class="assistantDialogHeader"><h2 id="butlerAssistantTitle">选择助手</h2><button type="button" id="butlerAssistantClose" class="messageAction" aria-label="关闭">关闭</button></div>
+  <p>电脑助手沿用原会话的模型和上下文。手机管家可配置你自己的模型。</p>
+  <input id="butlerAssistantSearch" type="search" placeholder="搜索工具或会话" aria-label="搜索助手">
+  <div id="butlerAssistantList"></div>
+  <button type="button" id="butlerAssistantConfigure">配置手机管家模型</button>
+</dialog>
 <script src="./language.js"></script>
 <script src="./i18n-en.js"></script>
+<script src="./model-settings-i18n.js"></script>
+<script src="./voice-settings-i18n.js"></script>
 <script src="./i18n.js"></script>
+<script src="./setup.js"></script>
+<script src="./model-providers.js"></script>
+<script src="./voice-settings.js"></script>
+<script src="./model-library.js"></script>
+<script src="./butler-workspace.js"></script>
+<script src="./butler-layout.js"></script>
+<script src="./connector-town.js"></script>
+<dialog id="phoneActionsDialog" aria-labelledby="phoneActionsTitle">
+  <header><h2 id="phoneActionsTitle">手机本机操作</h2><button type="button" id="phoneActionsClose">关闭</button></header>
+  <p id="phoneActionsIntro">选好 App 和操作，小镇就在这台手机执行，不需要电脑或模型账号。</p>
+  <div class="phoneActionsPermission"><span id="phoneActionsPermission">正在检查权限</span><button type="button" id="phoneActionsSettings">开启权限</button></div>
+  <input id="phoneActionsFilter" type="search" placeholder="搜索手机里的 App" aria-label="搜索手机里的 App">
+  <select id="phoneActionsApp" aria-label="目标 App"><option value="">请选择 App</option></select>
+  <div class="phoneActionsAppMeta"><p id="phoneActionsCount"></p><button type="button" id="phoneActionsRefresh">刷新 App 列表</button></div>
+  <label for="phoneActionsText" id="phoneActionsTextLabel">要输入或搜索的内容</label>
+  <textarea id="phoneActionsText" maxlength="2000" placeholder="例如：明天的天气"></textarea>
+  <p id="phoneActionsBefore">搜索会自动定位明确的搜索入口和输入框；框内原有文字会被替换。</p>
+  <p id="phoneActionsStatus" role="status" aria-live="polite">尚未执行</p><button type="button" id="phoneActionsStop" hidden>停止操作</button>
+  <div class="phoneActionsButtons"><button type="button" id="phoneActionsOpen">打开 App</button><button type="button" id="phoneActionsInput">打开并输入</button><button type="button" id="phoneActionsSearch">输入并搜索</button></div>
+  <button type="button" class="secondary" id="phoneActionsNotes">小红书笔记 · 草稿与定时提醒</button>
+  <details class="phoneActionsHelp"><summary id="phoneActionsHelpTitle">执行方式与限制</summary><p id="phoneActionsHint">搜索会尝试打开明确的搜索入口，并优先填写带搜索标识的输入框。最多等待 20 秒；遇到多个目标或 App 不提供搜索动作会停止并提示。普通输入可手动点选目标框。已有文字会被替换，回到这里可查看结果或停止。</p></details>
+</dialog>
+<script src="./phone-actions.js"></script>
 <script src="./phone.js"></script>
+<script src="./connector.js"></script>
 </body>
 </html>

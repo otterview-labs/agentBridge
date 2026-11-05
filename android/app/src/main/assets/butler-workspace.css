@@ -1,0 +1,50 @@
+/* Pixel reception frame, quiet reading paper, native-sized controls. */
+#butler .butlerConversation { background: #fffaf0; }
+#butler .piMessages { background: #fffaf0; padding: 14px 12px; gap: 20px; }
+#butler .piMessage.assistant { background: transparent; border: 0; box-shadow: none; padding: 0 2px 12px; border-bottom: 1px solid #907854; }
+#butler .piMessage.user { margin-left: 28px; padding: 12px 14px; }
+#butler .messageMeta { margin-bottom: 10px; }
+#butler .messageRich { line-height: 1.8; }
+.messageActions { display: flex; gap: 8px; margin-top: 12px; }
+.messageAction { min-height: 44px; padding: 8px 12px; border: 1px solid #907854; border-radius: 5px; color: #173e38; background: #fffaf0; font-size: 14px; }
+.messageAction:focus-visible, .assistantChoice:focus-visible { outline: 3px solid #17634b; outline-offset: 2px; }
+.messageCodeLanguage { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.messageReasoning { margin-bottom: 14px; border: 1px solid #907854; padding: 0 12px; color: #506458; }
+.messageReasoning > summary { min-height: 44px; padding: 10px 0; font-size: 14px; cursor: pointer; }
+.messageReasoning .messageRich { font-size: 14px; }
+#butlerAssistantPicker { display: block; width: 100%; min-height: 44px; text-align: left; padding: 8px 10px; color: #173e38; font-size: 14px; font-weight: 600; background: #fff5de; border: 0; border-bottom: 1px solid #907854; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#butler .butlerSource { display: none; }
+#butlerAssistantDialog { width: min(440px, calc(100% - 24px)); max-height: 80dvh; padding: 20px; color: #173e38; background: #fffaf0; border: 3px solid #907854; border-radius: 5px; box-sizing: border-box; }
+#butlerAssistantDialog::backdrop { background: rgb(23 40 34 / 50%); }
+.assistantDialogHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.assistantDialogHeader h2 { margin: 0; font-size: 20px; }
+#butlerAssistantDialog p { font-size: 14px; line-height: 1.6; color: #506458; }
+#butlerAssistantSearch { width: 100%; min-height: 48px; box-sizing: border-box; font-size: 16px; margin: 8px 0 12px; }
+#butlerAssistantList { display: grid; gap: 8px; max-height: 40dvh; overflow: auto; }
+.assistantChoice { min-height: 56px; padding: 12px; text-align: left; white-space: normal; overflow-wrap: anywhere; background: #fff5de; color: #173e38; border: 1px solid #907854; font-size: 16px; }
+.assistantChoice[aria-pressed=true] { border: 2px solid #17634b; background: #f7f2e6; }
+#butlerAssistantConfigure { width: 100%; margin-top: 16px; min-height: 48px; }
+.clipboardBuffer { position: fixed; left: -10000px; }
+.butlerHeroHeader { position: relative; }
+.butlerHeroHeader #piMeta { visibility: hidden; }
+.butlerHeroHeader #butlerAssistantPicker { position: absolute; inset: 0; min-height: 48px; padding: 28px 0 0; background: transparent; border: 0; font-weight: 400; }
+.messageCodeHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; }
+.messageCodeHeader .messageCodeLanguage { padding: 0; border: 0; }
+
+.butlerHeroHeader #butlerAssistantPicker { padding-right: 12px; }
+#butlerAssistantPicker::after { content: ""; position: absolute; right: 1px; bottom: 12px; width: 5px; height: 5px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.modelLibraryControls { display: grid; gap: 8px; }
+.modelLibraryControls input[type=search] { width: 100%; min-height: 48px; font-size: 16px; }
+.modelLibraryControls label { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+.modelLibraryControls input[type=checkbox] { width: 22px; height: 22px; }
+.modelLibraryRow { padding: 12px 0; border-bottom: 1px solid #907854; overflow-wrap: anywhere; }
+.modelLibraryRow p { margin: 6px 0; font-size: 14px; line-height: 1.6; }
+.modelLibraryActions { display: flex; flex-wrap: wrap; gap: 8px; }
+#modelLibraryList { max-height: 260px; overflow: auto; }
+#newModelProfile { margin-top: 12px; }
+.messageEditArea { display: grid; gap: 8px; margin-top: 12px; }
+.messageEditArea textarea { min-height: 100px; width: 100%; box-sizing: border-box; font-size: 16px; }
+.messageRevisionInfo { color: #506458; font-size: 14px; margin-top: 8px; }
+#cloudForm .modelLibraryControls label { display: flex; justify-content: flex-start; font-size: 14px; }
+#cloudForm .modelLibraryControls input[type=checkbox] { width: 22px; height: 22px; min-height: 22px; flex: 0 0 22px; padding: 0; margin: 0; border-radius: 5px; }
+#cloudForm .modelLibraryControls input[type=search] { font-size: 16px; }

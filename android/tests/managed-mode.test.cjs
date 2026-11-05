@@ -4,7 +4,7 @@ const core=methods('ManagedCoordinator.java','  interface Backend','\n}').replac
 const backend=methods('OpenHandsBackend.java','  interface Transport','\n}').replaceAll('new URI(', 'new java.net.URI(').replaceAll('URI uri','java.net.URI uri');
 
 test('managed JSON fences and endpoint tails use bounded linear parsing for untrusted text', t => {
- const parser=methods('PhoneBridge.java','  static String managedJsonText','  private JSONObject studioMessageTurn');
+ const parser=methods('PhoneController.java','  static String managedJsonText','  private JSONObject studioMessageTurn');
  harness(t,'ManagedTextHarness',`
  static class ManagedCoordinator {${core}}
  static class OpenHandsBackend implements ManagedCoordinator.Backend {${backend}}

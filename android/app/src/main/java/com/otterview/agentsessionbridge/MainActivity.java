@@ -60,6 +60,8 @@ public final class MainActivity extends Activity {
 
   private WebView webView;
   private PhoneBridge bridge;
+  private ConnectorBridge connectorBridge;
+  private static final int REQUEST_CONNECTOR_CAMERA=41029;
   private SpeechRecognizer recognizer;
   private TextToSpeech textToSpeech;
   private volatile boolean textToSpeechReady;
@@ -93,6 +95,8 @@ public final class MainActivity extends Activity {
   private long firstNetworkDeathAt;
   private long lastNetworkHintAt = -600_000L;
   private StreamingASR streamingASR;
+  private OfflineSpeechRecognizer offlineRecognizer;
+  private final OfflineSpeechRecognizer.Worker offlineSpeechWorker = new OfflineSpeechRecognizer.Worker();
   private final Handler voiceHandler = new Handler(Looper.getMainLooper());
   private final Runnable cloudLevelRunnable = new Runnable() {
     @Override public void run() {
@@ -298,6 +302,10 @@ public final class MainActivity extends Activity {
     });
     bridge = new PhoneBridge(this);
     webView.addJavascriptInterface(bridge, "AgentBridge");
+    webView.addJavascriptInterface(new PhoneActions(this), "PhoneActions");
+    connectorBridge=new ConnectorBridge(this);
+    webView.addJavascriptInterface(connectorBridge,"ConnectorBridge");
+    if(getIntent()!=null&&Intent.ACTION_VIEW.equals(getIntent().getAction())&&getIntent().getData()!=null)connectorBridge.acceptUri(getIntent().getData().toString());
     webView.loadUrl("file:///android_asset/phone.html");
     webView.setLayoutParams(new FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -354,6 +362,7 @@ public final class MainActivity extends Activity {
       voiceCaptureRequested = true;
       voiceCaptureCancelled = false;
       voiceGeneration.incrementAndGet();
+      stopStreamingCapture();
       cancelCloudSynthesis();
       if (textToSpeech != null) textToSpeech.stop();
       stopCloudSpeechPlayback();
@@ -368,58 +377,88 @@ public final class MainActivity extends Activity {
 
   private void startCapture() {
     try {
-      // Streaming ASR first when a DashScope key is configured.
-      if (startStreamingASR(pendingVoiceAutoSend)) return;
+      org.json.JSONObject config = bridge == null ? new org.json.JSONObject() : bridge.voiceConfig();
+      if ("sherpa".equals(config.optString("provider"))) {
+        if (!OfflineSpeechRecognizer.supported()) {
+          postVoiceState("error", UiText.text("此设备不支持小镇离线识别"), false);
+          return;
+        }
+        java.io.File model = OfflineSpeechModel.get(this).directory();
+        if (model == null) {
+          postVoiceState("error", UiText.text("请先在语音设置下载离线模型"), false);
+          return;
+        }
+        if (recognizer != null) recognizer.cancel();
+        offlineRecognizer = new OfflineSpeechRecognizer(model, conversationAudioActive,
+            streamingListener(voiceGeneration.get(), pendingVoiceAutoSend, "recording"));
+        offlineSpeechWorker.start(offlineRecognizer);
+        return;
+      }
+      if (startStreamingASR(config, pendingVoiceAutoSend)) return;
       startRecognizer();
     } catch (Exception error) {
       postVoiceState("error", UiText.text("识别启动失败，请检查本机语音服务或配置云端语音"), false);
     }
   }
 
-  private boolean startStreamingASR(boolean autoSend) {
+  private boolean startStreamingASR(org.json.JSONObject config, boolean autoSend) {
     try {
-      String apiKey = bridge != null ? bridge.getDashScopeApiKey() : null;
-      if (apiKey == null || apiKey.trim().isEmpty()) return false;
-      if (streamingASR != null) streamingASR.cancel();
-      final int generation = voiceGeneration.get();
-      // In a call, one finished sentence is the caller's turn; press-to-talk
-      // keeps listening until the finger lifts.
-      streamingASR = new StreamingASR(apiKey.trim(), conversationAudioActive, new StreamingASR.Listener() {
-        @Override
-        public void onReady() {
-          if (generation == voiceGeneration.get()) postVoiceState("cloud-recording", "", autoSend);
-        }
-
-        @Override
-        public void onPartial(String text) {
-          if (generation == voiceGeneration.get()) postVoiceState("partial", text, autoSend);
-        }
-
-        @Override
-        public void onFinal(String text) {
-          if (generation == voiceGeneration.get()) postVoiceState("final", text, autoSend);
-        }
-
-        @Override
-        public void onError(String message) {
-          if (generation == voiceGeneration.get()) postVoiceState("error", message, false);
-        }
-
-        @Override public void onStopped() {
-          if (generation == voiceGeneration.get()) postVoiceState("stopped", "", false);
-        }
-      });
+      String provider = config.optString("provider");
+      boolean doubao = provider.equals("doubao");
+      String apiKey = config.optString("apiKey", "").trim();
+      if (doubao && apiKey.isEmpty()) {
+        postVoiceState("error", UiText.text("请先保存所选语音服务的 API Key"), false);
+        return true;
+      }
+      if ((!doubao && !provider.equals("bailian")) || apiKey.isEmpty()) return false;
+      streamingASR = new StreamingASR(apiKey, conversationAudioActive, doubao,
+          streamingListener(voiceGeneration.get(), autoSend, "cloud-recording"));
       streamingASR.start();
       return true;
     } catch (Exception error) {
-      Log.w("AgentBridgeNative", "Streaming ASR not available, falling back", error);
+      Log.w("AgentBridgeNative", "Streaming ASR could not start");
       return false;
     }
+  }
+
+  private StreamingASR.Listener streamingListener(int generation, boolean autoSend, String readyState) {
+    return new StreamingASR.Listener() {
+      @Override
+      public void onReady() {
+        if (generation == voiceGeneration.get()) postVoiceState(readyState, "", autoSend);
+      }
+
+      @Override
+      public void onPartial(String text) {
+        if (generation == voiceGeneration.get()) postVoiceState("partial", text, autoSend);
+      }
+
+      @Override
+      public void onFinal(String text) {
+        if (generation == voiceGeneration.get()) postVoiceState("final", text, autoSend);
+      }
+
+      @Override
+      public void onError(String message) {
+        if (generation == voiceGeneration.get()) postVoiceState("error", message, false);
+      }
+
+      @Override public void onStopped() {
+        if (generation == voiceGeneration.get()) postVoiceState("stopped", "", false);
+      }
+    };
   }
 
   void stopVoiceRecognition() {
     runOnUiThread(() -> {
       voiceCaptureRequested = false;
+      if (offlineRecognizer != null) {
+        if (offlineRecognizer.isRunning()) {
+          offlineRecognizer.stop();
+          postVoiceState("processing", "", false);
+        }
+        return;
+      }
       if (streamingASR != null && streamingASR.isRunning()) {
         streamingASR.stop();
         postVoiceState("processing", "", false);
@@ -439,9 +478,8 @@ public final class MainActivity extends Activity {
       voiceCaptureRequested = false;
       voiceCaptureCancelled = true;
       voiceGeneration.incrementAndGet();
-      if (streamingASR != null) {
-        streamingASR.cancel();
-      }
+      if (bridge != null) bridge.cancelVoiceTranscription();
+      stopStreamingCapture();
       if (cloudRecording && cloudRecorder != null) {
         try {
           cloudRecorder.stop();
@@ -461,7 +499,6 @@ public final class MainActivity extends Activity {
   }
 
   boolean speakText(String text) {
-    if (preferCloudTts) return false;
     if (!textToSpeechReady || textToSpeech == null) return false;
     runOnUiThread(() -> {
       cancelCloudSynthesis();
@@ -512,7 +549,16 @@ public final class MainActivity extends Activity {
         try {
           String url = synthesizeCloudSpeechUrl(apiKey, text, generation);
           runOnUiThread(() -> {
-            if (generation != speechGeneration.get() || isFinishing() || isDestroyed()) return;
+            if (generation != speechGeneration.get() || isFinishing() || isDestroyed()) {
+              if (url.startsWith("file:")) {
+                try {
+                  File cached = new File(new java.net.URI(url)).getCanonicalFile();
+                  if (cached.toPath().startsWith(getCacheDir().getCanonicalFile().toPath())
+                      && cached.getName().startsWith("butler-speech-")) cached.delete();
+                } catch (Exception ignored) { /* Cache cleanup only. */ }
+              }
+              return;
+            }
             playSpeechUrl(url);
           });
         } catch (Exception error) {
@@ -542,6 +588,22 @@ public final class MainActivity extends Activity {
   }
 
   private String synthesizeCloudSpeechUrl(String apiKey, String text, int generation) throws Exception {
+    org.json.JSONObject config = bridge.voiceConfig();
+    if (!config.optString("provider").equals("bailian")) {
+      File audio = File.createTempFile("butler-speech-", ".mp3", getCacheDir());
+      try {
+        byte[] bytes = VoiceService.synthesize(config, text, this::openModelConnection, connection -> {
+          synchronized (speechLock) {
+            if (generation != speechGeneration.get()) throw new java.io.IOException("speech cancelled");
+            pendingSpeechConnection = connection;
+          }
+        });
+        Files.write(audio.toPath(), bytes);
+        if (generation != speechGeneration.get()) throw new java.io.IOException("speech cancelled");
+        return audio.toURI().toString();
+      } catch (Exception error) { audio.delete(); throw error; }
+      finally { synchronized (speechLock) { pendingSpeechConnection = null; } }
+    }
     HttpURLConnection connection = null;
     try {
       URL url = new URL("https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation");
@@ -550,6 +612,7 @@ public final class MainActivity extends Activity {
         if (generation != speechGeneration.get()) throw new java.io.IOException("speech cancelled");
         pendingSpeechConnection = connection;
       }
+      connection.setInstanceFollowRedirects(false);
       connection.setRequestMethod("POST");
       connection.setConnectTimeout(15_000);
       connection.setReadTimeout(60_000);
@@ -651,13 +714,19 @@ public final class MainActivity extends Activity {
 
   private void stopStreamingCapture() {
     if (streamingASR != null) streamingASR.cancel();
+    streamingASR = null;
+    if (offlineRecognizer != null) offlineRecognizer.cancel();
+    offlineRecognizer = null;
   }
+
+  private File speechPlaybackFile;
 
   void playSpeechUrl(String audioUrl) {
     runOnUiThread(() -> {
       stopStreamingCapture();
       stopCloudSpeechPlayback();
       try {
+        if (audioUrl.startsWith("file:")) speechPlaybackFile = new File(new java.net.URI(audioUrl));
         cloudSpeechPlayer = new MediaPlayer();
         cloudSpeechPlayer.setAudioAttributes(new AudioAttributes.Builder()
             .setUsage(conversationAudioActive ? AudioAttributes.USAGE_VOICE_COMMUNICATION
@@ -707,6 +776,7 @@ public final class MainActivity extends Activity {
   }
 
   void stopCloudSpeechPlayback() {
+    if (speechPlaybackFile != null) { speechPlaybackFile.delete(); speechPlaybackFile = null; }
     if (cloudSpeechPlayer != null) {
       try {
         cloudSpeechPlayer.stop();
@@ -787,7 +857,7 @@ public final class MainActivity extends Activity {
   }
 
   private void startRecognizer() {
-    if (preferCloudRecording || !SpeechRecognizer.isRecognitionAvailable(this)) {
+    if ((bridge != null && bridge.usesCloudVoice()) || !SpeechRecognizer.isRecognitionAvailable(this)) {
       startCloudRecording();
       return;
     }
@@ -819,26 +889,33 @@ public final class MainActivity extends Activity {
     recognizer.startListening(intent);
   }
 
+  private org.json.JSONObject recordingVoiceConfig;
+
   private void startCloudRecording() {
     try {
-      String key = bridge == null ? null : bridge.getDashScopeApiKey();
-      if (key == null || key.isEmpty()) {
-        postVoiceState("error", UiText.text("本机识别不可用，请在语音设置中填写百炼北京地域 API Key"), false);
+      recordingVoiceConfig = bridge == null ? new org.json.JSONObject() : bridge.voiceConfig();
+      String key = recordingVoiceConfig.optString("apiKey", "");
+      if (recordingVoiceConfig.optString("provider", "system").equals("system") || key.isEmpty()) {
+        postVoiceState("error", UiText.text("本机识别不可用，请选择并配置云端语音服务"), false);
         return;
       }
-      cloudAudioFile = File.createTempFile("butler-voice-", ".amr", getCacheDir());
+      if (recordingVoiceConfig.optString("provider").equals("doubao")) {
+        postVoiceState("error", UiText.text("ASR 连接失败，请检查网络"), false);
+        return;
+      }
+      boolean bailian = recordingVoiceConfig.optString("provider").equals("bailian");
+      cloudAudioFile = File.createTempFile("butler-voice-", bailian ? ".amr" : ".m4a", getCacheDir());
       if (cloudAudioFile.exists() && !cloudAudioFile.delete()) {
         postVoiceState("error", UiText.text("语音缓存文件无法清理"), false);
         return;
       }
       cloudRecorder = new MediaRecorder();
       cloudRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-      // AMR-WB is natively supported by MediaRecorder and by the cloud ASR
-      // task; MPEG4/AAC containers are rejected with InvalidParameter.
-      cloudRecorder.setOutputFormat(MediaRecorder.OutputFormat.AMR_WB);
-      cloudRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB);
+      // OpenAI accepts MPEG4/AAC; preserve AMR-WB for the existing Bailian path.
+      cloudRecorder.setOutputFormat(bailian ? MediaRecorder.OutputFormat.AMR_WB : MediaRecorder.OutputFormat.MPEG_4);
+      cloudRecorder.setAudioEncoder(bailian ? MediaRecorder.AudioEncoder.AMR_WB : MediaRecorder.AudioEncoder.AAC);
       cloudRecorder.setAudioSamplingRate(16_000);
-      cloudRecorder.setAudioEncodingBitRate(23_850);
+      cloudRecorder.setAudioEncodingBitRate(bailian ? 23_850 : 64_000);
       cloudRecorder.setAudioChannels(1);
       cloudRecorder.setOutputFile(cloudAudioFile.getAbsolutePath());
       cloudRecorder.setMaxDuration(15_000);
@@ -859,6 +936,7 @@ public final class MainActivity extends Activity {
       voiceHandler.post(cloudLevelRunnable);
     } catch (Exception error) {
       cleanupCloudRecorder();
+      if (cloudAudioFile != null) cloudAudioFile.delete();
       postVoiceState("error", UiText.text("录音启动失败，请检查麦克风权限"), false);
     }
   }
@@ -877,18 +955,20 @@ public final class MainActivity extends Activity {
       }
       cleanupCloudRecorder();
       if (failed || cloudAudioFile == null || !cloudAudioFile.exists() || cloudAudioFile.length() == 0) {
+        if (cloudAudioFile != null) cloudAudioFile.delete();
         postVoiceState("error", UiText.text("没有录到有效语音"), false);
         return;
       }
       postVoiceState("cloud-processing", "", pendingVoiceAutoSend);
       File audio = cloudAudioFile;
+      final org.json.JSONObject captureConfig = recordingVoiceConfig;
       boolean autoSend = pendingVoiceAutoSend;
       final int generation = voiceGeneration.get();
       new Thread(() -> {
         try {
           byte[] bytes = Files.readAllBytes(audio.toPath());
           String base64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
-          org.json.JSONObject parsed = bridge.transcribeVoiceAudio(base64, "audio/amr");
+          org.json.JSONObject parsed = bridge.transcribeVoiceAudio(base64, audio.getName().endsWith(".m4a") ? "audio/mp4" : "audio/amr", captureConfig, () -> generation != voiceGeneration.get());
           if (!parsed.optBoolean("ok")) {
             throw new IllegalStateException(parsed.optString("error", UiText.text("语音识别失败")));
           }
@@ -943,9 +1023,22 @@ public final class MainActivity extends Activity {
     });
   }
 
+  void connectorEvent(String state,int jobId){runOnUiThread(()->{if(webView!=null)webView.evaluateJavascript("window.phoneConnector&&window.phoneConnector.nativeEvent("+org.json.JSONObject.quote(state)+","+jobId+")",null);});}
+  void startConnectorScan(){
+    if(checkSelfPermission(android.Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.CAMERA},REQUEST_CONNECTOR_CAMERA);return;}
+    new com.google.zxing.integration.android.IntentIntegrator(this).setDesiredBarcodeFormats(com.google.zxing.integration.android.IntentIntegrator.QR_CODE).setPrompt(UiText.text("扫描电脑连接器的配对二维码")).setBeepEnabled(false).setOrientationLocked(false).initiateScan();
+  }
+  @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
+    com.google.zxing.integration.android.IntentResult result=com.google.zxing.integration.android.IntentIntegrator.parseActivityResult(requestCode,resultCode,data);
+    if(result!=null){if(result.getContents()!=null)connectorBridge.acceptUri(result.getContents());else connectorEvent("scan_cancelled",0);return;}
+    super.onActivityResult(requestCode,resultCode,data);
+  }
+  @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);if(connectorBridge!=null&&Intent.ACTION_VIEW.equals(intent.getAction())&&intent.getData()!=null){connectorBridge.resume();connectorBridge.acceptUri(intent.getData().toString());}}
+
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
     super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    if(requestCode==REQUEST_CONNECTOR_CAMERA){if(grantResults.length>0&&grantResults[0]==PackageManager.PERMISSION_GRANTED)startConnectorScan();else connectorEvent("camera_denied",0);return;}
     if (requestCode != REQUEST_VOICE) return;
     if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
       if (voiceCaptureRequested) startCapture();
@@ -979,11 +1072,20 @@ public final class MainActivity extends Activity {
     } catch (Exception error) { android.util.Log.w("OfficeTown", "Cannot resume phone supervision", error); }
   }
 
+  @Override protected void onStart(){super.onStart();if(connectorBridge!=null)connectorBridge.resume();}
+  @Override protected void onStop() {
+    if (offlineRecognizer != null) cancelVoiceRecognition();
+    if (connectorBridge != null) connectorBridge.suspend();
+    super.onStop();
+  }
+
   @Override
   protected void onDestroy() {
+    if(connectorBridge!=null)connectorBridge.close();
     cancelCloudSynthesis();
     speechExecutor.shutdownNow();
-    if (streamingASR != null) streamingASR.cancel();
+    stopStreamingCapture();
+    offlineSpeechWorker.close();
     cleanupCloudRecorder();
     stopCloudSpeechPlayback();
     stopConversationAudio();

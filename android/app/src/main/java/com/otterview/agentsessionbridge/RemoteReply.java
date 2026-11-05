@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  */
 final class RemoteReply {
   static final String EXIT_MARKER = "__ASB_REPLY_EXIT__=";
-  // Leave room under PhoneBridge's 2 MB SSH output limit for the exit status.
+  // Leave room under RemoteCommandRunner's 2 MB output limit for the exit status.
   static final int OUTPUT_LIMIT = 1_900_000;
   private static final Pattern EXIT = Pattern.compile("(?m)^" + EXIT_MARKER + "([0-9]+)\\s*$");
   private static final Pattern LOG_PATH = Pattern.compile("^/[A-Za-z0-9_./-]+$");

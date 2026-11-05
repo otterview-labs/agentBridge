@@ -1,0 +1,234 @@
+[
+  [
+    "state",
+    ""
+  ],
+  [
+    "beginNoteCommand",
+    "String payload"
+  ],
+  [
+    "studioOverview",
+    ""
+  ],
+  [
+    "managedState",
+    ""
+  ],
+  [
+    "addManagedJob",
+    "String payload"
+  ],
+  [
+    "managedControl",
+    "String id, String action"
+  ],
+  [
+    "setManagedEnabled",
+    "boolean enabled"
+  ],
+  [
+    "saveOpenHandsConfig",
+    "String payload"
+  ],
+  [
+    "studioModelProfileAction",
+    "String payload"
+  ],
+  [
+    "saveStudioModel",
+    "String payload"
+  ],
+  [
+    "sendStudioMessage",
+    "String content"
+  ],
+  [
+    "beginPhoneCommand",
+    "String payload"
+  ],
+  [
+    "beginStudioMessage",
+    "String content"
+  ],
+  [
+    "beginScopedStudioMessage",
+    "String payload"
+  ],
+  [
+    "beginStudioModelCheck",
+    ""
+  ],
+  [
+    "saveVoiceService",
+    "String payload"
+  ],
+  [
+    "generateStudioReport",
+    "String date"
+  ],
+  [
+    "startVoiceInput",
+    "boolean autoSend"
+  ],
+  [
+    "stopVoiceInput",
+    ""
+  ],
+  [
+    "cancelVoiceInput",
+    ""
+  ],
+  [
+    "startConversationAudio",
+    "boolean speakerOn"
+  ],
+  [
+    "setConversationSpeaker",
+    "boolean speakerOn"
+  ],
+  [
+    "stopConversationAudio",
+    ""
+  ],
+  [
+    "setTtsSettings",
+    "double rate, double pitch"
+  ],
+  [
+    "setTtsEnginePreference",
+    "boolean preferCloud"
+  ],
+  [
+    "getOfflineVoiceModelStatus",
+    ""
+  ],
+  [
+    "downloadOfflineVoiceModel",
+    ""
+  ],
+  [
+    "getTtsStatus",
+    ""
+  ],
+  [
+    "speakText",
+    "String text"
+  ],
+  [
+    "stopSpeaking",
+    ""
+  ],
+  [
+    "studioState",
+    ""
+  ],
+  [
+    "addStudioMemory",
+    "String content"
+  ],
+  [
+    "deleteStudioMemory",
+    "String id"
+  ],
+  [
+    "beginDiscoverTasks",
+    "int machineId"
+  ],
+  [
+    "beginStudioReport",
+    "String date"
+  ],
+  [
+    "networkStatus",
+    "int machineId"
+  ],
+  [
+    "saveFrpServer",
+    "String payload"
+  ],
+  [
+    "deployFrpServer",
+    ""
+  ],
+  [
+    "setMachinePublicMode",
+    "int machineId, String mode"
+  ],
+  [
+    "deployFrpRelay",
+    "int machineId"
+  ],
+  [
+    "disableFrpRelay",
+    "int machineId"
+  ],
+  [
+    "beginSendPrompt",
+    "int id, String prompt, String actorId"
+  ],
+  [
+    "beginBridgeCall",
+    "String method, String argsJson"
+  ],
+  [
+    "generateReplySuggestions",
+    "int taskId"
+  ],
+  [
+    "resetHostKey",
+    "int machineId"
+  ],
+  [
+    "operationState",
+    "int id"
+  ],
+  [
+    "clearOperation",
+    "int id"
+  ],
+  [
+    "saveMachine",
+    "String payload"
+  ],
+  [
+    "deleteMachine",
+    "int id"
+  ],
+  [
+    "scanNetwork",
+    "String prefixOrAddress"
+  ],
+  [
+    "probeMachine",
+    "int id"
+  ],
+  [
+    "discoverTasks",
+    "int machineId"
+  ],
+  [
+    "renameTask",
+    "int id, String title"
+  ],
+  [
+    "deleteTask",
+    "int id"
+  ],
+  [
+    "restoreDeletedTask",
+    "int id"
+  ],
+  [
+    "beginTailTask",
+    "int taskId"
+  ],
+  [
+    "tailTask",
+    "int id"
+  ],
+  [
+    "sendPrompt",
+    "int id, String prompt, String actorId"
+  ]
+]

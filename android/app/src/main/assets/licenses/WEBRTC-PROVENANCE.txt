@@ -1,0 +1,9 @@
+Third-party precompiled WebRTC SDK: io.github.webrtc-sdk:android:150.7871.01
+Not an official Google distributed AAR.
+Artifact: https://repo.maven.apache.org/maven2/io/github/webrtc-sdk/android/150.7871.01/android-150.7871.01.aar
+SHA256: 0a1627b1a48c2bc17d9a40d62fc47bd45166f44a311e95917f147c402de379b0
+POM declares BSD-3-Clause. Build-wrapper repository is MIT.
+Complete maintainer WebRTC/third-party license collection and wrapper MIT notice are included alongside this file unchanged.
+Source tag: v150.7871.01
+Source commit: 7b6390fb098303b31af76906bf15f7decaa4ef95
+License source: https://github.com/webrtc-sdk/android/tree/7b6390fb098303b31af76906bf15f7decaa4ef95/Licenses

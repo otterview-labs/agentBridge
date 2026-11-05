@@ -1,0 +1,55 @@
+/* The voice sheet shares the office's paper surface, ink and forest-green actions. */
+#voiceBackdrop .voiceSettingsSheet { display: flex; flex-direction: column; width: min(100%, 540px); max-height: 94dvh; padding: 0; overflow: hidden; border-radius: 22px 22px 0 0; background: var(--surface, #fffefb); }
+#voiceBackdrop .voiceSettingsHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0; padding: 18px 20px 14px; border-bottom: 1px solid var(--line, #d5dacd); }
+#voiceBackdrop h2 { font-size: 21px; line-height: 1.3; }
+.voiceSettingsHeader p { color: var(--muted, #5d6b5c); font-size: 13px; line-height: 1.5; margin: 6px 0 0; }
+#voiceBackdrop .voiceSettingsHeader .iconButton { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 11px; border: 0; border-radius: 12px; box-shadow: none; background: var(--surface-muted, #f0f1e9); }
+.voiceSettingsHeader svg { width: 20px; height: 20px; }
+#voiceForm { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 0; overflow: hidden; margin: 0; }
+.voiceFormScroll { padding: 18px 20px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; scrollbar-width: thin; scrollbar-color: #a6b39d transparent; }
+.voiceProviderField { border: 0; padding: 0; margin: 0; min-width: 0; }
+.voiceProviderField legend { font-size: 14px; font-weight: 650; margin-bottom: 10px; }
+.voiceProviderChoices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#voiceForm .voiceProviderChoices button { min-width: 0; min-height: 60px; padding: 10px 12px; text-align: left; border: 1px solid var(--line, #d5dacd); border-radius: 10px; background: transparent; color: var(--ink, #263b30); font-size: 14px; font-weight: 600; line-height: 1.4; transition: background-color 160ms ease-out; }
+.voiceRegionGroup { min-width: 0; }
+.voiceRegionGroup h3 { margin: 5px 0 7px; font-size: 12px; line-height: 1.5; color: var(--muted, #5d6b5c); font-weight: 600; }
+#voiceForm .voiceRegionGroup button { width: 100%; }
+#voiceForm .voiceRegionGroup button + button { margin-top: 8px; }
+#voiceForm .voiceProviderChoices .voiceCommonChoice { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; min-height: 46px; }
+#voiceForm .voiceCommonChoice small { margin: 0; }
+.voiceProviderChoices small { display: block; margin-top: 3px; font-size: 12px; font-weight: 400; opacity: .88; }
+#voiceForm .voiceProviderChoices button[aria-pressed="true"] { background: var(--primary, #244b39); border-color: var(--primary, #244b39); color: #fffefb; }
+.voiceHint { margin: 8px 0 0; color: var(--muted, #5d6b5c); font-size: 12px; font-weight: 400; line-height: 1.65; overflow-wrap: anywhere; }
+.voiceCapabilities { display: grid; gap: 12px; margin: 18px 0; padding-block: 14px; border-block: 1px solid var(--line, #d5dacd); }
+.voiceActiveProvider { margin: 0; color: var(--muted, #5d6b5c); font-size: 12px; line-height: 1.5; }
+.voiceCapabilities > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.voiceCapabilities strong { font-size: 13px; font-weight: 650; }
+.voiceCapabilities span { color: var(--muted, #5d6b5c); font-size: 12px; line-height: 1.6; }
+.voiceCloudFields, .voiceExtraFields { display: grid; gap: 12px; }
+#voiceForm label { display: grid; gap: 7px; color: var(--ink, #263b30); font-size: 13px; font-weight: 600; }
+#voiceForm :is(input:not([type="range"]):not([type="checkbox"]), select) { min-width: 0; width: 100%; min-height: 46px; border: 1px solid var(--line, #d5dacd); border-radius: 10px; padding: 10px 12px; color: var(--ink, #263b30); background: transparent; font-size: 14px; font-weight: 400; line-height: 1.5; caret-color: var(--primary, #244b39); }
+#voiceForm input::placeholder { color: #687462; opacity: 1; }
+#voiceForm input[readonly] { background: var(--surface-muted, #f0f1e9); }
+#voiceForm :is(input, select)::selection { color: #fffefb; background: #244b39; }
+#voiceForm :is(input, select, button, summary):focus-visible { outline: 2px solid var(--primary, #244b39); outline-offset: 3px; }
+#voiceForm summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+#voiceForm summary::-webkit-details-marker { display: none; }
+#voiceForm summary::after { content: ''; flex: 0 0 7px; width: 7px; height: 7px; margin: 0 3px 4px 12px; border-right: 1.5px solid; border-bottom: 1.5px solid; transform: rotate(45deg); }
+#voiceForm details[open] > summary::after { transform: rotate(225deg); }
+#voicePlaybackDetails { border-top: 1px solid var(--line, #d5dacd); margin-top: 12px; padding-top: 4px; }
+#voiceForm .voiceSettingRow { display: flex; gap: 10px; min-height: 44px; margin: 0; font-size: 13px; }
+#voiceForm .voiceSettingRow .miniSwitch { flex: 0 0 40px; margin-left: auto; }
+#voiceForm .voiceSettingRow input[type="range"] { min-width: 40px; flex: 1; width: auto; accent-color: var(--primary, #244b39); }
+#voiceForm .voiceSettingRow strong { min-width: 42px; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+.voiceSettingsActions { flex: 0 0 auto; display: grid; gap: 8px; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); background: var(--surface, #fffefb); border-top: 1px solid var(--line, #d5dacd); }
+#voiceForm .voiceSettingsActions .primaryAction { min-height: 46px; border-radius: 11px; box-shadow: none; font-size: 14px; background: var(--primary, #244b39); color: #fffefb; }
+.voiceTestActions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; }
+#voiceForm .voiceTestActions button { min-height: 44px; padding: 9px 10px; background: var(--surface-muted, #f0f1e9); color: var(--ink, #263b30); border-radius: 9px; font-size: 13px; font-weight: 600; }
+#voiceForm button:disabled { opacity: .5; cursor: default; }
+#voiceForm .voiceClear { justify-self: start; min-height: 44px; padding: 6px 0; color: #8e3d29; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+.voiceTestResult { color: var(--muted, #5d6b5c); font-size: 12px; line-height: 1.5; margin: 0; max-height: 72px; overflow-y: auto; overflow-wrap: anywhere; }
+.voiceTestResult.error { color: #8e3d29; }
+.voiceDisclosure { color: var(--muted, #5d6b5c); font-size: 12px; line-height: 1.5; }
+@media (min-width: 700px) { #voiceBackdrop .voiceSettingsSheet { border-radius: 20px; } }
+@media (max-height: 500px) { #voiceBackdrop .voiceSettingsHeader { padding-block: 10px; } .voiceSettingsHeader p, .voiceDisclosure { display: none; } .voiceSettingsActions { gap: 4px; padding-block: 8px; } }
+@media (prefers-reduced-motion: reduce) { #voiceForm .voiceProviderChoices button { transition: none; } }

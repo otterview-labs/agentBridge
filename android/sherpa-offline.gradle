@@ -1,0 +1,44 @@
+// Pinned upstream assets; generated files stay in build/ and never enter Git.
+def prepared = layout.buildDirectory.dir('generated/sherpa-offline')
+def cache = new File(gradle.gradleUserHomeDir, 'caches/agentbridge-sherpa')
+def release = 'https://github.com/k2-fsa/sherpa-onnx/releases/download'
+def artifact = ["$release/v2.0.1/sherpa-onnx-2.0.1.aar", 'sherpa-onnx-2.0.1.aar', 'a8d09d1d32f3eb8520482c6d3d43fae674681c5b050385967c70a3c2c9bf0ee7']
+def digest = { File file ->
+  def sha = java.security.MessageDigest.getInstance('SHA-256')
+  file.withInputStream { stream ->
+    byte[] buffer = new byte[65536]
+    for (int n; (n = stream.read(buffer)) != -1;) sha.update(buffer, 0, n)
+  }
+  sha.digest().encodeHex().toString()
+}
+def prepare = tasks.register('prepareSherpaOffline') {
+  inputs.property('sources', artifact.toString())
+  outputs.dir(prepared)
+  doLast {
+    cache.mkdirs()
+    def (url, name, sha) = artifact
+    File file = new File(cache, name)
+    if (!file.isFile() || digest(file) != sha) {
+      if (gradle.startParameter.offline) throw new GradleException("Missing verified Sherpa asset: $name. Run once without --offline.")
+      File tmp = File.createTempFile('sherpa-', '.part', cache)
+      try {
+        def connection = new URI(url).toURL().openConnection()
+        connection.connectTimeout = 20000
+        connection.readTimeout = 30000
+        connection.inputStream.withCloseable { input -> tmp.withOutputStream { it << input } }
+        if (digest(tmp) != sha) throw new GradleException("Checksum mismatch for $name")
+        java.nio.file.Files.move(tmp.toPath(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+      } finally { tmp.delete() }
+    }
+    File output = prepared.get().asFile
+    delete(output)
+    copy {
+      from zipTree(file)
+      include 'classes.jar', 'jni/arm64-v8a/libsherpa-onnx-jni.so', 'jni/arm64-v8a/libonnxruntime.so'
+      into output
+    }
+  }
+}
+android.sourceSets.main.jniLibs.srcDir(prepared.map { it.dir('jni') })
+tasks.named('preBuild').configure { dependsOn(prepare) }
+dependencies.add('implementation', files(prepared.map { it.file('classes.jar') }).builtBy(prepare))

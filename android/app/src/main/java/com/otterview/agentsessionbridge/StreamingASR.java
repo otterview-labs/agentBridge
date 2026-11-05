@@ -20,9 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Real-time streaming ASR over the DashScope WebSocket API (paraformer-realtime-v2),
- * following the documented run-task / task-started / result-generated /
- * finish-task / task-finished exchange.
+ * Captures microphone audio for the DashScope and Doubao real-time ASR WebSocket APIs.
  *
  * <p>Two ways to end an utterance: in conversation mode the first finished
  * sentence is the user's turn, so it is delivered and the session closes; in
@@ -50,6 +48,11 @@ public final class StreamingASR {
   private final Listener listener;
   private final String apiKey;
   private final boolean finishOnSentence;
+  private final boolean doubao;
+  private final Object audioSendLock = new Object();
+  private byte[] doubaoPendingPcm; // Hold one chunk so the final frame contains actual audio.
+  private int sequence = 1;
+  private volatile boolean doubaoFinishing;
   private final String taskId = java.util.UUID.randomUUID().toString();
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   /** True from start() until the caller stops or the session fails. Capture runs only while it is set. */
@@ -62,8 +65,9 @@ public final class StreamingASR {
   private volatile boolean discard;
   private volatile String pendingSentence = "";
 
-  public StreamingASR(String apiKey, boolean finishOnSentence, Listener listener) {
+  public StreamingASR(String apiKey, boolean finishOnSentence, boolean doubao, Listener listener) {
     this.apiKey = apiKey;
+    this.doubao = doubao;
     this.finishOnSentence = finishOnSentence;
     this.listener = listener;
   }
@@ -73,6 +77,8 @@ public final class StreamingASR {
       sharedClient = new OkHttpClient.Builder()
           .connectTimeout(10, TimeUnit.SECONDS)
           .readTimeout(120, TimeUnit.SECONDS)
+          .followRedirects(false)
+          .followSslRedirects(false)
           .build();
     }
     return sharedClient;
@@ -84,13 +90,22 @@ public final class StreamingASR {
 
   public void start() {
     if (!running.compareAndSet(false, true)) return;
-    Request request = new Request.Builder()
-        .url(WS_URL)
-        .header("Authorization", "Bearer " + apiKey)
-        .build();
-    ws = client().newWebSocket(request, new WebSocketListener() {
+    Request.Builder request = new Request.Builder().url(doubao ? DoubaoAsrProtocol.URL : WS_URL);
+    if (doubao) {
+      request.header("X-Api-Key", apiKey)
+          .header("X-Api-Resource-Id", DoubaoAsrProtocol.RESOURCE)
+          .header("X-Api-Connect-Id", taskId).header("X-Api-Request-Id", taskId);
+    } else {
+      request.header("Authorization", "Bearer " + apiKey);
+    }
+    WebSocket connection = client().newWebSocket(request.build(), new WebSocketListener() {
       @Override
       public void onOpen(WebSocket webSocket, Response response) {
+        if (!running.get() || settled.get()) { webSocket.cancel(); return; }
+        if (doubao) {
+          startDoubaoTask(webSocket);
+          return;
+        }
         try {
           JSONObject task = new JSONObject()
               .put("header", new JSONObject()
@@ -147,6 +162,11 @@ public final class StreamingASR {
       }
 
       @Override
+      public void onMessage(WebSocket socket, ByteString message) {
+        if (doubao && !settled.get()) handleDoubaoResult(socket, message);
+      }
+
+      @Override
       public void onClosed(WebSocket webSocket, int code, String reason) {
         running.set(false);
         if (!settled.get()) fail(UiText.text("语音连接提前关闭，请检查网络或语音服务权限"));
@@ -154,13 +174,73 @@ public final class StreamingASR {
 
       @Override
       public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-        Log.w(TAG, "ASR socket failure code=" + (response != null ? response.code() : "?"), t);
-        fail(UiText.text("ASR 连接失败，请检查网络"));
+        if (settled.get()) return;
+        int status = response == null ? 0 : response.code();
+        Log.w(TAG, "ASR socket failure code=" + status);
+        fail(UiText.text(doubao && (status == 401 || status == 403)
+            ? "豆包语音鉴权失败，请检查 API Key 和语音识别开通状态"
+            : "ASR 连接失败，请检查网络") + (status == 0 ? "" : " (HTTP " + status + ")"));
       }
     });
+    ws = connection;
+    if (settled.get()) connection.cancel();
     mainHandler.postDelayed(() -> {
-      if (!taskStarted && !settled.get()) fail(UiText.text("语音服务连接超时，请检查网络或北京地域 API Key"));
+      if (!taskStarted && !settled.get()) fail(UiText.text(doubao
+          ? "豆包语音连接超时，请检查网络或 API Key"
+          : "语音服务连接超时，请检查网络或北京地域 API Key"));
     }, 15_000);
+  }
+
+  private void startDoubaoTask(WebSocket socket) {
+    try {
+      JSONObject audio = new JSONObject().put("format", "pcm").put("codec", "raw")
+          .put("rate", SAMPLE_RATE).put("bits", 16).put("channel", 1);
+      JSONObject options = new JSONObject().put("model_name", "bigmodel")
+          .put("enable_itn", true).put("enable_punc", true).put("show_utterances", true)
+          .put("result_type", "full");
+      byte[] payload = new JSONObject().put("user", new JSONObject().put("uid", taskId))
+          .put("audio", audio).put("request", options).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+      if (!socket.send(ByteString.of(DoubaoAsrProtocol.request(sequence++, payload)))) {
+        fail(UiText.text("ASR 配置发送失败"));
+      }
+    } catch (Exception error) {
+      fail(UiText.text("ASR 配置发送失败"));
+    }
+  }
+
+  private void handleDoubaoResult(WebSocket socket, ByteString message) {
+    try {
+      DoubaoAsrProtocol.Result reply = DoubaoAsrProtocol.decode(message.toByteArray());
+      if (reply.error != 0) {
+        fail(UiText.text("豆包语音识别失败") + " (" + reply.error + ")");
+        return;
+      }
+      if (!taskStarted && running.get() && !reply.last) {
+        ws = socket;
+        taskStarted = true;
+        startCapture();
+        mainHandler.postDelayed(this::stop, finishOnSentence ? 15_000 : 30_000);
+      }
+      Object resultValue = reply.json.length == 0 ? null :
+          new JSONObject(new String(reply.json, java.nio.charset.StandardCharsets.UTF_8)).opt("result");
+      JSONObject result = resultValue instanceof JSONObject ? (JSONObject) resultValue
+          : resultValue instanceof JSONArray ? ((JSONArray) resultValue).optJSONObject(0) : null;
+      if (result != null) {
+        String transcript = result.optString("text").trim();
+        if (!transcript.isEmpty()) {
+          pendingSentence = transcript;
+          if (!reply.last) mainHandler.post(() -> { if (!settled.get()) listener.onPartial(transcript); });
+        }
+        if (finishOnSentence && !doubaoFinishing && !reply.last && !transcript.isEmpty()) {
+          JSONArray sentences = result.optJSONArray("utterances");
+          JSONObject last = sentences == null ? null : sentences.optJSONObject(sentences.length() - 1);
+          if (last != null && last.optBoolean("definite")) stop();
+        }
+      }
+      if (reply.last) settle();
+    } catch (Exception error) {
+      fail(UiText.text("豆包语音返回了无法读取的结果"));
+    }
   }
 
   private void handleResult(JSONObject payload) {
@@ -224,7 +304,19 @@ public final class StreamingASR {
           }
           WebSocket socket = ws;
           if (read == 0 || socket == null) continue;
-          socket.send(ByteString.of(buffer, 0, read));
+          if (doubao) {
+            synchronized (audioSendLock) {
+              if (!running.get()) break;
+              if (doubaoPendingPcm != null && (socket.queueSize() > 128_000
+                  || !socket.send(ByteString.of(DoubaoAsrProtocol.audio(sequence++, doubaoPendingPcm, false))))) {
+                fail(UiText.text("ASR 连接失败，请检查网络"));
+                break;
+              }
+              doubaoPendingPcm = java.util.Arrays.copyOf(buffer, read);
+            }
+          } else {
+            socket.send(ByteString.of(buffer, 0, read));
+          }
         }
       } catch (SecurityException error) {
         fail(UiText.text("需要麦克风权限才能使用实时语音"));
@@ -251,21 +343,44 @@ public final class StreamingASR {
       settle();
       return;
     }
-    sendFinish();
-    mainHandler.postDelayed(this::settle, FLUSH_TIMEOUT_MS);
+    if (doubao) {
+      doubaoFinishing = true;
+      sendFinish();
+      mainHandler.postDelayed(() -> {
+        if (!settled.get()) fail(UiText.text("豆包语音识别超时，请重试"));
+      }, 5_000);
+    } else {
+      sendFinish();
+      mainHandler.postDelayed(this::settle, FLUSH_TIMEOUT_MS);
+    }
   }
 
   /** Stops listening and drops anything recognised so far. */
   public void cancel() {
     discard = true;
     running.set(false);
-    sendFinish();
+    if (!doubao) sendFinish();
     settle();
   }
 
   private void sendFinish() {
     WebSocket socket = ws;
     if (socket == null || !taskStarted) return;
+    if (doubao) {
+      try {
+        synchronized (audioSendLock) {
+          byte[] last = doubaoPendingPcm;
+          doubaoPendingPcm = null;
+          if (last == null) settle();
+          else if (!socket.send(ByteString.of(DoubaoAsrProtocol.audio(sequence++, last, true)))) {
+            fail(UiText.text("ASR 连接失败，请检查网络"));
+          }
+        }
+      } catch (Exception error) {
+        fail(UiText.text("ASR 连接失败，请检查网络"));
+      }
+      return;
+    }
     try {
       socket.send(new JSONObject()
           .put("header", new JSONObject()
@@ -291,21 +406,21 @@ public final class StreamingASR {
       if (!text.isEmpty()) mainHandler.post(() -> listener.onFinal(text));
       else mainHandler.post(listener::onStopped);
     }
-    closeSocket();
+    closeSocket(discard);
   }
 
   private void fail(String message) {
     running.set(false);
     if (!settled.compareAndSet(false, true)) return;
     if (!discard) mainHandler.post(() -> listener.onError(message));
-    closeSocket();
+    closeSocket(true);
   }
 
-  private void closeSocket() {
+  private void closeSocket(boolean abort) {
     WebSocket socket = ws;
     ws = null;
     if (socket != null) {
-      try { socket.close(1000, "done"); } catch (Exception ignored) { }
+      try { if (doubao && abort) socket.cancel(); else socket.close(1000, "done"); } catch (Exception ignored) { }
     }
   }
 }
