@@ -169,6 +169,9 @@ final class OfflineSpeechRecognizer {
       decode(recognizer, stream);
       String result = OfflineToolNames.format(recognizer.getResult(stream).getText());
       if (!result.isEmpty()) text = result;
+    } catch (SecurityException failure) {
+      android.util.Log.w("OfflineSpeech", "Microphone permission unavailable");
+      error = UiText.text("请允许麦克风权限后重试");
     } catch (RuntimeException | LinkageError failure) {
       android.util.Log.w("OfflineSpeech", "Local recognition failed (" + failure.getClass().getSimpleName() + ")");
       error = UiText.text("本机离线识别启动或录音失败，请重试");
