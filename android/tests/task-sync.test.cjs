@@ -14,7 +14,7 @@ static JSONArray copy(JSONArray records) {
 `;
 
 test('tmux discovery survives control-character normalization and names containing spaces or pipes', t => {
- const discovery = methods('PhoneBridge.java', '  private List<JSONObject> listTmuxTasks(', '  private List<JSONObject> listProcessTasks(');
+ const discovery = methods('PhoneController.java', '  private List<JSONObject> listTmuxTasks(', '  private List<JSONObject> listProcessTasks(');
  harness(t, 'TmuxDiscoveryHarness', `
  static class Session {}
  static class Work {
@@ -56,7 +56,7 @@ test('tmux discovery survives control-character normalization and names containi
 });
 
 test('discovery preserves independent sessions and panes while collapsing duplicate observations', t => {
- const dedupe = methods('PhoneBridge.java', '  private JSONArray dedupeSemanticTasks(', '  @JavascriptInterface\n  public String beginTailTask(');
+ const dedupe = methods('PhoneController.java', '  private JSONArray dedupeSemanticTasks(', '  public String beginTailTask(');
  harness(t, 'TaskIdentityHarness', `${taskFactory}${dedupe}
  public static void main(String[] args)throws Exception {
  TaskIdentityHarness b=new TaskIdentityHarness();JSONArray tasks=new JSONArray();
@@ -117,8 +117,8 @@ test('overlapping discoveries keep stable IDs and newly changed or restored task
 });
 
 test('tmux refresh clears answered questions and stopped panes but retains new decisions and raw output', t => {
- const fields = methods('PhoneBridge.java', '  private static JSONObject tmuxTaskFields(', '  private static String suggestedReply(');
- const terminal = methods('PhoneBridge.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
+ const fields = methods('PhoneController.java', '  private static JSONObject tmuxTaskFields(', '  private static String suggestedReply(');
+ const terminal = methods('PhoneController.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
  harness(t, 'TmuxDecisionHarness', `
  static String now(){return "now";}
  static class Work{String latestAssistant,status;Work(String user,String answer,String status){latestAssistant=answer;this.status=status;}String summary(){return latestAssistant;}${terminal}}
@@ -134,8 +134,8 @@ test('tmux refresh clears answered questions and stopped panes but retains new d
 
 
 test('terminal input suggestions do not hide provider errors or replace the latest reply', t => {
- const fields = methods('PhoneBridge.java', '  private static JSONObject tmuxTaskFields(', '  private static String suggestedReply(');
- const terminal = methods('PhoneBridge.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
+ const fields = methods('PhoneController.java', '  private static JSONObject tmuxTaskFields(', '  private static String suggestedReply(');
+ const terminal = methods('PhoneController.java', '    private static Work fromTerminal(', '    private static Work fromClaudeTranscript(');
  harness(t, 'TerminalFooterHarness', String.raw`
  static String now(){return "now";}
  static class Work{String latestAssistant,status;Work(String user,String answer,String status){latestAssistant=answer;this.status=status;}String summary(){return latestAssistant;}

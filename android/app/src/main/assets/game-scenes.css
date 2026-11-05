@@ -1,0 +1,163 @@
+/* Scene art is decorative. Every computer, employee, caption and action is live DOM. */
+:root { --canvas: #f7f2e6; --surface: #fffaf0; --surface-muted: #eee8d9; --ink: #173e38; --muted: #506458; --primary: #17634b; --primary-soft: #dfeddf; --line: #d4c9ad; --game-nav-height: calc(70px + env(safe-area-inset-bottom)); }
+.app { padding: env(safe-area-inset-top) 0 calc(var(--game-nav-height) + 12px); }
+.topbar { flex-wrap: nowrap; gap: 4px; margin: 0; padding: 8px 12px; background: var(--surface); }
+.topbar > div:first-child { min-width: 0; }
+.brandIdentity { gap: 6px; }
+.topbar h1 { font-size: 20px; letter-spacing: 0; }
+.topActions { gap: 2px; flex-shrink: 0; }
+.topActions .iconButton { width: 44px; height: 44px; background: transparent; border-radius: 8px; }
+#backgroundState { display: none; }
+#openAppearance { position: relative; }
+#openAppearance.jobsPending::after { content: attr(data-jobs); position: absolute; top: 1px; right: 0; min-width: 15px; padding: 1px 3px; border-radius: 5px; background: #ffe4af; color: #663c14; font-size: 11px; font-weight: 700; }
+#cloudState { max-width: 60px; min-height: 44px; padding: 0 5px; font-size: 11px; background: transparent; }
+.summary { margin: 12px 0 0; padding: 12px 14px; background: #e5eddf; color: var(--ink); }
+body[data-view="offices"] .summary.emptyTown { display: none; }
+.townScene { display: none; }
+.summaryMain { align-items: center; justify-content: space-between; gap: 8px; }
+.summaryMain strong { font-size: 18px; font-weight: 700; }
+#attentionCount { padding: 0 12px; min-height: 44px; color: #663c14; background: #ffe4a8; border-radius: 5px; font-size: 14px; }
+#attentionCount:disabled { color: var(--muted); background: #d8e3d1; }
+#networkLine { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+#main { padding: 12px; }
+#offices { gap: 12px; }
+.tabs { position: fixed; z-index: 21; left: 50%; bottom: 0; top: auto; width: 100%; max-width: 640px; height: var(--game-nav-height); margin: 0; padding: 5px 8px calc(5px + env(safe-area-inset-bottom)); border-radius: 0; border-top: 1px solid var(--line); background: var(--surface); transform: translateX(-50%); }
+.tab { min-height: 59px; padding: 5px 2px; gap: 4px; color: #465d59; font-size: 14px; border-radius: 8px; }
+.tab .uiIcon { width: 23px; height: 23px; }
+.tab.active { background: var(--primary-soft); }
+.tab.active::after { display: none; }
+.gameOffice { border: 2px solid #907854; border-radius: 5px; overflow: hidden; background: #b08b61; }
+.gameOffice .officeHeader { grid-template-columns: minmax(0,1fr) auto; gap: 8px; padding: 10px; background: #fff5de; border: 0; border-bottom: 2px solid #907854; border-radius: 0; }
+.gameOffice .officeTitle h2 { font-size: 16px; line-height: 1.5; }
+.gameOffice .officeMeta { font-size: 11px; }
+.gameOffice .officeTools { display: none; }
+.gameOffice.showAdvanced .officeTools { display: inline; }
+.gameOffice .officeStatus { padding: 2px 6px; font-size: 13px; line-height: 1.5; color: #155240; }
+.gameOffice .officeStatus.offline { color: #74421f; background: #f3d6b8; }
+.gameOffice .officeHeader > .officeActions { gap: 4px; }
+.gameOffice .officeHeader .smallAction { font-size: 14px; padding: 0 10px; border-radius: 5px; background: #f1e6cb; border-color: #d0bea0; }
+.gameOffice .officeHeader .smallAction.dark { color: #fffaf0; background: var(--primary); border-color: transparent; }
+.gameOffice .officeHeader .smallAction.warn { color: #fffaf0; background: #98452d; }
+.gameOffice.showAdvanced .officeHeader { grid-template-columns: 1fr; }
+.gameOffice .employees { padding: 0; gap: 0; border-radius: 0; background: transparent; }
+.gameFloor { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); column-gap: 8px; align-items: stretch; padding: 8px 10px 12px; background: url('game-art/floor-room.png') center top / 100% 100% no-repeat; border-bottom: 5px solid #775638; }
+.gameFloor:last-child { border-bottom: 0; }
+.gameOffice .employee { display: flex; flex-direction: column; width: 100%; gap: 0; align-items: stretch; padding: 0; border: 0; border-radius: 5px; background: transparent; text-align: center; }
+.gameOffice .employee:active { background: rgba(255,244,212,.2); }
+.gameOffice .employee > .employeeStage { position: relative; width: 100%; height: clamp(138px,42vw,228px); margin: 0; border-radius: 0; background: transparent; transform: none; overflow: visible; }
+.gameSprite { display: block; width: 100%; height: 100%; background-image: url('game-art/employee-sprites.png'); background-size: 300% 200%; background-position: 0 0; background-repeat: no-repeat; image-rendering: pixelated; }
+.gameSprite[data-role="claude"] { background-position-x: 50%; }
+.gameSprite[data-role="butler"] { background-position-x: 100%; }
+.gameSprite[data-angle="top"] { background-position-y: 100%; }
+.gameSpriteFallback { position: relative; background-image: none; }
+.gameSpriteFallback .pixelAvatar { width: 86%; height: 86%; bottom: 3px; }
+.gameOffice .employeeInfo { flex: 1; min-width: 0; padding: 10px 8px; border: 1px solid #9b8057; border-radius: 5px; color: #173e38; background: #fff9e9; text-align: left; box-shadow: 0 3px 6px rgba(70,43,20,.2); }
+.gameOffice .employeeName { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 15px; font-weight: 700; line-height: 1.5; overflow-wrap: anywhere; }
+.gameOffice .employeePreview { margin-top: 8px; }
+.gameOffice .employeePreviewLabel { color: #5e4f38; font-size: 13px; }
+.gameOffice .employeeSub { -webkit-line-clamp: 3; font-size: 14px; color: #3d5148; line-height: 1.65; }
+.gameOffice .stateChip { display: block; margin-top: 6px; padding: 4px; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; white-space: normal; }
+.gameOffice .employeeOpen { display: none; }
+.gameOffice .employeeBubble { position: absolute; z-index: 1; top: 4px; bottom: auto; left: 50%; max-width: 96%; padding: 4px 7px; background: #ffe0a1; border: 1px solid #8b5419; color: #663c14; font-size: 11px; box-shadow: none; animation: none; }
+.gameOffice .employee[data-record="true"] .gameSprite { filter: saturate(.5); }
+.gameOffice .employee[data-record="true"] .employeeInfo { background: #ebf0ee; }
+.gameOffice .employee[data-record="true"] .employeeBubble { background: #ebf0ee; border-color: #6b7a7d; color: #465d65; }
+.gameOffice .employee[data-record="false"][data-state="running"][data-motion="live"] .gameSprite { animation: gameWork 1.8s steps(2,end) infinite; }
+body.employeeMotionPaused .gameOffice .gameSprite { animation: none !important; }
+@keyframes gameWork { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+.gameOffice .officeEmpty { min-height: 170px; display: grid; align-items: center; padding: 35px 28px; color: #183f34; font-weight: 600; background: linear-gradient(rgba(255,250,235,.82),rgba(255,250,235,.82)), url('game-art/floor-room.png') center / cover; }
+.townButler { display: flex; align-items: center; gap: 10px; padding: 3px 12px; border: 0; border-radius: 5px; color: #fff9e9; background: #185b49; box-shadow: none; }
+#openTownButler { width: calc(100% - 24px); margin: 12px 12px 0; }
+body:not([data-view="offices"]) #openTownButler { display: none; }
+.townButler:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.townButler:active { background: #124637; }
+.townButlerAvatar { position: relative; width: 82px; height: 76px; flex: 0 0 82px; background: transparent; }
+.townButlerText { min-width: 0; flex: 1; }
+.townButlerText strong { font-size: 16px; color: #fff9e9; }
+.townButlerText > span { font-size: 14px; color: #dfeddf; }
+.townButler > .uiIcon { color: #fff9e9; }
+.sceneAttention { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 10px 12px; color: #663c14; background: #ffe4af; border: 1px solid #d0a457; border-radius: 6px; text-align: left; overflow-wrap: anywhere; }
+.empty { min-height: 380px; padding: 42px 22px; border: 0; border-radius: 6px; background: linear-gradient(rgba(255,250,235,.82),rgba(255,250,235,.82)), url('game-art/floor-room.png') center / cover; }
+.empty .emptyAvatar { width: 132px; height: 132px; margin-bottom: 8px; border-radius: 0; background: url('game-art/employee-sprites.png') 100% 0 / 300% 200% no-repeat; }
+.emptyAvatar .pixelAvatar { visibility: hidden; }
+body[data-scene="map"] .empty { background-image: linear-gradient(rgba(255,250,235,.84),rgba(255,250,235,.84)), url('game-art/town-ground.png'); }
+body[data-scene="workstations"] .empty { background-image: linear-gradient(rgba(255,250,235,.84),rgba(255,250,235,.84)), url('game-art/focus-room.png'); }
+.townMap { position: relative; display: flex; flex-direction: column; min-height: 400px; padding: 24px 8px 12px; overflow: hidden; border-radius: 5px; background: url('game-art/town-ground.png') center / cover; }
+.mapPlots { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: start; gap: 6px; }
+.mapBuilding { position: relative; display: flex; flex-direction: column; align-items: center; padding: 3px; min-width: 0; border-radius: 5px; }
+.mapBuildingArt { display: block; width: 100%; height: 162px; object-fit: contain; image-rendering: pixelated; }
+.mapBuilding[data-connection="record"] .mapBuildingArt { filter: saturate(.25) brightness(.78); }
+.sceneBackToMap { grid-column: 1 / -1; justify-self: start; }
+.mapPlaque { display: grid; width: 100%; gap: 3px; padding: 7px 5px; border: 2px solid #9b8057; border-radius: 5px; background: #fff5de; color: #204b3d; }
+.mapPlaque strong { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.mapPlaque small { font-size: 11px; line-height: 1.5; }
+.mapBuilding.selected .mapPlaque { border-color: #145a43; background: #e7f3d9; }
+.mapBuilding.selected::after { content: ""; position: absolute; top: 0; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid #145a43; }
+.mapInstruction { align-self: center; margin: auto 0 0; padding: 6px 9px; border-radius: 4px; color: #194e3b; background: #fff5de; font-size: 11px; text-align: center; }
+.mapPager { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; padding: 0 6px; background: #fff5de; border-radius: 5px; font-variant-numeric: tabular-nums; font-size: 12px; }
+.mapPager button { min-height: 44px; border: 0; background: transparent; }
+.mapPager button:disabled { opacity: .45; }
+.sceneComputerPicker { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+.sceneComputerPicker select { width: 100%; min-width: 0; min-height: 48px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; text-overflow: ellipsis; }
+body[data-scene="workstations"] .gameOffice .employees { padding: 9px; background: url('game-art/focus-room.png') center / 100% 100% no-repeat; }
+body[data-scene="workstations"] .gameFloor { padding: 9px; gap: 10px; border: 0; background: transparent; }
+body[data-scene="workstations"] .gameOffice .employee > .employeeStage { height: clamp(116px,34vw,170px); }
+body[data-scene="workstations"][data-view="offices"] .summary { display: none; }
+body[data-scene="workstations"] .gameOffice:not(.showAdvanced) .officeTitle h2 { display: none; }
+body[data-scene="workstations"] .gameOffice .officeHeader { padding: 6px 8px; }
+body[data-scene="map"] .gameOffice .employee > .employeeStage { height: clamp(120px,35vw,190px); }
+body[data-view="butler"] .app { padding-bottom: calc(var(--dock-height,180px) + var(--game-nav-height) + 20px); }
+#butlerChatDock { bottom: calc(var(--game-nav-height) + var(--keyboard-offset,0px)); }
+.appearanceSheet h3 { margin: 20px 0 8px; font-size: 17px; }
+.appearanceHint { margin: 0 0 16px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+.sceneOptions { display: grid; gap: 10px; }
+.sceneOption { display: grid; grid-template-columns: 76px minmax(0,1fr) 18px; align-items: center; gap: 12px; min-height: 98px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); text-align: left; }
+.sceneOption.selected { border-color: var(--primary); background: #e7efdf; }
+.sceneThumb { display: block; width: 76px; height: 76px; border-radius: 5px; background-position: center; background-size: cover; image-rendering: pixelated; }
+.sceneThumbFloors { background-image: url('game-art/floor-room.png'); }
+.sceneThumbMap { background-image: url('game-art/town-ground.png'); }
+.sceneThumbFocus { background-image: url('game-art/focus-room.png'); }
+.sceneOptionText { display: grid; gap: 6px; min-width: 0; }
+.sceneOptionText strong { font-size: 15px; line-height: 1.4; }
+.sceneOptionText small { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.sceneSelection { width: 16px; height: 16px; border: 1px solid #78836b; border-radius: 50%; }
+.selected .sceneSelection { border: 5px solid var(--primary); background: #fffaf0; }
+.appearanceFeedback { min-height: 36px; margin: 12px 0; font-size: 12px; line-height: 1.5; color: var(--primary); }
+.appearanceFeedback.error { color: #8b3c20; }
+.appearanceFeedback:empty { display: none; }
+.settingsJobs { min-height: 48px; width: 100%; padding: 10px; border-top: 1px solid var(--line); text-align: left; color: var(--primary); font-size: 14px; font-weight: 600; }
+.settingsConnector { border: 1px solid var(--town-frame); border-radius: 5px; background: var(--primary-soft); font-size: 16px; }
+.settingsConnector + .appearanceHint { margin-top: 8px; font-size: 14px; }
+.connectionAdvanced { margin: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.connectionAdvanced > summary { min-height: 48px; padding: 12px 4px; color: var(--ink); cursor: pointer; font-size: 16px; font-weight: 600; }
+.connectionAdvanced .appearanceHint { padding: 0 4px; font-size: 14px; line-height: 1.6; }
+.advancedConnectionActions { padding-bottom: 8px; }
+.empty p { font-size: 14px; }
+.empty .emptyAdvancedHint { margin-top: 20px; }
+select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (hover:hover) { .butlerHeroHeader .smallAction:hover, .butlerHeroHeader .callToggle:hover { background: #216b53; color: #fffaf0; } .sceneOption:hover { background: #e7efdf; } .gameOffice .employee:hover { background: rgba(255,244,212,.18); } }
+@media (max-width:350px) { .topbar { padding: 7px 8px; } .topbar h1 { font-size: 18px; } .brandMark { width: 26px; height: 26px; } #cloudState { max-width: 52px; font-size: 11px; } #main { padding: 8px; } .gameOffice .officeHeader { grid-template-columns: 1fr; } .gameOffice .officeHeader > .officeActions { justify-content: flex-start; } .sceneOption { grid-template-columns: 64px minmax(0,1fr) 16px; gap: 9px; } .sceneThumb { width: 64px; height: 70px; } }
+@media (max-height:550px) { body[data-view="butler"] .tabs { height: calc(58px + env(safe-area-inset-bottom)); } body[data-view="butler"] { --game-nav-height: calc(58px + env(safe-area-inset-bottom)); } body[data-view="butler"] #main { padding-top: 0; } .tab { min-height: 48px; } }
+@media (max-height:550px) {
+  body[data-scene="workstations"][data-view="offices"] { --game-nav-height: calc(58px + env(safe-area-inset-bottom)); }
+  body[data-scene="workstations"][data-view="offices"] .app { padding-bottom: calc(var(--game-nav-height) + 12px); }
+  body[data-scene="workstations"][data-view="offices"] .topbar { height: 44px; padding: 0 8px; }
+  body[data-scene="workstations"][data-view="offices"] #main { padding: 4px; }
+  body[data-scene="workstations"] #offices { gap: 8px; }
+  body[data-scene="workstations"] .sceneComputerPicker > span { position: absolute; width: 1px; height: 1px; margin: -1px; clip: rect(0,0,0,0); overflow: hidden; }
+  body[data-scene="workstations"] .sceneComputerPicker select { min-height: 44px; height: 44px; padding: 6px; }
+  body[data-scene="workstations"] .gameOffice .officeHeader { padding: 2px 6px; }
+  body[data-scene="workstations"] .gameOffice .employees { padding: 4px; background-size: cover; background-position: center; }
+  body[data-scene="workstations"] .gameFloor { padding: 0; gap: 8px; }
+  body[data-scene="workstations"] .gameOffice .employee > .employeeStage { height: 60px; }
+  body[data-scene="workstations"] .gameOffice .gameSprite { width: 60px; height: 60px; margin: 0 auto; }
+  body[data-scene="workstations"] .gameOffice .employeeBubble { display: none; }
+  body[data-scene="workstations"] .gameOffice .employeeInfo { padding: 4px; }
+  body[data-scene="workstations"] .gameOffice .employeeName { font-size: 11px; line-height: 1.3; }
+}
+@media (prefers-reduced-motion:reduce) { .gameOffice .gameSprite { animation: none !important; } }
+
+/* Shared room materials: office, reception and task board belong to one town. */
+:root { --town-frame: #907854; --town-paper: #fff5de; --town-wood: #b08b61; --town-room-art: url('game-art/floor-room.png'); }
+body[data-scene="workstations"] { --town-room-art: url('game-art/focus-room.png'); }
+body[data-scene="map"] { --town-room-art: url('game-art/town-ground.png'); }

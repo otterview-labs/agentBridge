@@ -1,5 +1,6 @@
 const {test}=require('node:test');
-const {methods,harness}=require('./java-json-fixture.cjs');
+const {methods,harness:javaHarness}=require('./java-json-fixture.cjs');
+const harness=(t,name,body)=>javaHarness(t,name,body,['ChatCompletionProtocol.java']);
 
 test('chat storage commits whole turns, keeps failures atomic, and shares the active-turn guard',t=>{
 const storage=methods('BridgeStore.java','  synchronized boolean beginStudioTurn()','  synchronized JSONArray studioReports()');
@@ -15,7 +16,7 @@ public static void main(String[] args)throws Exception{
 }`);});
 
 test('butler refreshes formerly-offline machines, reports failures, and reads current output',t=>{
-const tools=methods('PhoneBridge.java','  private JSONArray buildButlerTools()','  private JSONObject generateDirectReport(');
+const tools=methods('PhoneController.java','  private JSONArray buildButlerTools()','  private JSONObject generateDirectReport(');
 harness(t,'ButlerToolsHarness',`
 static class Store{JSONArray machines=new JSONArray(),tasks=new JSONArray();JSONArray machines(){return machines;}JSONArray tasks(){return tasks;}}
 final Store store=new Store();int discoveries,tails;static class Work{static String clean(String v){return v;}}String sanitize(String v){return v;}String now(){return "fresh-time";}
@@ -33,8 +34,8 @@ public static void main(String[] args)throws Exception{
 }`);});
 
 test('chat context is bounded, retains task identity, and treats remote records as data',t=>{
-const context=methods('PhoneBridge.java','  private JSONArray studioChatMessages(','  private String directModelReply(');
-const bounded=methods('PhoneBridge.java','  private String boundedText(','  private JSONArray normalizePlanRows(');
+const context=methods('PhoneController.java','  private JSONArray studioChatMessages(','  private String directModelReply(');
+const bounded=methods('PhoneController.java','  private String boundedText(','  private JSONArray normalizePlanRows(');
 harness(t,'ButlerContextHarness',`
 ${context}${bounded}
 public static void main(String[] args)throws Exception{
@@ -48,8 +49,8 @@ public static void main(String[] args)throws Exception{
 }`);});
 
 test('tool replies are summarized, incompatible endpoints fall back, and final-round calls do not execute',t=>{
-const loop=methods('PhoneBridge.java','  private String directModelReplyWithTools(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools)');
-const text=methods('PhoneBridge.java','  private String modelMessageText(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools, String toolChoice)');
+const loop=methods('PhoneController.java','  private String directModelReplyWithTools(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools)');
+const text=methods('PhoneController.java','  private String modelMessageText(','  private String chatCompletion(JSONObject model, JSONArray messages, JSONArray tools, String toolChoice)');
 harness(t,'ButlerLoopHarness',`
 String chatCompletionStream(JSONObject model,JSONArray messages,JSONArray tools,java.util.function.Consumer<String> partial)throws Exception{return chatCompletion(model,messages,tools,null);}
 int requests,executions;boolean unsupported,ignoreFinal,noTools,duplicate;JSONArray buildButlerTools(){return new JSONArray().put(new JSONObject());}String executeButlerTool(String name,String args){executions++;return "tool-result";}
@@ -64,7 +65,7 @@ public static void main(String[] args)throws Exception{
 }`);});
 
 test('machine queries overlap, preserve order and isolate unreachable hosts',t=>{
-const query=methods('PhoneBridge.java','  private List<JSONObject> queryButlerMachines(','  private static String toolError(');
+const query=methods('PhoneController.java','  private List<JSONObject> queryButlerMachines(','  private static String toolError(');
 harness(t,'ParallelQueryHarness',`
 CountDownLatch entered=new CountDownLatch(3);java.util.concurrent.atomic.AtomicInteger active=new java.util.concurrent.atomic.AtomicInteger(),peak=new java.util.concurrent.atomic.AtomicInteger();
 String discoverTasks(int id)throws Exception{int count=active.incrementAndGet();peak.accumulateAndGet(count,Math::max);entered.countDown();try{check(entered.await(2,TimeUnit.SECONDS));if(id==2)throw new IllegalStateException("offline");return new JSONObject().put("ok",true).put("id",id).toString();}finally{active.decrementAndGet();}}
@@ -74,17 +75,16 @@ public static void main(String[] args)throws Exception{ParallelQueryHarness b=ne
 `);});
 
 test('streaming replies publish text early, assemble fragmented tools and reject interrupted answers',t=>{
-const read=methods('PhoneBridge.java','  private String readModelAnswerStream(','  private JSONArray buildButlerTools(');
 harness(t,'AnswerStreamHarness',`
-${read}
+
 static String event(JSONObject delta,String reason){return "data:"+new JSONObject().put("choices",new JSONArray().put(new JSONObject().put("delta",delta).put("finish_reason",reason))).toString()+"\\n\\n";}
 static InputStream input(String data){return new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8));}
 public static void main(String[] args)throws Exception{
  AnswerStreamHarness b=new AnswerStreamHarness();List<String> partial=new ArrayList<>();String stream=event(new JSONObject().put("content","先看"),"")+event(new JSONObject().put("content","登录任务"),"stop")+"data: [DONE]\\n";
- JSONObject response=new JSONObject(b.readModelAnswerStream(input(stream),partial::add));check(partial.equals(Arrays.asList("先看","先看登录任务")));check(response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content").equals("先看登录任务"));
+ JSONObject response=new JSONObject(ChatCompletionProtocol.readAnswerStream(input(stream),partial::add));check(partial.equals(Arrays.asList("先看","先看登录任务")));check(response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content").equals("先看登录任务"));
  JSONObject first=new JSONObject().put("index",0).put("id","call-1").put("function",new JSONObject().put("name","get_task_").put("arguments","{\\\"task_"));
  JSONObject second=new JSONObject().put("index",0).put("function",new JSONObject().put("name","output").put("arguments","id\\\":\\\"S-11\\\"}"));
- response=new JSONObject(b.readModelAnswerStream(input(event(new JSONObject().put("tool_calls",new JSONArray().put(first)),"")+event(new JSONObject().put("tool_calls",new JSONArray().put(second)),"tool_calls")),p->{}));JSONObject call=response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getJSONArray("tool_calls").getJSONObject(0);check(call.optString("id").equals("call-1"));check(call.getJSONObject("function").optString("name").equals("get_task_output"));check(call.getJSONObject("function").optString("arguments").equals("{\\\"task_id\\\":\\\"S-11\\\"}"));
- for(String broken:new String[]{event(new JSONObject().put("content","partial"),""),event(new JSONObject().put("content","truncated"),"length"),"data: [DONE]\\n"}){try{b.readModelAnswerStream(input(broken),p->{});throw new AssertionError();}catch(IllegalStateException expected){}}
+ response=new JSONObject(ChatCompletionProtocol.readAnswerStream(input(event(new JSONObject().put("tool_calls",new JSONArray().put(first)),"")+event(new JSONObject().put("tool_calls",new JSONArray().put(second)),"tool_calls")),p->{}));JSONObject call=response.getJSONArray("choices").getJSONObject(0).getJSONObject("message").getJSONArray("tool_calls").getJSONObject(0);check(call.optString("id").equals("call-1"));check(call.getJSONObject("function").optString("name").equals("get_task_output"));check(call.getJSONObject("function").optString("arguments").equals("{\\\"task_id\\\":\\\"S-11\\\"}"));
+ for(String broken:new String[]{event(new JSONObject().put("content","partial"),""),event(new JSONObject().put("content","truncated"),"length"),"data: [DONE]\\n"}){try{ChatCompletionProtocol.readAnswerStream(input(broken),p->{});throw new AssertionError();}catch(IllegalStateException expected){}}
  System.out.println("ok");
 }`);});

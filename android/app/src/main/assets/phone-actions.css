@@ -1,0 +1,29 @@
+#phoneActionsDialog { box-sizing: border-box; width: min(94vw, 460px); max-height: 90dvh; overflow: auto; padding: 20px; color: #173e38; background: #fffaf0; border: 2px solid #907854; border-radius: 5px; }
+#phoneActionsDialog::backdrop { background: rgba(23,62,56,.5); }
+#phoneActionsDialog header, .phoneActionsPermission, .phoneActionsButtons { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+#phoneActionsDialog h2 { margin: 0; font-size: 21px; }
+#phoneActionsDialog p { font-size: 15px; line-height: 1.65; margin: 16px 0; }
+#phoneActionsDialog label { display: block; margin-top: 18px; font-size: 15px; font-weight: 650; }
+#phoneActionsDialog input, #phoneActionsDialog select, #phoneActionsDialog textarea { box-sizing: border-box; width: 100%; min-height: 46px; margin-top: 10px; border: 1px solid #907854; border-radius: 5px; background: #f7f2e6; color: #173e38; padding: 10px; font: inherit; font-size: 16px; caret-color: #17634b; }
+#phoneActionsDialog textarea { resize: vertical; min-height: 84px; }
+#phoneActionsDialog input::placeholder, #phoneActionsDialog textarea::placeholder { color: #506458; }
+#phoneActionsDialog button { min-height: 44px; padding: 8px 12px; border: 1px solid #907854; border-radius: 5px; color: #17634b; background: #fff5de; font: inherit; font-size: 15px; cursor: pointer; }
+#phoneActionsDialog button:disabled { opacity: .55; cursor: default; }
+#phoneActionsDialog :focus-visible, #openPhoneActions:focus-visible { outline: 3px solid #17634b; outline-offset: 2px; }
+#phoneActionsDialog .phoneActionsButtons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 18px; gap: 8px; }
+#phoneActionsDialog #phoneActionsSearch { background: #17634b; color: #fffaf0; }
+#phoneActionsStatus { border-top: 1px solid #907854; padding-top: 14px; overflow-wrap: anywhere; }
+#phoneActionsCount { color: #506458; }
+#phoneActionsStop[hidden] { display: none; }
+
+.phoneActionsAppMeta { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#phoneActionsDialog .phoneActionsAppMeta p { font-size: 14px; }
+#phoneActionsDialog .phoneActionsAppMeta button { flex-shrink: 0; }
+.phoneActionsHelp { margin-top: 18px; font-size: 15px; line-height: 1.65; }
+.phoneActionsHelp summary { min-height: 44px; cursor: pointer; }
+
+#phoneActionsDialog #phoneActionsBefore { margin: 12px 0; font-size: 14px; line-height: 1.6; }
+#phoneActionsDialog .phoneActionsPermission { flex-wrap: nowrap; }
+#phoneActionsDialog .phoneActionsPermission span { flex: 1; }
+
+#butler .butlerToolbar { grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); }

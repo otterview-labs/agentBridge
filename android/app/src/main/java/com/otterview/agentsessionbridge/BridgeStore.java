@@ -95,13 +95,45 @@ final class BridgeStore {
 
   synchronized JSONObject studioModel() throws Exception {
     String value = readSealed(KEY_STUDIO_MODEL, "");
-    return value.trim().isEmpty() ? new JSONObject() : new JSONObject(value);
+    JSONObject model = value.trim().isEmpty() ? new JSONObject() : new JSONObject(value);
+    if (!model.optString("modelId").isEmpty() && model.optString("profileId").isEmpty()) model.put("profileId", "legacy");
+    return model;
+  }
+
+  synchronized JSONArray studioModelProfiles() throws Exception {
+    JSONArray profiles = new JSONArray(readSealed("studio_model_profiles", "[]"));
+    JSONObject active = studioModel();
+    boolean found = false;
+    for (int i=0;i<profiles.length();i++) if (profiles.getJSONObject(i).optString("profileId").equals(active.optString("profileId"))) found=true;
+    if (!found && !active.optString("modelId").isEmpty()) profiles.put(active);
+    return profiles;
   }
 
   synchronized void saveStudioModel(JSONObject value) {
-    if (!writeSealed(prefs.edit(), KEY_STUDIO_MODEL, value.toString()).commit()) {
-      throw new IllegalStateException(UiText.text("模型配置保存失败，请检查手机存储空间"));
-    }
+    try {
+      JSONArray profiles = studioModelProfiles();
+      if (value.optString("profileId").isEmpty()) value.put("profileId", java.util.UUID.randomUUID().toString());
+      JSONArray next = new JSONArray(); boolean found = false;
+      for(int i=0;i<profiles.length();i++) {
+        JSONObject item=profiles.getJSONObject(i);
+        if(item.optString("profileId").equals(value.optString("profileId"))) { next.put(value); found=true; }
+        else next.put(item);
+      }
+      if(!found) next.put(value);
+      saveStudioModelLibrary(value,next);
+    } catch(Exception e) { throw new IllegalStateException(UiText.text("模型配置保存失败，请检查手机存储空间")); }
+  }
+
+  synchronized void saveStudioModelLibrary(JSONObject active, JSONArray profiles) {
+    android.content.SharedPreferences.Editor editor = prefs.edit();
+    writeSealed(editor, KEY_STUDIO_MODEL, active.toString());
+    writeSealed(editor, "studio_model_profiles", profiles.toString());
+    if (!editor.commit()) throw new IllegalStateException("模型配置保存失败");
+  }
+
+  synchronized JSONObject connector() throws Exception { return new JSONObject(readSealed("mobile_connector_v1", "{}")); }
+  synchronized void saveConnector(JSONObject value) {
+    if (!writeSealed(prefs.edit(), "mobile_connector_v1", value.toString()).commit()) throw new IllegalStateException("Connector credential storage unavailable");
   }
 
   synchronized JSONObject openHandsConfig() throws Exception {
@@ -136,10 +168,20 @@ final class BridgeStore {
     }
   }
 
+  synchronized boolean studioScopeRevised(int taskId) throws Exception {
+    return new JSONObject(prefs.getString("studio_revised_scopes", "{}")).optBoolean(String.valueOf(taskId));
+  }
+
   synchronized void saveStudioMessages(JSONArray value) {
-    if (!prefs.edit().putString("studio_messages", value.toString()).commit()) {
-      throw new IllegalStateException(UiText.text("管家对话保存失败，请检查手机存储空间"));
-    }
+    try {
+      JSONObject scopes=new JSONObject(prefs.getString("studio_revised_scopes", "{}"));
+      for(int i=0;i<value.length();i++) {
+        JSONObject item=value.getJSONObject(i);
+        if(item.has("revisedFrom")) scopes.put(String.valueOf(item.optInt("memoryTaskId")),true);
+      }
+      if (!prefs.edit().putString("studio_messages", value.toString()).putString("studio_revised_scopes",scopes.toString()).commit())
+        throw new IllegalStateException("commit failed");
+    } catch(Exception e) { throw new IllegalStateException(UiText.text("管家对话保存失败，请检查手机存储空间")); }
   }
 
   /** Appends one chat message under the store lock so concurrent replies never drop each other. */
@@ -166,9 +208,14 @@ final class BridgeStore {
   }
 
   synchronized JSONObject appendScopedStudioTurn(String user, String answer, String createdAt, String turnId, int taskId) throws Exception {
+    return appendScopedStudioTurn(user, answer, createdAt, turnId, taskId, null);
+  }
+
+  synchronized JSONObject appendScopedStudioTurn(String user, String answer, String createdAt, String turnId, int taskId, JSONObject modelExchange) throws Exception {
     JSONArray messages = studioMessages();
     JSONObject reply = new JSONObject().put("id", turnId + "-assistant")
         .put("role", "assistant").put("content", answer).put("createdAt", createdAt).put("memoryTaskId", taskId);
+    if (modelExchange != null) reply.put("modelExchange", modelExchange);
     messages.put(new JSONObject().put("id", turnId + "-user")
         .put("role", "user").put("content", user).put("createdAt", createdAt).put("memoryTaskId", taskId));
     messages.put(reply);
@@ -605,7 +652,7 @@ final class BridgeStore {
    */
   private void dropUnreadableSealedValues() {
     SharedPreferences.Editor editor = prefs.edit();
-    for (String key : new String[] { KEY_MACHINES, KEY_FRP_SERVER, KEY_FRP_RELAYS, KEY_STUDIO_MODEL, KEY_STUDIO_VOICE }) {
+    for (String key : new String[] { KEY_MACHINES, KEY_FRP_SERVER, KEY_FRP_RELAYS, KEY_STUDIO_MODEL, "studio_model_profiles", KEY_STUDIO_VOICE }) {
       String raw = prefs.getString(key, null);
       if (raw != null && SecretBox.isSealed(raw) && !sealedCache.containsKey(key)) {
         Log.w("AgentBridgeStore", "dropping " + key + ": its Keystore key no longer exists");

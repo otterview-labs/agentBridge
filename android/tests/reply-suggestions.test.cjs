@@ -41,7 +41,7 @@ test('drafting sends only bounded selected-task records and treats session text 
 });
 
 test('native drafting returns suggestions without invoking an employee or adding a chat turn',t=>{
- const method=methods('PhoneBridge.java','  @JavascriptInterface\n  public String generateReplySuggestions(','  /** Forgets a machine')
+ const method=methods('PhoneController.java','  public String generateReplySuggestions(','  /** Forgets a machine')
    .replace('@JavascriptInterface','');
  harness(t,'ReplyGenerationHarness',`${policy}${fixtures}
  static class Store{JSONObject task=new JSONObject().put("id",7).put("lastOutput","单元测试失败");JSONObject task(int id){return task;}}

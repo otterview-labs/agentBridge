@@ -21,7 +21,7 @@ final class ManagedRuntime {
     return instance;
   }
   private ManagedRuntime(Context context) throws Exception {
-    this.context=context; store=BridgeStore.get(context); PhoneBridge bridge=new PhoneBridge(context);
+    this.context=context; store=BridgeStore.get(context); PhoneController bridge=new PhoneController(context);
     File memoryRoot=new File(context.getFilesDir(),"butler-memory");
     coordinator=new ManagedCoordinator(new File(context.getFilesDir(),"managed/queue.json"),bridge::managedDecision,
       new ManagedCoordinator.Memory() {

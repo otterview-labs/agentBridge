@@ -177,7 +177,7 @@ test('Mac launch agent uses escaped absolute paths and the GUI domain',
   const plist = path.join(f.home, 'Library/LaunchAgents/com.agent-session-bridge.frpc.asb-machine-2-ssh.plist');
   const config = JSON.parse(execFileSync('/usr/bin/plutil', ['-convert', 'json', '-o', '-', plist], { encoding: 'utf8' }));
   assert.equal(config.ProgramArguments[0], `${f.home}/.asb-frp/bin/frpc`);
-  assert.equal(config.ProgramArguments[2], `${f.home}/.config/agent-session-bridge/frpc.toml`);
+  assert.equal(config.ProgramArguments[2], `${f.home}/.config/agent-session-bridge/frp/asb-machine-2-ssh.toml`);
   assert.match(fs.readFileSync(f.env.LAUNCH_LOG, 'utf8'), /bootstrap gui\/[0-9]+ /);
   assert.doesNotMatch(fs.readFileSync(plist, 'utf8'), /\$HOME/);
 });
@@ -193,7 +193,8 @@ test('Mac without a desktop session fails clearly without loading a service', ()
 });
 
 test('all native installers use the verified fragment and visitor labels match teardown', () => {
-  const bridge = fs.readFileSync(path.join(source, 'PhoneBridge.java'), 'utf8');
+  const bridge = fs.readFileSync(path.join(source, 'PhoneController.java'), 'utf8');
+  const runner = fs.readFileSync(path.join(source, 'RemoteCommandRunner.java'), 'utf8');
   assert.equal((bridge.match(/FrpInstallSupport.downloadOrRefuse\(server.optString\("version"\)\)/g) || []).length, 3);
   assert.equal((bridge.match(/FrpInstallSupport.serviceDirectories\(\)/g) || []).length, 3);
   assert.equal((bridge.match(/FrpInstallSupport.serviceHardening\(\)/g) || []).length, 3);
@@ -201,8 +202,9 @@ test('all native installers use the verified fragment and visitor labels match t
   assert.doesNotMatch(bridge, /\(name \+ "-visitor"\)/);
   assert.doesNotMatch(bridge, /archive=\$\{archive\//);
   assert.match(bridge, /verified = connectThroughRelay\(machine, server, relay\)/);
-  assert.match(bridge, /远程命令超过/);
-  assert.match(bridge, /SSH 连接中断或未返回退出状态/);
+  assert.match(bridge, /new RemoteCommandRunner/);
+  assert.match(runner, /远程命令超过/);
+  assert.match(runner, /SSH 连接中断或未返回退出状态/);
   assert.match(bridge, /setServerAliveInterval/);
   assert.doesNotMatch(bridge, /isExistingFrpsReusable|ASB_EXISTING_EXEC/);
   assert.match(bridge, /adopted-existing/);
@@ -215,4 +217,84 @@ test('all native installers use the verified fragment and visitor labels match t
   const relay = bridge.slice(bridge.indexOf('public String deployFrpRelay('), bridge.indexOf('public String disableFrpRelay('));
   assert.ok(relay.indexOf('verified = connectThroughRelay') < relay.indexOf('relay.put("status", "online")'));
   assert.match(relay, /publicAccessError/);
+});
+
+test('Linux relay install and teardown leave another relay and legacy config intact', () => {
+  const f = fixture();
+  f.executable('uname', 'echo Linux\n');
+  f.executable('systemctl', 'printf "%s\\n" "$*" >> "$LAUNCH_LOG"\n');
+  f.executable('sleep', 'exit 0\n');
+  const configs = path.join(f.home, '.config/agent-session-bridge/frp');
+  fs.mkdirSync(configs, { recursive: true });
+  const legacy = path.join(f.home, '.config/agent-session-bridge/frpc.toml');
+  fs.writeFileSync(legacy, 'name = "existing-legacy"\n');
+  for (const label of ['asb-machine-2-ssh', 'asb-machine-3-ssh']) {
+    fs.writeFileSync(path.join(configs, `${label}.toml`), `name = "${label}"\n`);
+    const r = spawnSync('/bin/sh', ['-eu', '-c', fragment('linux-client', label)], { env: f.env, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const unit = fs.readFileSync(path.join(f.home, '.config/systemd/user', `asb-frpc-${label}.service`), 'utf8');
+    assert.ok(unit.includes(`-c %h/.config/agent-session-bridge/frp/${label}.toml`));
+  }
+  const r = spawnSync('/bin/sh', ['-eu', '-c', fragment('disable-client', 'asb-machine-2-ssh')], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(fs.existsSync(path.join(configs, 'asb-machine-2-ssh.toml')), false);
+  assert.equal(fs.existsSync(path.join(f.home, '.config/systemd/user/asb-frpc-asb-machine-2-ssh.service')), false);
+  assert.equal(fs.readFileSync(path.join(configs, 'asb-machine-3-ssh.toml'), 'utf8'), 'name = "asb-machine-3-ssh"\n');
+  assert.equal(fs.existsSync(path.join(f.home, '.config/systemd/user/asb-frpc-asb-machine-3-ssh.service')), true);
+  assert.equal(fs.readFileSync(legacy, 'utf8'), 'name = "existing-legacy"\n');
+  assert.doesNotMatch(fs.readFileSync(f.env.LAUNCH_LOG, 'utf8'), /disable --now asb-frpc\.service/);
+});
+
+test('Linux upgrade stops the legacy unit only when its proxy is this relay', () => {
+  const f = fixture();
+  f.executable('systemctl', 'printf "%s\\n" "$*" >> "$LAUNCH_LOG"\n');
+  f.executable('sleep', 'exit 0\n');
+  const config = path.join(f.home, '.config/agent-session-bridge');
+  fs.mkdirSync(config, { recursive: true });
+  fs.writeFileSync(path.join(config, 'frpc.toml'), 'name = "asb-machine-2-ssh"\n');
+  const r = spawnSync('/bin/sh', ['-eu', '-c', fragment('linux-client', 'asb-machine-2-ssh')], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(fs.readFileSync(f.env.LAUNCH_LOG, 'utf8'), /disable --now asb-frpc\.service/);
+});
+
+test('Mac relay teardown removes only its plist and config', () => {
+  const f = fixture();
+  f.executable('uname', 'echo Darwin\n');
+  f.executable('launchctl', 'printf "%s\\n" "$*" >> "$LAUNCH_LOG"\n');
+  const configs = path.join(f.home, '.config/agent-session-bridge/frp');
+  const agents = path.join(f.home, 'Library/LaunchAgents');
+  fs.mkdirSync(configs, { recursive: true }); fs.mkdirSync(agents, { recursive: true });
+  for (const label of ['asb-machine-2-ssh', 'asb-machine-3-ssh']) {
+    fs.writeFileSync(path.join(configs, `${label}.toml`), label);
+    fs.writeFileSync(path.join(agents, `com.agent-session-bridge.frpc.${label}.plist`), label);
+  }
+  fs.writeFileSync(path.join(f.home, '.config/agent-session-bridge/frpc.toml'), 'legacy');
+  const r = spawnSync('/bin/sh', ['-eu', '-c', fragment('disable-client', 'asb-machine-2-ssh')], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(fs.existsSync(path.join(configs, 'asb-machine-2-ssh.toml')), false);
+  assert.equal(fs.existsSync(path.join(agents, 'com.agent-session-bridge.frpc.asb-machine-2-ssh.plist')), false);
+  assert.equal(fs.readFileSync(path.join(configs, 'asb-machine-3-ssh.toml'), 'utf8'), 'asb-machine-3-ssh');
+  assert.equal(fs.readFileSync(path.join(agents, 'com.agent-session-bridge.frpc.asb-machine-3-ssh.plist'), 'utf8'), 'asb-machine-3-ssh');
+  assert.equal(fs.readFileSync(path.join(f.home, '.config/agent-session-bridge/frpc.toml'), 'utf8'), 'legacy');
+});
+
+test('relay labels cannot escape their config or inject service commands', () => {
+  for (const mode of ['mac', 'linux-client', 'disable-client']) {
+    for (const label of ['../../other', 'other; touch pwned', 'other\nnext']) {
+      assert.notEqual(spawnSync(java, ['-cp', root, 'com.otterview.agentsessionbridge.FrpScriptHarness', mode, label]).status, 0);
+    }
+  }
+});
+
+
+test('orphaned legacy config does not prevent a fresh Linux user service', () => {
+  const f = fixture();
+  f.executable('systemctl', 'case "$*" in "--user cat asb-frpc.service") exit 1 ;; "--user disable --now asb-frpc.service") exit 5 ;; esac\n');
+  f.executable('sleep', 'exit 0\n');
+  const config = path.join(f.home, '.config/agent-session-bridge');
+  fs.mkdirSync(config, { recursive: true });
+  fs.writeFileSync(path.join(config, 'frpc.toml'), 'name = "asb-machine-2-ssh"\n');
+  const r = spawnSync('/bin/sh', ['-eu', '-c', fragment('linux-client', 'asb-machine-2-ssh')], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(fs.existsSync(path.join(f.home, '.config/systemd/user/asb-frpc-asb-machine-2-ssh.service')), true);
 });

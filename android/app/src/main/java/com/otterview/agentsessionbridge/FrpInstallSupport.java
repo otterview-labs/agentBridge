@@ -128,6 +128,47 @@ final class FrpInstallSupport {
     return "User=asb-frp\nGroup=asb-frp\nNoNewPrivileges=yes\nPrivateTmp=yes\nProtectSystem=full\nProtectHome=yes\n";
   }
 
+  /** Each relay owns its configuration and user unit, including repeated installs on one host. */
+  static String clientConfigPath(String label) {
+    checkClientLabel(label);
+    return ".config/agent-session-bridge/frp/" + label + ".toml";
+  }
+
+  private static void checkClientLabel(String label) {
+    if (!label.matches("[A-Za-z0-9_.-]+")) throw new IllegalArgumentException("Invalid relay label");
+  }
+
+  static String linuxUserService(String label) {
+    checkClientLabel(label);
+    String unit = "asb-frpc-" + label + ".service";
+    return "  if [ -f \"$HOME/.config/agent-session-bridge/frpc.toml\" ] "
+        + "&& grep -Fxq 'name = \"" + label + "\"' \"$HOME/.config/agent-session-bridge/frpc.toml\" "
+        + "&& systemctl --user cat asb-frpc.service >/dev/null 2>&1; then\n"
+        + "    systemctl --user disable --now asb-frpc.service\n  fi\n"
+        + "  mkdir -p \"$HOME/.config/systemd/user\"\n"
+        + "  cat > \"$HOME/.config/systemd/user/" + unit + "\" <<'UNIT'\n"
+        + "[Unit]\nDescription=agentBridge FRP client\nAfter=default.target\n[Service]\n"
+        + "ExecStart=%h/.asb-frp/bin/frpc -c %h/" + clientConfigPath(label) + "\n"
+        + "Restart=always\nRestartSec=3\n[Install]\nWantedBy=default.target\nUNIT\n"
+        + "  printf 'ASB_STAGE=service\\n'\n"
+        + "  systemctl --user daemon-reload\nsystemctl --user enable --now " + unit + "\n"
+        + "  systemctl --user restart " + unit + "\nsleep 1\nsystemctl --user is-active --quiet " + unit + "\n";
+  }
+
+  static String disableClient(String label) {
+    checkClientLabel(label);
+    String unit = "asb-frpc-" + label + ".service";
+    String plist = "Library/LaunchAgents/com.agent-session-bridge.frpc." + label + ".plist";
+    return "set -eu\nif [ \"$(uname -s)\" = Darwin ]; then\n"
+        + "  launchctl bootout \"gui/$(id -u)\" \"$HOME/" + plist + "\" >/dev/null 2>&1 || true\n"
+        + "  rm -f \"$HOME/" + plist + "\"\n"
+        + "else\n"
+        + "  systemctl --user disable --now " + unit + "\n"
+        + "  rm -f \"$HOME/.config/systemd/user/" + unit + "\"\n"
+        + "  systemctl --user daemon-reload\nfi\n"
+        + "rm -f \"$HOME/" + clientConfigPath(label) + "\"\n";
+  }
+
   static String macLaunchAgent(String label) {
     if (!label.matches("[A-Za-z0-9_.-]+")) throw new IllegalArgumentException("Invalid launch agent label");
     return "printf 'ASB_STAGE=launch-agent\\n'\n"
@@ -140,10 +181,10 @@ final class FrpInstallSupport {
         + "<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict>"
         + "<key>Label</key><string>com.agent-session-bridge.frpc." + label + "</string>"
         + "<key>ProgramArguments</key><array><string>${home_xml}/.asb-frp/bin/frpc</string><string>-c</string>"
-        + "<string>${home_xml}/.config/agent-session-bridge/frpc.toml</string></array>"
+        + "<string>${home_xml}/.config/agent-session-bridge/frp/" + label + ".toml</string></array>"
         + "<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>"
-        + "<key>StandardOutPath</key><string>${home_xml}/.asb-frp/frpc.log</string>"
-        + "<key>StandardErrorPath</key><string>${home_xml}/.asb-frp/frpc-error.log</string>"
+        + "<key>StandardOutPath</key><string>${home_xml}/.asb-frp/" + label + ".log</string>"
+        + "<key>StandardErrorPath</key><string>${home_xml}/.asb-frp/" + label + "-error.log</string>"
         + "</dict></plist>\nPLIST\n"
         + "plutil -lint \"$plist\" >/dev/null\n"
         + "launchctl bootout \"$domain\" \"$plist\" >/dev/null 2>&1 || true\n"
@@ -151,6 +192,6 @@ final class FrpInstallSupport {
         + "launchctl kickstart \"$domain/com.agent-session-bridge.frpc." + label + "\"\n"
         + "sleep 1\n"
         + "launchctl print \"$domain/com.agent-session-bridge.frpc." + label + "\" | grep -q 'state = running' "
-        + "|| { echo 'FRP launch agent is not running; inspect ~/.asb-frp/frpc-error.log' >&2; exit 2; }\n";
+        + "|| { echo 'FRP launch agent is not running; inspect ~/.asb-frp/" + label + "-error.log' >&2; exit 2; }\n";
   }
 }

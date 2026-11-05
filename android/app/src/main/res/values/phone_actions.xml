@@ -1,0 +1,4 @@
+<resources>
+  <string name="phone_actions_label">小镇 · 手机操作</string>
+  <string name="phone_actions_description">仅在你点按执行后，向所选 App 输入文字或提交搜索。一次操作 20 秒自动停止，不读取密码框，不上传界面内容。可随时关闭。</string>
+</resources>

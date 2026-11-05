@@ -1,0 +1,4 @@
+<resources>
+  <string name="phone_actions_label">Office Town · On-device actions</string>
+  <string name="phone_actions_description">After you explicitly run an action, enter text or request Search in the chosen app. Each action stops after 20 seconds. Password fields are excluded. Screen contents are not uploaded. Disable anytime.</string>
+</resources>

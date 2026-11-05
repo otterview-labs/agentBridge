@@ -36,11 +36,17 @@ static class JSONObject{
 static class JSONArray{
  final List<Object> values=new ArrayList<>();JSONArray(){} JSONArray(JSONArray other){values.addAll(other.values);} JSONArray(String raw){values.addAll(((JSONArray)fixtures.get(raw)).values);}
  JSONArray put(Object v){values.add(v);return this;} int length(){return values.size();} Object get(int i){return values.get(i);} JSONObject getJSONObject(int i){return (JSONObject)get(i);}
+ String getString(int i){return String.valueOf(get(i));} String optString(int i){return i<length()?String.valueOf(get(i)):"";}
  JSONObject optJSONObject(int i){Object v=i<length()?get(i):null;return v instanceof JSONObject?(JSONObject)v:null;} Object remove(int i){return values.remove(i);}public String toString(){return encode(this);}
 }
 static void check(boolean v){if(!v)throw new AssertionError();}
 `;
-function harness(t,name,body){const root=fs.mkdtempSync(path.join(os.tmpdir(),'asb-butler-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const file=path.join(root,name+'.java');fs.writeFileSync(file,`import java.util.*;import java.util.regex.*;import java.util.concurrent.*;import java.io.*;import java.nio.charset.StandardCharsets;public class ${name}{${json}${body}}\n${fs.readFileSync(path.join(source,'UiText.java'),'utf8').replace(/^package .*;\n/m,'')}`);const bin=n=>javaHome?path.join(javaHome,'bin',n):n;execFileSync(bin('javac'),['-d',root,file]);assert.equal(execFileSync(bin('java'),['-cp',root,name],{encoding:'utf8',timeout:10000}).trim(),'ok');}
+function harness(t,name,body,dependenciesOrImports=[]){const dependencies=Array.isArray(dependenciesOrImports)?dependenciesOrImports:[];const imports=typeof dependenciesOrImports==="string"?dependenciesOrImports:"";const root=fs.mkdtempSync(path.join(os.tmpdir(),'asb-butler-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));const file=path.join(root,name+'.java');fs.writeFileSync(file,`import java.util.*;import java.net.*;import java.util.function.*;import java.util.regex.*;import java.util.concurrent.*;import java.io.*;import java.nio.charset.StandardCharsets;${imports}public class ${name}{${json}${dependencies.map(productionClass).join("\n")}${body}}\n${fs.readFileSync(path.join(source,'UiText.java'),'utf8').replace(/^package .*;\n/m,'')}`);const bin=n=>javaHome?path.join(javaHome,'bin',n):n;execFileSync(bin('javac'),['-d',root,file]);assert.equal(execFileSync(bin('java'),['-cp',root,name],{encoding:'utf8',timeout:10000}).trim(),'ok');}
 
 
-module.exports={source,methods,harness};
+function productionClass(file){
+  return fs.readFileSync(path.join(source,file),'utf8')
+    .replace(/^package .*;\r?\n/m,'').replace(/^import .*;\r?\n/gm,'')
+    .replace(/^final class /m,'static final class ');
+}
+module.exports={source,methods,harness,productionClass};

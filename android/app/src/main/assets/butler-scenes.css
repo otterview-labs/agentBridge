@@ -1,0 +1,117 @@
+/* Keep the pixel receptionist; let the conversation own the available space. */
+body[data-view="butler"] { --muted: #3d5148; }
+body[data-view="butler"] #main { padding-top: 6px; }
+#butler { gap: 8px; }
+#butler .butlerHero { position: relative; border: 2px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); color: var(--ink); }
+body[data-view="butler"] #butler .butlerHeroBody { display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: center; gap: 6px; min-height: 58px; padding: 5px 55px 5px 8px; }
+#butler .butlerHeroBody .employeeStage, #butler.hasConversation .butlerHeroBody .employeeStage { display: block; width: 40px; height: 44px; margin: 0; transform: none; background: transparent; }
+#butler .employeeStage::before, #butler .employeeStage::after { display: none; }
+#butler .gameSprite[data-role="butler"] { background-image: url('game-art/butler-reception.png'); background-size: contain; background-position: center; }
+#butler .employeeBubble { display: none; }
+body[data-view="butler"] #butler .butlerHeroHeader { display: block; min-width: 0; padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; }
+#butler .butlerHeroHeader h2, #butler.hasConversation .butlerHeroHeader h2 { margin: 0; color: var(--ink); font-size: 17px; font-weight: 700; line-height: 1.25; }
+body[data-view="butler"] #butler .butlerHeroHeader #piMeta { display: block; margin: 2px 0 0; color: var(--muted); font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#butler #startCall { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 48px; padding: 0 9px; border: 1px solid var(--primary); border-radius: 5px; background: var(--primary); color: var(--surface); font-size: 14px; font-weight: 650; white-space: nowrap; }
+#butler #startCall .uiIcon { width: 17px; height: 17px; }
+.butlerActions > summary { position: absolute; inset: 5px 5px auto auto; display: grid; place-items: center; width: 44px; height: 48px; border: 1px solid var(--town-frame); border-radius: 5px; color: var(--primary); list-style: none; cursor: pointer; }
+.butlerActions > summary::-webkit-details-marker { display: none; }
+.butlerActions[open] > summary { background: var(--primary-soft); }
+#butler .butlerAdvice, #butler.hasConversation .butlerAdvice { display: block; margin: 0; padding: 0 10px 8px; border: 0; background: transparent; }
+#butler .butlerAdvice p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+#butler .butlerToolbar { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4px; padding: 4px; border-top: 1px solid var(--town-frame); background: var(--town-paper); }
+#butler .butlerToolbar .smallAction { display: grid; align-content: center; justify-items: center; gap: 4px; min-width: 0; min-height: 48px; padding: 5px 2px; border: 0; border-radius: 5px; background: transparent; color: var(--primary); font-size: 14px; font-weight: 500; white-space: normal; }
+.butlerToolbar .uiIcon { width: 18px; height: 18px; }
+.butlerToolbar .actionLabel { font-size: 14px; line-height: 1.3; }
+.desktopCallChoice:not([hidden]) { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; padding: 8px 10px 6px; border-top: 1px solid var(--town-frame); }
+.desktopCallChoice p { flex-basis: 100%; margin: 0; color: var(--ink); font-size: 14px; line-height: 1.5; }
+#butler .desktopCallChoice button { min-height: 48px; padding: 0 10px; color: var(--primary); font-size: 14px; }
+#butler #desktopCallContinue { background: var(--primary-soft); }
+#butler[data-model-ready="false"] #openCloudFromButler { background: var(--primary-soft); }
+#butler button:disabled { opacity: .5; }
+#butler .connectionHint { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px 10px; min-height: 48px; padding: 0 2px; color: var(--muted); font-size: 14px; line-height: 1.55; }
+#butler[data-model-ready="false"] .connectionHint:not(.error), #butler.hasConversation .connectionHint:not(.error) { display: none; }
+#butler .connectionMessage { flex: 1; min-width: 0; display: grid; gap: 3px; }
+#butlerConnectionTitle { color: var(--attention); font-size: 14px; line-height: 1.5; font-weight: 650; }
+#butler .connectionHint.error { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--attention); background: var(--attention-soft); }
+#butler .connectionHint button { flex: 0 0 auto; min-height: 48px; padding: 8px 4px; color: var(--primary); font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+#butlerConnectionDetails { flex: 1; min-width: 0; }
+#butlerConnectionDetails summary { display: flex; align-items: center; gap: 6px; min-height: 48px; color: inherit; list-style: none; font-size: 14px; cursor: pointer; }
+#butlerConnectionDetails summary::-webkit-details-marker { display: none; }
+#butlerConnectionDetails summary[aria-disabled="true"] { cursor: default; }
+.connectionChevron { display: none; width: 18px; height: 18px; flex: 0 0 18px; color: var(--muted); }
+.error .connectionChevron { display: block; }
+#butlerConnectionDetails[open] .connectionChevron { transform: rotate(180deg); }
+#butlerConnectionRaw { max-height: 132px; overflow: auto; margin: 4px 0 0; padding: 10px; background: var(--surface); border-radius: 6px; color: var(--ink); font: inherit; font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+#butler .butlerConversation { margin-top: 0; border: 2px solid var(--town-frame); border-radius: 5px; overflow: hidden; background: var(--town-paper); }
+#butler .piMessages { gap: 14px; padding: 12px; background: var(--town-room-art) center / cover no-repeat; scrollbar-width: thin; scrollbar-color: #a6b39d transparent; }
+#butler .piMessage { font-size: 16px; line-height: 1.75; }
+#butler .piMessage.assistant { padding: 14px; border: 1px solid var(--town-frame); background: var(--town-paper); border-radius: 5px; }
+#butler .piMessage.user { max-width: 90%; padding: 10px 14px; background: var(--primary); border-radius: 5px; }
+#butler .messageMeta { gap: 8px; margin-bottom: 8px; }
+#butler .messageAvatar { width: 32px; height: 32px; border-radius: 0; background: transparent; }
+#butler .piMessageAuthor { font-size: 14px; }
+#butler .chatWelcome { padding: 16px 12px; border: 1px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); color: var(--muted); }
+#butler .chatWelcome h4 { margin: 0 0 8px; color: var(--ink); font-size: 18px; line-height: 1.4; }
+#butler .chatWelcome p { margin: 0; font-size: 14px; line-height: 1.65; }
+#butler .chatSetupAction { min-width: 128px; min-height: 48px; margin-top: 14px; padding: 10px 16px; border: 0; border-radius: 10px; background: var(--primary); color: var(--surface); font-size: 14px; }
+#butler .butlerDetails { border-color: var(--line); }
+#butler .butlerDetails > summary { gap: 10px; padding: 8px 2px; min-height: 48px; color: var(--ink); }
+#butlerChatDock { padding: 6px 12px 5px; border-top: 2px solid var(--town-frame); background: var(--town-paper); }
+#butlerChatDock .chatInputRow { display: grid; grid-template-columns: 48px minmax(0,1fr) 48px; align-items: end; gap: 4px; margin-top: 0; padding: 4px; border: 1px solid var(--town-frame); border-radius: 5px; background: var(--surface); }
+#butlerChatDock .chatInputRow:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+#butlerChatDock #piInput { min-height: 48px; max-height: 96px; padding: 10px 4px; border: 0; border-radius: 0; background: transparent; font-size: 16px; line-height: 1.6; }
+#butlerChatDock #piInput:focus { outline: 0; }
+#butlerChatDock :is(.voiceButton, .sendButton) { width: 48px; height: 48px; border: 0; border-radius: 5px; background: transparent; }
+#butlerChatDock .sendButton { color: var(--surface); background: var(--primary); }
+#butlerChatDock .voiceButton.recording { color: var(--surface); background: #98452d; }
+.butlerComposerOptions { margin: 0 10px; border-top: 1px solid var(--town-frame); }
+.butlerComposerOptions > summary { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 8px 2px; color: var(--muted); font-size: 14px; line-height: 1.5; list-style: none; cursor: pointer; }
+.butlerComposerOptions > summary::-webkit-details-marker { display: none; }
+.butlerComposerOptions > summary svg { width: 18px; height: 18px; flex: 0 0 18px; }
+.butlerComposerOptions[open] > summary svg { transform: rotate(180deg); }
+#butlerScopePreview { flex: 1; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.butlerComposerPanel { display: grid; gap: 8px; max-height: min(38dvh, 280px); overflow: auto; padding-bottom: 12px; }
+#butlerActions .chatQuickRow { gap: 8px; margin: 0; }
+#butlerActions .chatQuickRow button { min-height: 48px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--primary); background: transparent; font-size: 14px; }
+#butlerActions .piMemoryScope { gap: 8px; margin: 0; font-size: 14px; }
+#butlerActions #piMemoryScope { min-width: 0; min-height: 48px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font-size: 14px; }
+#butlerActions .voiceOptions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px 8px; margin: 0; }
+#butlerActions .voiceOptions button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 48px; border-radius: 8px; padding: 6px 4px; white-space: normal; color: var(--muted); background: transparent; font-size: 14px; }
+#butlerActions .voiceOptions button.active { color: var(--primary); background: var(--primary-soft); }
+.voicePreferenceMark { flex: 0 0 16px; width: 16px; height: 16px; }
+.voiceOptions button:not(.active) .preferenceCheck { display: none; }
+#butlerActions #voiceStateText { grid-column: 1 / -1; color: var(--muted); font-size: 14px; line-height: 1.5; }
+@media (hover:hover) { #butler .butlerToolbar button:hover, #butlerActions .chatQuickRow button:hover { color: var(--primary); background: var(--primary-soft); } }
+@media (max-height:550px) {
+  body[data-view="butler"] #main { padding-top: 0; }
+  #butler .butlerToolbar { padding-block: 0; border-top: 0; }
+  #butler .butlerToolbar .uiIcon { display: none; }
+  #butler .connectionHint.error { display: flex; padding-block: 6px; }
+  #butlerChatDock { padding-top: 6px; }
+  .butlerComposerPanel { max-height: 120px; }
+}
+@media (prefers-reduced-motion:reduce) { .butlerComposerOptions > summary svg { transition: none; } }
+
+#butler .chatNotice { padding: 12px; border: 1px solid var(--line); background: var(--attention-soft); color: var(--attention); font-size: 14px; line-height: 1.65; }
+#butler .chatNotice > strong { display: block; font-weight: 650; }
+#butler .chatNotice details { margin-top: 8px; }
+#butler .chatNotice summary { min-height: 48px; padding-block: 12px; color: var(--muted); font-size: 14px; cursor: pointer; }
+#butler .chatNotice pre { max-height: 132px; overflow: auto; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 14px; }
+
+/* The real pending count connects the receptionist directly to the review queue. */
+#butler #butlerEmployeeName { display: flex; align-items: center; max-width: 100%; min-height: 48px; padding: 8px 0; border: 0; background: transparent; color: var(--primary); font-size: 14px; font-weight: 500; line-height: 1.5; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+#butler #butlerEmployeeName:disabled { opacity: 1; color: var(--muted); text-decoration: none; }
+
+
+/* Text stays fully visible while records and controls update. */
+#butler .piMessage { animation: none; opacity: 1; }
+#butler .butlerToolbar button:disabled { opacity: 1; color: var(--muted); background: var(--surface-muted); }
+body:is([data-view="butler"], [data-view="todo"]) .tab { font-size: 14px; }
+
+/* Error recovery and keyboards retain reading space without shrinking text. */
+
+/* Shared desktop sessions keep actionable connection and outbox states visible. */
+#butler[data-source="desktop"] .connectionHint.desktopNotice { display: flex; }
+#butler[data-source="desktop"] .butlerToolbar { grid-template-columns: repeat(3,minmax(0,1fr)); }
+#butler .butlerSource:not([hidden]) { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; margin: 0; font-size: 14px; }
+#butler .butlerSource select { text-overflow: ellipsis; padding: 4px 8px; border: 2px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); }

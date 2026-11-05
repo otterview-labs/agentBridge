@@ -1,0 +1,46 @@
+body[data-view="todo"] { --muted: #3d5148; }
+/* The queue shares the butler's paper and ink; synced questions are the main content. */
+body[data-view="todo"] #cloudState, body[data-view="todo"] .summary { display: none; }
+body[data-view="todo"] .app { padding-bottom: calc(var(--game-nav-height) + 16px); }
+body[data-view="todo"] #main { padding-top: 16px; }
+#todo { display: grid; gap: 18px; }
+#todo.hidden { display: none; }
+.todoPageHeader { display: grid; gap: 8px; padding: 12px; border: 2px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); }
+.todoPageTitle { display: flex; align-items: center; gap: 10px; }
+.todoPageTitle h2 { margin: 0; color: var(--ink); font-size: 22px; font-weight: 700; line-height: 1.35; }
+.todoCount { padding: 3px 8px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); font-size: 14px; font-variant-numeric: tabular-nums; line-height: 1.5; }
+.todoPageHeader > p, .todoGroupHint { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+.todoGroup { display: grid; gap: 10px; min-width: 0; }
+.todoGroupTitle { margin: 0 2px; padding: 8px 10px; border: 1px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); color: var(--muted); font-size: 14px; font-weight: 600; line-height: 1.5; }
+.todoGroupHint { margin: -3px 2px 2px; padding: 8px 10px; background: var(--town-paper); }
+#todo .todoCard { display: block; width: 100%; min-width: 0; padding: 0; border: 2px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); color: var(--ink); box-shadow: none; animation: none; opacity: 1; text-align: left; overflow: hidden; overflow-wrap: anywhere; }
+#todo .todoCardHeader { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--town-room-art) center 30% / cover no-repeat; }
+#todo .todoAvatarWrap { display: grid; place-items: center; flex: 0 0 88px; width: 88px; height: 88px; border: 0; border-radius: 0; background: transparent; overflow: visible; }
+#todo .todoAvatarWrap::before { display: none; }
+#todo .todoAvatarWrap .gameSprite { width: 88px; height: 88px; animation: none; }
+#todo .todoAvatarWrap .pixelAvatar { animation: none; }
+.todoIdentity { display: grid; flex: 1; min-width: 0; gap: 3px; padding: 8px; border: 1px solid var(--town-frame); border-radius: 5px; background: var(--town-paper); }
+.todoTaskTitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--ink); font-size: 16px; font-weight: 650; line-height: 1.5; }
+.todoSource { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--muted); font-size: 14px; line-height: 1.5; }
+#todo .todoNeed { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; margin: 12px; color: var(--ink); font-size: 16px; font-weight: 400; line-height: 1.75; }
+.todoCardFooter { padding: 0 12px 12px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.todoRecordTag { color: var(--attention); }
+.todoTaskRef { color: var(--muted); font-variant-numeric: tabular-nums; }
+.todoOpen { display: flex; align-items: center; gap: 5px; margin-left: auto; color: var(--primary); font-weight: 600; }
+.todoOpen .uiIcon { width: 16px; height: 16px; }
+#todo .todoCard[data-record="true"] { background: var(--surface-muted); }
+#todo .todoCard[data-record="true"] .todoIdentity { background: var(--surface-muted); }
+#todo .todoCard[data-record="true"] .todoRecordTag { color: var(--muted); }
+#todo .todoCard[data-record="true"] .todoAvatarWrap { background: transparent; filter: saturate(.5); }
+#todo .todoCard:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+#todo .todoCard:active { background: var(--primary-soft); }
+.todoEmpty { display: grid; justify-items: center; gap: 10px; padding: 26px 12px; border: 2px solid var(--town-frame); border-radius: 5px; background: var(--town-room-art) center / cover no-repeat; text-align: center; }
+.todoEmptyAvatar { display: block; width: 104px; height: 96px; }
+.todoEmptyAvatar .gameSprite { background-image: url('game-art/butler-reception.png'); background-size: contain; background-position: center; }
+.todoEmpty h3 { padding: 8px 12px; background: var(--town-paper); border-radius: 5px; margin: 0; color: var(--ink); font-size: 17px; line-height: 1.5; }
+.todoEmpty p { max-width: 28em; margin: 0; padding: 8px 12px; border-radius: 5px; background: var(--town-paper); color: var(--muted); font-size: 14px; line-height: 1.65; }
+.todoEmptyActions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#todo .todoEmptyActions button { min-height: 48px; padding: 10px 16px; border-radius: 5px; border: 1px solid var(--town-frame); background: var(--town-paper); font-size: 14px; }
+#todo .todoEmptyActions .dark { color: var(--surface); background: var(--primary); border-color: var(--primary); }
+@media (hover:hover) { #todo .todoCard:hover { border-color: var(--primary); } }
+@media (max-width:350px) { #todo .todoCardHeader { gap: 8px; padding: 8px; } #todo .todoAvatarWrap, #todo .todoAvatarWrap .gameSprite { width: 72px; height: 80px; } #todo .todoAvatarWrap { flex-basis: 72px; } }

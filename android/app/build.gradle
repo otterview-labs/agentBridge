@@ -17,6 +17,13 @@ def signingValue = { String key, String envName ->
 def releaseKeystore = signingValue('storeFile', 'ASB_ANDROID_STORE_FILE')
 def hasReleaseSigning = releaseKeystore != null && !releaseKeystore.isEmpty()
 
+// Explicit debug-only compatibility experiment. Normal/release builds keep
+// the existing native defaults. Both A/B variants use the same options mask.
+def connectorMonitorAB = providers.gradleProperty('connectorMonitorAB').getOrElse('none')
+if (!(connectorMonitorAB in ['none', 'on', 'off'])) {
+  throw new GradleException('connectorMonitorAB must be none, on or off')
+}
+
 android {
   namespace 'com.otterview.agentsessionbridge'
   compileSdk 35
@@ -25,8 +32,10 @@ android {
     applicationId 'com.otterview.agentsessionbridge'
     minSdkVersion 24
     targetSdkVersion 35
-    versionCode 69
-    versionName '0.5.53'
+    versionCode 78
+    versionName '0.5.62'
+    buildConfigField 'boolean', 'CONNECTOR_MONITOR_AB', 'false'
+    buildConfigField 'boolean', 'CONNECTOR_MONITOR_OFF', 'false'
   }
   buildFeatures { buildConfig true }
   flavorDimensions 'language'
@@ -56,6 +65,8 @@ android {
   buildTypes {
     debug {
       applicationIdSuffix '.debug'
+      buildConfigField 'boolean', 'CONNECTOR_MONITOR_AB', connectorMonitorAB == 'none' ? 'false' : 'true'
+      buildConfigField 'boolean', 'CONNECTOR_MONITOR_OFF', connectorMonitorAB == 'off' ? 'true' : 'false'
     }
     release {
       if (hasReleaseSigning) {
@@ -74,5 +85,17 @@ android {
 dependencies {
   coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.1.5'
   implementation 'com.github.mwiede:jsch:0.2.26'
+  // Android does not load JSch's Java 15 multi-release Ed25519 classes.
+  // Keep its supported portable crypto fallback available for SSH keys.
+  implementation 'org.bouncycastle:bcprov-jdk15to18:1.86'
   implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+  implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+  // ZXing 4.3.0's published POM omits its AndroidX runtime dependencies.
+  // CaptureManager needs ContextCompat/ActivityCompat when opening the camera.
+  implementation 'androidx.core:core:1.13.0'
+  // Third-party webrtc-sdk precompiled BSD-3-Clause build; full notices ship in assets/licenses.
+  implementation 'io.github.webrtc-sdk:android:150.7871.01'
+  testImplementation 'junit:junit:4.13.2'
 }
+
+apply from: rootProject.file('sherpa-offline.gradle')

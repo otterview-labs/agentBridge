@@ -17,7 +17,11 @@ public final class FrpScriptHarness {
     } else if ("service-account".equals(args[0])) {
       System.out.print(FrpInstallSupport.serviceAccount());
     } else if ("mac".equals(args[0])) {
-      System.out.print(FrpInstallSupport.macLaunchAgent("asb-machine-2-ssh"));
+      System.out.print(FrpInstallSupport.macLaunchAgent(args.length > 1 ? args[1] : "asb-machine-2-ssh"));
+    } else if ("linux-client".equals(args[0])) {
+      System.out.print(FrpInstallSupport.linuxUserService(args[1]));
+    } else if ("disable-client".equals(args[0])) {
+      System.out.print(FrpInstallSupport.disableClient(args[1]));
     } else {
       throw new IllegalArgumentException("Unknown fixture");
     }
