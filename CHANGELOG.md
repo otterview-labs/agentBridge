@@ -2,6 +2,25 @@
 
 Notable changes to agentBridge are documented here.
 
+## Android 0.5.62 — 2026-11-05 (local test build / 本地测试版)
+
+### 管家聊天创建笔记与提醒
+
+- 通过中文聊天指令使用当前管家模型生成小红书标题、正文，保存本机草稿，按要求安排一次性提醒。
+- 直接打开系统图片选择器选择一张图片，或按明确指令及用户配置沿用最近图片；支持取消配图，不静默读取相册。
+- 支持为最近保存的草稿修改、取消提醒，调整图片及查看草稿清单；这些管理操作无需再次调用写作模型。
+- 新增聊天笔记默认设置：文风、读者、篇幅、配图方式、默认提醒时刻和时区。明确聊天要求覆盖默认值，未要求提醒时不自动创建日程。
+- 校验时间歧义、过去日期和不支持的周期计划；模型只生成文案，不决定图片 URI 或执行时间。操作失败保留可读错误，聊天重新生成不会重放手机操作。
+
+### 范围与验证
+
+- 沿用 0.5.61 的本机草稿、一次性通知提醒及 Android 分享交接能力；最终发布需在小红书确认。没有无人值守发布、多图、周期提醒或 Lynote 素材分析。
+- 文案生成需要可用的管家模型；使用电脑端 Pi 时仍需该电脑在线。自然语言指令和时间解析目前支持文档列出的中文表达。
+- 143 项本地自动测试通过，中英文 debug APK 构建通过。真实模型生成、系统选图、系统通知和小红书接收兼容性尚未做本版手机验收。
+- 此记录描述本地测试构建，不表示已经发布 GitHub Release。
+
+使用方式及证据见 [0.5.62 验证记录](docs/qa/note-chat-2026-11-05.md)；前置手机搜索与笔记能力见 [0.5.61 范围记录](docs/qa/phone-search-notes-2026-11-05.md)。
+
 ## Android 0.5.53 — 2026-10-10
 
 - Add a user-enabled phone supervision service and persistent per-task queue with scoped goals, reply limits, pause/cancel, recovery and manual result acceptance.
