@@ -8,6 +8,8 @@
 
 - Java 17 下完整 Node 回归：276 项，270 通过、6 跳过；日志 `/tmp/agentbridge-0562-all-tests-2.log`。
 - 补齐 WebView 公开接口契约，保留既有接口和参数转发测试。
+- 首轮 GitHub debug 编译通过；Lint 发现本机录音的权限异常未被显式处理，已补充 SecurityException 分支并提示用户允许麦克风。最终检查结果以 PR #92 为准。
+- 签名发布与 CI 均使用 GitHub 托管 Ubuntu，避免自托管机磁盘不足阻塞发布。
 - 本机首次构建因磁盘空间不足失败，完整 debug 构建和 Lint 交由 GitHub CI 验证。发布工作流从合并后的标签重建两款签名 release APK，并核验签名、应用 ID、语言和非 debuggable 属性。
 - 未连接或操作手机，未新增真实模型生成、系统选图、通知、小红书分享、跨网连接验收。
 
