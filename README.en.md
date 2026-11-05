@@ -31,6 +31,18 @@ Each computer becomes an office; each task gets a pixel employee.
 
 </div>
 
+## Latest changes · 0.5.62 (2026-11-05, local test build)
+
+- **Create Rednote drafts in Butler chat**: describe the topic, image preference and reminder time to generate and save a title and body without filling out another form.
+- **Manage images and reminders in chat**: select one image with the system picker, reuse the latest image, reschedule or cancel a one-time reminder, and list saved drafts.
+- **Configure writing defaults**: customize style, audience, length, image mode, fallback reminder time and timezone. Explicit chat instructions take precedence.
+
+Example: `帮我写一篇介绍深圳咖啡店的小红书笔记，配图，明天晚上八点提醒我。` Command and time parsing currently supports the documented Chinese examples. Copy generation requires a working Butler model; users select new images in the system picker.
+
+**Scheduled tasks send a reminder notification; publication must be confirmed in Rednote.** Unattended posting, multiple images and recurring reminders are not supported. All 143 local automated tests and both debug APK builds passed. Live-model generation, the system picker, notifications and Rednote handoff still need device acceptance testing. This entry does not indicate a published GitHub Release; download links above follow the actual Release version.
+
+[Full changelog](CHANGELOG.md) · [Configuration and usage](docs/qa/note-chat-2026-11-05.md#用户可配置项) · [Verification scope and pending checks](docs/qa/note-chat-2026-11-05.md)
+
 ## Get started
 
 You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, with an existing Codex or Claude Code session.
