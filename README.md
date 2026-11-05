@@ -33,7 +33,7 @@ Each computer becomes an office; each task gets a pixel employee.
 
 </div>
 
-## Latest changes · 0.5.62 (2026-11-05, local test build)
+## Latest changes · 0.5.62 (2026-11-05, device acceptance pending)
 
 - **Create Rednote drafts in Butler chat**: describe the topic, image preference and reminder time to generate and save a title and body without filling out another form.
 - **Manage images and reminders in chat**: select one image with the system picker, reuse the latest image, reschedule or cancel a one-time reminder, and list saved drafts.
@@ -41,7 +41,7 @@ Each computer becomes an office; each task gets a pixel employee.
 
 Example: `帮我写一篇介绍深圳咖啡店的小红书笔记，配图，明天晚上八点提醒我。` Command and time parsing currently supports the documented Chinese examples. Copy generation requires a working Butler model; users select new images in the system picker.
 
-**Scheduled tasks send a reminder notification; publication must be confirmed in Rednote.** Unattended posting, multiple images and recurring reminders are not supported. All 143 local automated tests and both debug APK builds passed. Live-model generation, the system picker, notifications and Rednote handoff still need device acceptance testing. This entry does not indicate a published GitHub Release; download links above follow the actual Release version.
+**Scheduled tasks send a reminder notification; publication must be confirmed in Rednote.** Unattended posting, multiple images and recurring reminders are not supported. The full local regression suite passed 270 tests, with 6 skipped. Live-model generation, the system picker, notifications and Rednote handoff still need device acceptance testing. Build and release status is tracked in [PR #92](https://github.com/otterview-labs/agentBridge/pull/92); download links above follow the latest published Release.
 
 [Full changelog](CHANGELOG.md) · [Configuration and usage](docs/qa/note-chat-2026-11-05.md#用户可配置项) · [Verification scope and pending checks](docs/qa/note-chat-2026-11-05.md)
 
@@ -51,7 +51,7 @@ You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, wi
 
 ### 1. Download the app
 
-[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The signed release is about 1.6 MB.
+[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The current package includes the voice runtime and desktop connection components; speech models download separately on demand.
 
 ### 2. Connect your computer
 
