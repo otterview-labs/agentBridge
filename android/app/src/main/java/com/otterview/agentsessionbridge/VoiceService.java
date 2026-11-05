@@ -44,7 +44,8 @@ final class VoiceService {
     if (old == null) old = new JSONObject();
     JSONObject next = new JSONObject(input.toString()).put("provider", provider);
     boolean local = isLocal(provider);
-    String url = local ? "" : provider.equals("bailian") ? BAILIAN_URL : provider.equals("doubao") ? DOUBAO_URL : provider.equals("openai") ? "https://api.openai.com/v1" : input.optString("baseUrl", old.optString("baseUrl", "")).trim().replaceAll("/+$", "");
+    String url = local ? "" : provider.equals("bailian") ? BAILIAN_URL : provider.equals("doubao") ? DOUBAO_URL : provider.equals("openai") ? "https://api.openai.com/v1" : input.optString("baseUrl", old.optString("baseUrl", "")).trim();
+    while (url.endsWith("/")) url = url.substring(0, url.length() - 1);
     if (!local) {
       URL parsed;
       try { parsed = new URL(url); }

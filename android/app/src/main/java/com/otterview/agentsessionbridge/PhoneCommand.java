@@ -16,18 +16,18 @@ final class PhoneCommand {
     if(content == null || content.length() > 4000) return null;
     String value=content.trim();
     // Normalize explicit imperative search variants; never infer commands from ordinary chat.
-    Matcher inApp=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:在|去|用)\\s*(.+?)(?:里面|里|中|上)?\\s*(?:搜索|搜一下|搜|查找)(?:一下)?\\s*[:：]?\\s*(.+)$",Pattern.DOTALL).matcher(value);
+    Matcher inApp=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:在|去|用)\\s*+(.{1,100}?)(?:里面|里|中|上)?\\s*+(?:搜索|搜一下|搜|查找)(?:一下)?\\s*+[:：]?\\s*+(.+)$",Pattern.DOTALL).matcher(value);
     if(inApp.matches() && !inApp.group(1).contains("打开")) value="打开"+inApp.group(1)+"搜索 "+inApp.group(2);
-    Matcher find=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:搜索|搜一下|搜)(?:一下)?\\s*(.+?)(?:里面|里|中|上)(?:的)?\\s*[:：]?\\s*(.+)$",Pattern.DOTALL).matcher(value);
+    Matcher find=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:搜索|搜一下|搜)(?:一下)?\\s*+(.{1,100}?)(?:里面|里|中|上)(?:的)?\\s*+[:：]?\\s*+(.+)$",Pattern.DOTALL).matcher(value);
     if(find.matches()) value="打开"+find.group(1)+"搜索 "+find.group(2);
-    Matcher enSearch=Pattern.compile("^(?:please\\s+)?search\\s+(.+?)\\s+for\\s+(.+)$",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(value);
+    Matcher enSearch=Pattern.compile("^(?:please\\s++)?search\\s++(.{1,100}?)\\s++for\\s++(.+)$",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(value);
     if(enSearch.matches()) value="open "+enSearch.group(1)+" search for "+enSearch.group(2);
-    Matcher zh=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:在手机上|用手机)?打开\\s*(.+?)(?:\\s*(?:，|,)?\\s*(?:然后|并且|并)?\\s*(搜索|搜一下|搜|查找|输入)(?:一下)?\\s*[:：]?\\s*(.+))?$",Pattern.DOTALL).matcher(value);
+    Matcher zh=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:在手机上|用手机)?打开\\s*+(.{1,100}?)(?:\\s*+(?:，|,)?\\s*+(?:然后|并且|并)?\\s*+(搜索|搜一下|搜|查找|输入)(?:一下)?\\s*+[:：]?\\s*+(.+))?$",Pattern.DOTALL).matcher(value);
     String app,action,text;
     if(zh.matches()) {
       app=zh.group(1).trim();action=zh.group(2)==null?"open":zh.group(2).equals("输入")?"input":"search";text=zh.group(3)==null?"":zh.group(3).trim();
     } else {
-      Matcher english=Pattern.compile("^(?:please\\s+)?open\\s+(.+?)(?:\\s+(?:and\\s+)?(search(?:\\s+for)?|type|enter)\\s+(.+))?$",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(value);
+      Matcher english=Pattern.compile("^(?:please\\s++)?open\\s++(.{1,100}?)(?:\\s++(?:and\\s++)?(search(?:\\s++for)?|type|enter)\\s++(.+))?$",Pattern.CASE_INSENSITIVE|Pattern.DOTALL).matcher(value);
       if(!english.matches()) return null;
       app=english.group(1).trim();action=english.group(2)==null?"open":english.group(2).toLowerCase(Locale.ROOT).startsWith("search")?"search":"input";text=english.group(3)==null?"":english.group(3).trim();
     }
@@ -43,7 +43,7 @@ final class PhoneCommand {
     if((a=='"'&&b=='"')||(a=='\''&&b=='\'')||(a=='“'&&b=='”')||(a=='「'&&b=='」'))return value.substring(1,value.length()-1).trim();
     return value;
   }
-  private static String normalize(String value) {return value.toLowerCase(Locale.ROOT).replaceFirst("(?:\\s+app|应用)$", "").replaceAll("\\s+", "");}
+  private static String normalize(String value) {return value.toLowerCase(Locale.ROOT).replaceFirst("(?:\\s++app|应用)$", "").replaceAll("\\s++", "");}
   static List<JSONObject> matches(String name,JSONArray apps)throws Exception {
     String query=normalize(name);List<JSONObject> exact=new ArrayList<>(),prefix=new ArrayList<>();
     String known=aliasPackage(query);

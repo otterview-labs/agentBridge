@@ -146,7 +146,12 @@ public final class NoteTasksActivity extends Activity {
     Intent share=new Intent(Intent.ACTION_SEND).setPackage("com.xingin.xhs").putExtra(Intent.EXTRA_TEXT,content).putExtra(Intent.EXTRA_TITLE,note.optString("title"));
     String image=note.optString("image");share.setType(image.isEmpty()?"text/plain":"image/*");
     if(!image.isEmpty()){
-      Uri uri=Uri.parse(image);try(java.io.InputStream check=getContentResolver().openInputStream(uri)){if(check==null)throw new IllegalStateException(t("图片已失效，请重新选择","Image unavailable; select it again"));}
+      Uri uri=Uri.parse(image);
+      if (!"content".equals(uri.getScheme()) || uri.getAuthority() == null
+          || uri.getAuthority().equals(getPackageName()) || uri.getAuthority().startsWith(getPackageName()+".")
+          || getContentResolver().getPersistedUriPermissions().stream().noneMatch(permission -> permission.isReadPermission() && permission.getUri().equals(uri)))
+        throw new IllegalArgumentException(t("请重新选择图片以授权读取","Select the image again to grant read access"));
+      try(java.io.InputStream check=getContentResolver().openInputStream(uri)){if(check==null)throw new IllegalStateException(t("图片已失效，请重新选择","Image unavailable; select it again"));}
       share.putExtra(Intent.EXTRA_STREAM,uri);share.setClipData(ClipData.newRawUri("note-image",uri));share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
     }
     if(getPackageManager().queryIntentActivities(share,0).isEmpty()) {

@@ -12,8 +12,13 @@ final class NoteCommand {
     String s=value.trim();
     if(s.matches("(?s)^(不要|别|如何|怎么|如果|比如|例如|能不能|是否).*"))return false;
     if(existing(s)||listRequest(s))return true;
-    return s.matches("(?s)^(?:请帮我|帮我|请|麻烦)?(?:写|生成|新建|创建|安排|准备).*小红书.*")
-        || s.matches("(?s)^(?:请帮我|帮我|请)?(?:今天|明天|后天|\\d{4}-\\d{2}-\\d{2}).*(?:写|生成|新建|创建|安排).*小红书.*");
+    int rednote=s.indexOf("小红书");
+    if(rednote<0)return false;
+    Matcher direct=Pattern.compile("^(?:请帮我|帮我|请|麻烦)?(?:写|生成|新建|创建|安排|准备)").matcher(s);
+    if(direct.lookingAt())return direct.end()<=rednote;
+    Matcher dated=Pattern.compile("^(?:请帮我|帮我|请)?(?:今天|明天|后天|\\d{4}-\\d{2}-\\d{2})").matcher(s);
+    if(!dated.lookingAt() || dated.end()>rednote)return false;
+    return Pattern.compile("写|生成|新建|创建|安排").matcher(s).region(dated.end(),rednote).find();
   }
   static boolean listRequest(String value) {
     return value.matches("^(?:请帮我|帮我|请)?(?:查看|看看|列出|显示)(?:我的|所有|已安排的)?(?:小红书)?(?:笔记提醒|笔记草稿|笔记定时任务|小红书笔记|小红书草稿|小红书定时任务|小红书提醒)[。！!]?$");

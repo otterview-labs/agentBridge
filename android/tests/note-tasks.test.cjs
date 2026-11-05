@@ -39,7 +39,7 @@ test('invalid drafts, storage failures and scheduler rejection are observable wi
 test('Rednote handoff preserves draft text and image access and never records a successful post',t=>{
  const share=methods('NoteTasksActivity.java','  private void handoff(','  @Override public void onBackPressed()');
  harness(t,'NoteHandoffHarness',`
- static class Uri {String value;Uri(String v){value=v;}static Uri parse(String v){return new Uri(v);}}
+ static class Uri {String value;Uri(String v){value=v;}static Uri parse(String v){return new Uri(v);}String getScheme(){return java.net.URI.create(value).getScheme();}String getAuthority(){return java.net.URI.create(value).getAuthority();}public boolean equals(Object o){return o instanceof Uri && value.equals(((Uri)o).value);}public int hashCode(){return value.hashCode();}}
  static class ClipData {static ClipData newRawUri(String l,Uri u){return new ClipData();}static ClipData newPlainText(String l,String t){return new ClipData();}}
  static class ClipboardManager {void setPrimaryClip(ClipData c){}}
  static class Intent {
@@ -47,16 +47,22 @@ test('Rednote handoff preserves draft text and image access and never records a 
  String pkg,type;int flags;ClipData clip;Map<String,Object> extras=new HashMap<>();Intent(String a){}Intent setPackage(String p){pkg=p;return this;}Intent putExtra(String k,Object v){extras.put(k,v);return this;}Intent setType(String t){type=t;return this;}void setClipData(ClipData c){clip=c;}Intent addFlags(int f){flags|=f;return this;}
  }
  static class PM{List<Object> queryIntentActivities(Intent i,int f){return List.of(new Object());}Intent getLaunchIntentForPackage(String p){return new Intent("open");}}
- static class Resolver{java.io.InputStream openInputStream(Uri u){return new java.io.ByteArrayInputStream(new byte[]{1});}}
+ static class Permission {boolean isReadPermission(){return true;}Uri getUri(){return Uri.parse("content://picked/one");}}
+ static class Resolver{List<Permission> getPersistedUriPermissions(){return List.of(new Permission());}java.io.InputStream openInputStream(Uri u){return new java.io.ByteArrayInputStream(new byte[]{1});}}
  interface Listener{void call(Object d,int w);}
  static class AlertDialog {static class Builder{Builder(Object a){}Builder setMessage(String m){return this;}Builder setNegativeButton(String s,Listener l){return this;}Builder setPositiveButton(String s,Listener l){return this;}void show(){}}}
  static class Toast {static int LENGTH_LONG=1;static Toast makeText(Object a,String s,int l){return new Toast();}void show(){}}
+ String getPackageName(){return "com.otterview.agentsessionbridge";}
  Intent sent;PM getPackageManager(){return new PM();}Resolver getContentResolver(){return new Resolver();}void startActivity(Intent i){sent=i;}<T>T getSystemService(Class<T> c){return c.cast(new ClipboardManager());}static String t(String a,String b){return a;}
  ${share}
  public static void main(String[] args)throws Exception {
  NoteHandoffHarness h=new NoteHandoffHarness();JSONObject n=new JSONObject().put("title","Test title").put("body","Exact body").put("state","draft");
  h.handoff(n);check(h.sent.pkg.equals("com.xingin.xhs")&&h.sent.type.equals("text/plain"));check(h.sent.extras.get("text").equals("Test title\\n\\nExact body"));check(n.optString("state").equals("draft"));
- n.put("image","content://picked/one");h.handoff(n);check(h.sent.type.equals("image/*")&&h.sent.clip!=null&&h.sent.flags==1);check(((Uri)h.sent.extras.get("stream")).value.equals("content://picked/one"));check(n.optString("state").equals("draft"));System.out.println("ok");
+ n.put("image","content://picked/one");h.handoff(n);check(h.sent.type.equals("image/*")&&h.sent.clip!=null&&h.sent.flags==1);check(((Uri)h.sent.extras.get("stream")).value.equals("content://picked/one"));check(n.optString("state").equals("draft"));
+ for(String denied:List.of("file:///data/private/image", "content://com.otterview.agentsessionbridge.files/private", "content://ungranted/private")){
+  n.put("image",denied);try{h.handoff(n);throw new AssertionError("Must reject ungranted image");}catch(IllegalArgumentException expected){}
+ }
+ System.out.println("ok");
  }`);
 });
 

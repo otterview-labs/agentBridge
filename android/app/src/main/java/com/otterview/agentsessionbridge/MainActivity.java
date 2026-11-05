@@ -550,7 +550,13 @@ public final class MainActivity extends Activity {
           String url = synthesizeCloudSpeechUrl(apiKey, text, generation);
           runOnUiThread(() -> {
             if (generation != speechGeneration.get() || isFinishing() || isDestroyed()) {
-              if (url.startsWith("file:")) { try { new File(new java.net.URI(url)).delete(); } catch (Exception ignored) { /* Cache cleanup only. */ } }
+              if (url.startsWith("file:")) {
+                try {
+                  File cached = new File(new java.net.URI(url)).getCanonicalFile();
+                  if (cached.toPath().startsWith(getCacheDir().getCanonicalFile().toPath())
+                      && cached.getName().startsWith("butler-speech-")) cached.delete();
+                } catch (Exception ignored) { /* Cache cleanup only. */ }
+              }
               return;
             }
             playSpeechUrl(url);

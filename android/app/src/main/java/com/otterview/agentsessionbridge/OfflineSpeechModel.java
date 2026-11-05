@@ -151,8 +151,12 @@ final class OfflineSpeechModel {
         if (expected == null || entry.isDirectory() || !seen.add(entry.getName())) {
           throw new IOException("Unexpected file in the model pack");
         }
+        File target = new File(staged, entry.getName()).getCanonicalFile();
+        if (!target.toPath().startsWith(staged.getCanonicalFile().toPath())) {
+          throw new IOException("Model entry escapes staging directory");
+        }
         long remaining = expected;
-        try (FileOutputStream output = new FileOutputStream(new File(staged, entry.getName()))) {
+        try (FileOutputStream output = new FileOutputStream(target)) {
           for (int n; (n = input.read(buffer)) != -1;) {
             remaining -= n;
             if (remaining < 0) throw new IOException("Model file exceeded its expected size");

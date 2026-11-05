@@ -115,6 +115,7 @@ public class SpeechHarness {
   boolean isFinishing() { return false; }
   boolean isDestroyed() { return false; }
   void runOnUiThread(Runnable body) { if (Thread.currentThread() == main) body.run(); else ui.add(body); }
+  File getCacheDir() { return new File(System.getProperty("java.io.tmpdir"), "speech-fixture"); }
   void stopCloudSpeechPlayback() {}
   void stopStreamingCapture() {}
   void playSpeechUrl(String url) { plays.incrementAndGet(); }

@@ -134,3 +134,14 @@ test('note admission shares chat lock and history, handles validation errors bef
  int models=c.models;c.fail=true;String update=new JSONObject().put("content","把刚才的笔记取消提醒").toString();c.beginNoteCommand(update);check(c.models==models&&!c.store.busy);check(c.operations.result.getJSONObject("reply").optString("content").contains("没有发布"));System.out.println("ok");
  }`);
 });
+
+
+test('repeated writing words are processed without combinatorial backtracking',t=>{
+ run(t,'NoteCommandLongInputHarness',`
+ public static void main(String[] args)throws Exception {
+  long began=System.nanoTime();
+  for(int i=0;i<100;i++)check(!NoteCommand.accepts("今天写"+"写".repeat(3900)));
+  check(NoteCommand.accepts("明天写一篇小红书笔记"));
+  check(System.nanoTime()-began<2_000_000_000L);System.out.println("ok");
+ }`);
+});

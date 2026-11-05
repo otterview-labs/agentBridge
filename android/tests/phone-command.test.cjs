@@ -116,3 +116,14 @@ test('natural imperative variants resolve to the same bounded command without in
  System.out.println("ok");
  }`,['PhoneCommand.java']);
 });
+
+
+test('long whitespace input cannot trigger regex backtracking stalls',t=>{
+ harness(t,'PhoneCommandLongInputHarness',`
+ public static void main(String[] args)throws Exception {
+  long began=System.nanoTime();
+  for(String prefix:new String[]{"在","搜","search ","打开","open "})
+   for(int i=0;i<20;i++)PhoneCommand.parse(prefix+" ".repeat(3800)+"x");
+  check(System.nanoTime()-began<2_000_000_000L);System.out.println("ok");
+ }`,['PhoneCommand.java']);
+});

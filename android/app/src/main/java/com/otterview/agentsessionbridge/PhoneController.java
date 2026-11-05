@@ -744,6 +744,10 @@ final class PhoneController {
 
   public String setTtsSettings(double rate, double pitch) {
     try {
+      if (!Double.isFinite(rate) || !Double.isFinite(pitch)
+          || rate < 0.1 || rate > 4.0 || pitch < 0.1 || pitch > 4.0) {
+        throw new IllegalArgumentException("Invalid speech rate or pitch");
+      }
       activity.setTtsSettings((float) rate, (float) pitch);
       return success(new JSONObject()
           .put("rate", rate)
