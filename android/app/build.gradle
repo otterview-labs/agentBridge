@@ -99,3 +99,7 @@ dependencies {
 }
 
 apply from: rootProject.file('sherpa-offline.gradle')
+// Native Java regression harnesses use the exact runtime artifacts resolved by Android.
+tasks.register('prepareNativeTestDependencies') {
+  doLast { configurations.getByName('zhDebugRuntimeClasspath').files }
+}

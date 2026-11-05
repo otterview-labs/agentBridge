@@ -41,6 +41,14 @@ jobs:
           npx playwright install --with-deps chromium
           sudo apt-get install -y --no-install-recommends fonts-noto-cjk
 
+      - name: Resolve Android artifacts for native regression harnesses
+        env:
+          ASB_GRADLE_SKIP_CN_MIRRORS: '1'
+        working-directory: android
+        run: |
+          sed -i 's|^distributionUrl=.*|distributionUrl=https\://services.gradle.org/distributions/gradle-8.9-bin.zip|' gradle/wrapper/gradle-wrapper.properties
+          ./gradlew --no-daemon --stacktrace :app:prepareNativeTestDependencies
+
       - name: Run tests
         working-directory: android/tests
         run: npm test
