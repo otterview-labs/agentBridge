@@ -151,7 +151,7 @@ public final class NoteTasksActivity extends Activity {
           || uri.getAuthority().equals(getPackageName()) || uri.getAuthority().startsWith(getPackageName()+".")
           || getContentResolver().getPersistedUriPermissions().stream().noneMatch(permission -> permission.isReadPermission() && permission.getUri().equals(uri)))
         throw new IllegalArgumentException(t("请重新选择图片以授权读取","Select the image again to grant read access"));
-      try(java.io.InputStream check=getContentResolver().openInputStream(uri)){if(check==null)throw new IllegalStateException(t("图片已失效，请重新选择","Image unavailable; select it again"));}
+      // The receiving app resolves this explicitly granted URI. Do not open user-controlled providers here.
       share.putExtra(Intent.EXTRA_STREAM,uri);share.setClipData(ClipData.newRawUri("note-image",uri));share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
     }
     if(getPackageManager().queryIntentActivities(share,0).isEmpty()) {
