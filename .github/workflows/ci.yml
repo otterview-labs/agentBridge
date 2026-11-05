@@ -12,11 +12,12 @@ permissions:
 jobs:
   tests:
     name: UI, installer, reply and native regression tests
-    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
+    # Keep regression tests independent of private runner disk and startup hooks.
+    runs-on: ubuntu-latest
     env:
       LANG: C.UTF-8
       LC_ALL: C.UTF-8
-    timeout-minutes: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 60 || 20 }}
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,7 +99,8 @@ jobs:
     # Keep the required check name in the main-branch ruleset. It succeeds only
     # when both the regression suite and Android build/lint succeeded.
     name: check
-    runs-on: ${{ fromJSON((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && '["ubuntu-latest"]' || '["self-hosted","Linux","ARM64","chenhao-140","ubuntu-24.04"]') }}
+    # Keep regression tests independent of private runner disk and startup hooks.
+    runs-on: ubuntu-latest
     needs: [tests, build]
     if: always()
     steps:
