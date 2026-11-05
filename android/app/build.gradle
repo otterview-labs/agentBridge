@@ -84,7 +84,7 @@ android {
 
 dependencies {
   coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.1.5'
-  implementation 'com.github.mwiede:jsch:0.2.26'
+  implementation 'com.github.mwiede:jsch:2.28.8'
   // Android does not load JSch's Java 15 multi-release Ed25519 classes.
   // Keep its supported portable crypto fallback available for SSH keys.
   implementation 'org.bouncycastle:bcprov-jdk15to18:1.86'
