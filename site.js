@@ -26,7 +26,11 @@
       if (!asset) return;
       var version = String(release.tag_name || '').replace(/^android-v/, '');
       if (version) document.getElementById('release-version').textContent = 'v' + version;
-      if (asset.size) document.getElementById('release-size').textContent = (asset.size / 1000 / 1000).toFixed(1) + ' MB';
+      if (Number.isFinite(asset.size) && asset.size > 0) {
+        var size = document.getElementById('release-size');
+        size.textContent = (asset.size / 1000 / 1000).toFixed(1) + ' MB';
+        size.hidden = false;
+      }
     })
-    .catch(function () { /* Keep the published version when GitHub is unavailable. */ });
+    .catch(function () { /* Keep the release link and omit the size when GitHub is unavailable. */ });
 })();
