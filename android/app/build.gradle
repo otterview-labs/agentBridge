@@ -92,7 +92,7 @@ dependencies {
   implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
   // ZXing 4.3.0's published POM omits its AndroidX runtime dependencies.
   // CaptureManager needs ContextCompat/ActivityCompat when opening the camera.
-  implementation 'androidx.core:core:1.13.0'
+  implementation 'androidx.core:core:1.19.1'
   // Third-party webrtc-sdk precompiled BSD-3-Clause build; full notices ship in assets/licenses.
   implementation 'io.github.webrtc-sdk:android:150.7871.01'
   testImplementation 'junit:junit:4.13.2'
