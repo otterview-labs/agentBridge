@@ -14,7 +14,7 @@ Security fixes are applied to the latest commit on `main` and the newest
 Please do not open a public issue for a suspected vulnerability. Use GitHub's
 private vulnerability reporting for this repository:
 
-<https://github.com/otterview-labs/agentbridge/security/advisories/new>
+<https://github.com/BetaStreetOmnis/agentbridge/security/advisories/new>
 
 Include the affected version or commit, reproduction steps, impact, and any
 suggested mitigation. Do not include real credentials, private source code,

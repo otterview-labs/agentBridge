@@ -10,20 +10,20 @@ Check Codex and Claude Code progress, add instructions, and keep the original se
 Ask the butler what needs your reply, or let it follow up within limits you set.<br>
 Each computer becomes an office; each task gets a pixel employee.
 
-[![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
-[![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
-[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/en/)
+[![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/BetaStreetOmnis/agentBridge/releases/latest)
+[![CI](https://github.com/BetaStreetOmnis/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BetaStreetOmnis/agentBridge/actions/workflows/ci.yml)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://betastreetomnis.github.io/agentBridge/en/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
 [简体中文](README.zh-CN.md) · **English**
 
-[Download page](https://otterview-labs.github.io/agentBridge/en/) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)
+[Download page](https://betastreetomnis.github.io/agentBridge/en/) · [English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk) · [中文 APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-zh.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-en-20261010.jpg" width="760" alt="Office Town app recording: keep coding with AI from your phone"></a>
+<a href="https://betastreetomnis.github.io/agentBridge/en/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-en-20261010.jpg" width="760" alt="Office Town app recording: keep coding with AI from your phone"></a>
 
-[Watch the updated app demo](https://otterview-labs.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
+[Watch the updated app demo](https://betastreetomnis.github.io/agentBridge/en/?v=20261010-mobile#demo) · Add training platform requirements from your phone, read changes and test results, edit a Xiaohongshu draft, then ask the butler to help follow up.
 
-[Download all four videos, subtitles, and narration scripts](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled demo records; waits have been shortened.
+[Download all four videos, subtitles, and narration scripts](https://github.com/BetaStreetOmnis/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip). The videos use app recordings and an AI-generated male voice. Follow-up uses controlled demo records; waits have been shortened.
 
 | Office | Task replies | Butler chat | Voice chat |
 |:---:|:---:|:---:|:---:|
@@ -41,7 +41,7 @@ Each computer becomes an office; each task gets a pixel employee.
 
 Example: `帮我写一篇介绍深圳咖啡店的小红书笔记，配图，明天晚上八点提醒我。` Command and time parsing currently supports the documented Chinese examples. Copy generation requires a working Butler model; users select new images in the system picker.
 
-**Scheduled tasks send a reminder notification; publication must be confirmed in Rednote.** Unattended posting, multiple images and recurring reminders are not supported. The full local regression suite passed 270 tests, with 6 skipped. Live-model generation, the system picker, notifications and Rednote handoff still need device acceptance testing. Build and release status is tracked in [PR #92](https://github.com/otterview-labs/agentBridge/pull/92); download links above follow the latest published Release.
+**Scheduled tasks send a reminder notification; publication must be confirmed in Rednote.** Unattended posting, multiple images and recurring reminders are not supported. The full local regression suite passed 270 tests, with 6 skipped. Live-model generation, the system picker, notifications and Rednote handoff still need device acceptance testing. Build and release status is tracked in [PR #92](https://github.com/BetaStreetOmnis/agentBridge/pull/92); download links above follow the latest published Release.
 
 [Full changelog](CHANGELOG.md) · [Configuration and usage](docs/qa/note-chat-2026-11-05.md#用户可配置项) · [Verification scope and pending checks](docs/qa/note-chat-2026-11-05.md)
 
@@ -51,7 +51,7 @@ You need Android 7.0 or later and a Mac or Linux computer reachable over SSH, wi
 
 ### 1. Download the app
 
-[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk). The current package includes the voice runtime and desktop connection components; speech models download separately on demand.
+[Download the English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk), or choose the [Chinese APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-zh.apk). The current package includes the voice runtime and desktop connection components; speech models download separately on demand.
 
 ### 2. Connect your computer
 
@@ -156,6 +156,6 @@ npx playwright install chromium
 npm test
 ```
 
-[Report an issue](https://github.com/otterview-labs/agentBridge/issues) or read the [contribution guide](CONTRIBUTING.md).
+[Report an issue](https://github.com/BetaStreetOmnis/agentBridge/issues) or read the [contribution guide](CONTRIBUTING.md).
 
 Licensed under [Apache-2.0](LICENSE).

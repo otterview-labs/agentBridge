@@ -1,6 +1,6 @@
 # Your first session in Office Town
 
-[中文](getting-started.zh.md) · [Watch the app demo](https://otterview-labs.github.io/agentBridge/en/#demo)
+[中文](getting-started.zh.md) · [Watch the app demo](https://betastreetomnis.github.io/agentBridge/en/#demo)
 
 Connect one computer, find a session, and send a reply from your phone. Set up the butler and speech after that works.
 
@@ -8,9 +8,9 @@ You need Android 7.0+ and a Mac or Linux computer with an existing Codex or Clau
 
 ## 1. Install the app
 
-[Download the English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk). Open the downloaded file and follow Android's prompt to allow installation from your browser.
+[Download the English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk). Open the downloaded file and follow Android's prompt to allow installation from your browser.
 
-If the download does not start, choose `agentbridge-en.apk` under Assets in the [latest release](https://github.com/otterview-labs/agentBridge/releases/latest). The Chinese edition is `agentbridge-zh.apk`.
+If the download does not start, choose `agentbridge-en.apk` under Assets in the [latest release](https://github.com/BetaStreetOmnis/agentBridge/releases/latest). The Chinese edition is `agentbridge-zh.apk`.
 
 ## 2. Prepare SSH on your computer
 
@@ -61,6 +61,6 @@ Once text chat works, open **Voice Settings**, use **Listen to Butler** to test 
 | The butler does not answer | Use **Verify Connection** in model settings and note the error. SSH does not configure the model for you. |
 | Calls have no sound or recognition | Test speech playback and the microphone separately. Check voice settings and microphone permission. Working text chat does not verify speech setup. |
 
-Still stuck? [Report the problem](https://github.com/otterview-labs/agentBridge/issues/new?template=bug_report.yml) with your Android version, computer OS, app version, and the step that failed. Include an error with private information removed. Keep passwords, private keys, and API keys out of the issue.
+Still stuck? [Report the problem](https://github.com/BetaStreetOmnis/agentBridge/issues/new?template=bug_report.yml) with your Android version, computer OS, app version, and the step that failed. Include an error with private information removed. Keep passwords, private keys, and API keys out of the issue.
 
 Away from your local network, you need a reachable SSH connection. See the [full guide](android-app.md#optional-public-access) for FRP setup.
