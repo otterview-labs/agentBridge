@@ -264,8 +264,8 @@ with configuration, permission and quota hints.
 ## Release
 
 The published APK is at
-<https://github.com/otterview-labs/agentbridge/releases/latest/download/agentbridge.apk>,
-linked from the download page at <https://otterview-labs.github.io/agentBridge/>.
+<https://github.com/BetaStreetOmnis/agentbridge/releases/latest/download/agentbridge.apk>,
+linked from the download page at <https://betastreetomnis.github.io/agentBridge/>.
 Both are stable permalinks: the release URL always resolves to the newest
 release, so neither has to be updated when a version ships. The page itself
 is served from the `gh-pages` branch; its source is not part of this
@@ -347,6 +347,6 @@ The Chinese edition keeps the existing `com.otterview.agentsessionbridge` applic
 
 UI controls, native progress/error messages and model-generated butler replies and draft suggestions use the edition’s language. System speech recognition and playback use zh-CN or en-US; cloud ASR and TTS also receive the selected language. Original task names, session output, human messages and saved history are not translated.
 
-Download [Chinese APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) or [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk).
+Download [Chinese APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-zh.apk) or [English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk).
 
 The product has two aims: collect scattered AI work and records in one place, and eventually let agents manage routine tasks within user-defined boundaries. The current butler queries tasks and discusses progress. Autonomous task dispatch is not implemented in this release.

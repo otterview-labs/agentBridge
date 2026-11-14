@@ -10,20 +10,20 @@
 管家帮你找出待回复的事，也可以按你定的范围持续跟进。<br>
 每台电脑一间办公室，每个任务一位像素员工。
 
-[![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/otterview-labs/agentBridge/releases/latest)
-[![CI](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/otterview-labs/agentBridge/actions/workflows/ci.yml)
-[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://otterview-labs.github.io/agentBridge/)
+[![Release](https://img.shields.io/github/v/release/otterview-labs/agentBridge?label=APK&color=3f6845)](https://github.com/BetaStreetOmnis/agentBridge/releases/latest)
+[![CI](https://github.com/BetaStreetOmnis/agentBridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/BetaStreetOmnis/agentBridge/actions/workflows/ci.yml)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-3f6845)](https://betastreetomnis.github.io/agentBridge/)
 [![License](https://img.shields.io/github/license/otterview-labs/agentBridge)](LICENSE)
 
 [中文](README.md) · **[English README](README.md)**
 
-[下载页](https://otterview-labs.github.io/agentBridge/) · [English download page](https://otterview-labs.github.io/agentBridge/en/) · [中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)
+[下载页](https://betastreetomnis.github.io/agentBridge/) · [English download page](https://betastreetomnis.github.io/agentBridge/en/) · [中文 APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-zh.apk) · [English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk)
 
-<a href="https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-zh-20261010.jpg" width="760" alt="办公小镇 App 录屏：离开电脑，也能接着用 AI 写代码"></a>
+<a href="https://betastreetomnis.github.io/agentBridge/?v=20261010-mobile#demo"><img src="docs/screenshots/demo-mobile-zh-20261010.jpg" width="760" alt="办公小镇 App 录屏：离开电脑，也能接着用 AI 写代码"></a>
 
-[看新版操作视频](https://otterview-labs.github.io/agentBridge/?v=20261010-mobile#demo) · 手机补充训练平台的开发要求，查看修改和测试结果，接着处理小红书稿子，再让管家帮忙跟进。
+[看新版操作视频](https://betastreetomnis.github.io/agentBridge/?v=20261010-mobile#demo) · 手机补充训练平台的开发要求，查看修改和测试结果，接着处理小红书稿子，再让管家帮忙跟进。
 
-[下载中英文横竖版、字幕和旁白稿](https://github.com/otterview-labs/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控演示记录，等待时间已剪短。
+[下载中英文横竖版、字幕和旁白稿](https://github.com/BetaStreetOmnis/agentBridge/releases/download/android-v0.5.53/office-town-mobile-zh-en.zip)。视频使用 App 录屏和 AI 男声配音；跟进部分使用受控演示记录，等待时间已剪短。
 
 | 像素办公室 | 任务回复 | 管家聊天 | 语音通话 |
 |:---:|:---:|:---:|:---:|
@@ -41,7 +41,7 @@
 
 例如：`帮我写一篇介绍深圳咖啡店的小红书笔记，配图，明天晚上八点提醒我。` 生成文案需要可用的管家模型；新图片由用户在系统选择器中选择。
 
-**定时功能为到点通知提醒，最终发布需要在小红书确认。** 暂不支持无人值守发布、多图或周期提醒。完整本地回归 270 项通过、6 项跳过；真实模型、系统选图、通知与小红书交接仍待手机验收。构建和发布状态见 [PR #92](https://github.com/otterview-labs/agentBridge/pull/92)，顶部下载链接以实际 Release 版本为准。
+**定时功能为到点通知提醒，最终发布需要在小红书确认。** 暂不支持无人值守发布、多图或周期提醒。完整本地回归 270 项通过、6 项跳过；真实模型、系统选图、通知与小红书交接仍待手机验收。构建和发布状态见 [PR #92](https://github.com/BetaStreetOmnis/agentBridge/pull/92)，顶部下载链接以实际 Release 版本为准。
 
 [完整更新日志](CHANGELOG.md) · [配置与使用说明](docs/qa/note-chat-2026-11-05.md#用户可配置项) · [验证范围与待验收项](docs/qa/note-chat-2026-11-05.md)
 
@@ -51,7 +51,7 @@
 
 ### 1. 下载 App
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-en.apk)。新版包含语音运行库和桌面连接组件，语音模型按需另行下载。
+[下载中文 APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge.apk)，或选择 [English APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-en.apk)。新版包含语音运行库和桌面连接组件，语音模型按需另行下载。
 
 ### 2. 连接电脑
 
@@ -154,7 +154,7 @@ npx playwright install chromium
 npm test
 ```
 
-反馈问题或提出功能建议：[提交 Issue](https://github.com/otterview-labs/agentBridge/issues)。参与开发请阅读 [贡献指南](CONTRIBUTING.md)。
+反馈问题或提出功能建议：[提交 Issue](https://github.com/BetaStreetOmnis/agentBridge/issues)。参与开发请阅读 [贡献指南](CONTRIBUTING.md)。
 
 [Apache-2.0](LICENSE) 许可证。
 

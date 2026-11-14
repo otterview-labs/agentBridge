@@ -1,6 +1,6 @@
 # 第一次使用办公小镇
 
-[English](getting-started.en.md) · [看操作实录](https://otterview-labs.github.io/agentBridge/#demo)
+[English](getting-started.en.md) · [看操作实录](https://betastreetomnis.github.io/agentBridge/#demo)
 
 先连上一台电脑，找到一个任务，再从手机发出一条回复。管家聊天和语音可以稍后配置。
 
@@ -8,9 +8,9 @@
 
 ## 1. 安装 App
 
-[下载中文 APK](https://github.com/otterview-labs/agentBridge/releases/latest/download/agentbridge-zh.apk)。下载后打开安装包，按安卓提示允许当前浏览器安装应用。
+[下载中文 APK](https://github.com/BetaStreetOmnis/agentBridge/releases/latest/download/agentbridge-zh.apk)。下载后打开安装包，按安卓提示允许当前浏览器安装应用。
 
-下载没开始，可以到 [最新版本](https://github.com/otterview-labs/agentBridge/releases/latest) 的 Assets 中选择 `agentbridge-zh.apk`。英文版是 `agentbridge-en.apk`。
+下载没开始，可以到 [最新版本](https://github.com/BetaStreetOmnis/agentBridge/releases/latest) 的 Assets 中选择 `agentbridge-zh.apk`。英文版是 `agentbridge-en.apk`。
 
 ## 2. 准备电脑的 SSH 连接
 
@@ -61,6 +61,6 @@ Linux：电脑需要运行 SSH 服务。Ubuntu 上可按 [官方 OpenSSH 指南]
 | 管家不回复 | 在模型设置中「验证连接」，记录显示的错误；SSH 连接成功不会自动配置聊天模型。 |
 | 通话没声音或不能识别 | 分别测试播报和麦克风，检查语音设置、权限及语音服务。文字聊天成功并不代表语音也已配置。 |
 
-仍然卡住，可以 [反馈问题](https://github.com/otterview-labs/agentBridge/issues/new?template=bug_report.yml)。填安卓版本、电脑系统、App 版本和卡住的步骤，贴去掉私人信息后的错误提示即可。密码、私钥和 API Key 不要放进 Issue。
+仍然卡住，可以 [反馈问题](https://github.com/BetaStreetOmnis/agentBridge/issues/new?template=bug_report.yml)。填安卓版本、电脑系统、App 版本和卡住的步骤，贴去掉私人信息后的错误提示即可。密码、私钥和 API Key 不要放进 Issue。
 
 离开局域网使用，需要可访问的 SSH 连接；FRP 配置见 [完整使用文档](android-app.md#optional-public-access)。
